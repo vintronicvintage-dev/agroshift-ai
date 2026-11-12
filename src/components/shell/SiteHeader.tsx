@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
+import { openIntro } from "@/lib/ui/intro";
 import { setTheme, useTheme } from "@/lib/ui/theme";
 import { Wordmark } from "./Wordmark";
 
@@ -10,23 +11,35 @@ export function SiteHeader() {
   const { t, lang, setLang } = useI18n();
   const theme = useTheme();
   const path = usePathname();
+  const router = useRouter();
   return (
-    <header className="border-b border-rule bg-paper">
+    <header className="border-b border-rule bg-paper" data-shell>
       <a href="#icerik" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[2000] focus:rounded focus:bg-panel focus:px-3 focus:py-2">
         {t("nav.skip")}
       </a>
       <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-3" aria-label={t("app.name")}>
+        <Link href="/" className="tap flex items-center gap-3" aria-label={t("app.name")}>
           <Wordmark />
           <span className="hidden text-sm text-ink-2 md:inline">{t("app.tagline")}</span>
         </Link>
-        <nav className="ml-auto flex items-center gap-2 text-sm" aria-label="primary">
+        <nav className="ml-auto flex flex-wrap items-center justify-end gap-2 text-sm" aria-label="primary">
           <Link href="/" className="btn" aria-current={path === "/" ? "page" : undefined}>
             {t("nav.tool")}
           </Link>
           <Link href="/yontem" className="btn" aria-current={path === "/yontem" ? "page" : undefined}>
             {t("nav.methods")}
           </Link>
+          <button
+            type="button"
+            className="btn"
+            aria-haspopup="dialog"
+            onClick={() => {
+              openIntro();
+              if (path !== "/") router.push("/");
+            }}
+          >
+            {t("nav.intro")}
+          </button>
           <button type="button" className="btn" lang={lang === "tr" ? "en" : "tr"} aria-label={t("lang.switchLabel")} onClick={() => setLang(lang === "tr" ? "en" : "tr")}>
             {t("lang.switch")}
           </button>

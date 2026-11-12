@@ -229,6 +229,268 @@ details[open] > summary .chev {
   font-size: 0.68rem;
 }
 
+/* ── v1.1 guided flow: steps, onboarding, choices ─────────────────────── */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --stepbar-h: 4.25rem;
+}
+/* keep focused elements clear of the sticky step bar (top from md, bottom on phones) */
+html:has(.stepbar) {
+  scroll-padding-top: calc(var(--stepbar-h) + 0.75rem);
+}
+@media (max-width: 767.98px) {
+  html:has(.stepbar) {
+    scroll-padding-top: 0;
+    scroll-padding-bottom: calc(var(--stepbar-h) + 5rem);
+  }
+}
+.btn,
+.choice,
+.seg > label,
+.tap {
+  touch-action: manipulation;
+}
+
+.btn {
+  min-height: 2.25rem;
+  transition: transform 140ms var(--ease-out), border-color 140ms ease, background-color 140ms ease;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-lg {
+  padding: 0.75rem 1.4rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+  min-height: 3rem;
+}
+@media (pointer: coarse) {
+  .btn,
+  .field-input,
+  .tap,
+  input[type="range"] {
+    min-height: 44px;
+  }
+}
+
+/* Visually hidden native radio inside a styled label: arrow keys and screen readers keep working */
+.choice {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  border-radius: 12px;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms var(--ease-out);
+}
+.choice:hover {
+  border-color: var(--ink-2);
+}
+.choice:active {
+  transform: scale(0.985);
+}
+.choice > input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.choice:has(> input:checked) {
+  border-color: var(--ink);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.choice:has(> input:focus-visible) {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+.choice .tick {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-2);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.choice:has(> input:checked) .tick {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--panel);
+}
+
+/* Segmented control (scenario, irrigation level) built from radios */
+.seg {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+}
+.seg > label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.5rem 0.9rem;
+  min-height: 2.75rem;
+  border-radius: 9px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.seg > label > input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.seg > label:has(> input:checked) {
+  background: var(--ink);
+  color: var(--paper);
+}
+.seg > label:has(> input:focus-visible) {
+  outline: 3px solid var(--sky);
+  outline-offset: 1px;
+}
+
+/* Step bar: sticky on top from md, a thumb-reach bar at the bottom on phones */
+.stepbar {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: saturate(1.2) blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 767.98px) {
+  .stepbar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-bottom: 0;
+    border-top: 1px solid var(--rule);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  body:has(.stepbar) {
+    padding-bottom: calc(var(--stepbar-h) + env(safe-area-inset-bottom));
+  }
+}
+.stepbar a[aria-current="step"] .step-dot {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.stepbar .step-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--ink);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 220ms var(--ease-out);
+}
+.stepbar a[aria-current="step"] .step-rail {
+  transform: scaleX(1);
+}
+@media (max-width: 767.98px) {
+  .stepbar .step-rail {
+    top: -1px;
+    bottom: auto;
+  }
+}
+
+/* Step and detail entrances: short, ease-out, opacity and transform only */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.enter {
+  animation: rise 200ms var(--ease-out) both;
+}
+
+/* One-line contextual hints; hidden once dismissed (html[data-hints-seen] is set before paint) */
+html[data-hints-seen~="tarlam"] [data-hint="tarlam"],
+html[data-hints-seen~="oneriler"] [data-hint="oneriler"],
+html[data-hints-seen~="kanit"] [data-hint="kanit"] {
+  display: none;
+}
+
+/* Welcome overlay. Visibility is decided by html[data-intro] before first paint: no flash, no jump. */
+.intro {
+  display: none;
+}
+html[data-intro="open"] .intro {
+  display: grid;
+}
+html[data-intro="open"]:has(.intro) {
+  overflow: hidden;
+}
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.intro-art [data-from] {
+  transition: opacity 220ms ease, transform 220ms var(--ease-out);
+}
+.intro-art[data-slide="0"] [data-from="1"],
+.intro-art[data-slide="0"] [data-from="2"],
+.intro-art[data-slide="1"] [data-from="2"] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.intro-art .orbit {
+  stroke-dasharray: 4 7;
+  animation: orbit-drift 1.2s var(--ease-out) both;
+}
+@keyframes orbit-drift {
+  from {
+    stroke-dashoffset: 60;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+.intro-slide {
+  animation: rise 220ms var(--ease-out) both;
+}
+
+/* Comparison rows */
+.cmp-row {
+  transition: background-color 140ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cmp-row:hover {
+    background: var(--panel-2);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

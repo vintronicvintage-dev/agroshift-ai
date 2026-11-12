@@ -7,7 +7,7 @@ import { DISCLAIMER } from "@/lib/engine";
 export function SiteFooter() {
   const { t, L } = useI18n();
   return (
-    <footer className="mt-16 border-t border-rule">
+    <footer className="mt-16 border-t border-rule" data-shell>
       <div className="mx-auto max-w-[1320px] space-y-2 px-4 py-8 text-sm text-ink-2 sm:px-6">
         <p className="max-w-[70ch]">{L(DISCLAIMER)}</p>
         <p>

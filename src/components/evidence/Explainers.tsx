@@ -14,7 +14,7 @@ const ITEMS: [DictKey, DictKey][] = [
 export function Explainers() {
   const { t } = useI18n();
   return (
-    <aside className="h-fit rounded-lg bg-panel-2 p-4 xl:sticky xl:top-4" aria-labelledby="ex-title">
+    <aside className="h-fit rounded-lg bg-panel-2 p-4 xl:sticky xl:top-[calc(var(--stepbar-h)+1rem)]" aria-labelledby="ex-title">
       <h3 id="ex-title" className="font-serif text-lg font-semibold">
         {t("ex.title")}
       </h3>

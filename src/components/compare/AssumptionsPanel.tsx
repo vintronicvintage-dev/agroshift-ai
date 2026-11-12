@@ -8,7 +8,7 @@ export function AssumptionsPanel({ result, calibration }: { result: AnalysisResu
   const { t, L, n } = useI18n();
   return (
     <details className="rounded-lg border border-rule bg-panel p-4" id="varsayimlar">
-      <summary className="font-semibold">
+      <summary className="tap flex items-center font-semibold">
         <span className="chev mr-1.5 text-ink-2">›</span>
         {t("asm.title")} <span className="font-normal text-ink-2">({result.assumptions.length + 1})</span>
       </summary>

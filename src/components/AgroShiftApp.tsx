@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSnapshot, loadSnapshotIndex, matchSnapshotId, type SnapshotIndexEntry } from "@/lib/data/snapshots";
 import { METHOD_SOURCES, ZONE_LABEL, climateEvidence } from "@/lib/engine";
 import type { ClimateSeries, RotationSequence, SoilProfile } from "@/lib/types";
@@ -12,21 +12,22 @@ import { makeSourceResolver, metaToRef } from "@/lib/ui/sources";
 import { useAnalysis } from "@/lib/ui/useAnalysis";
 import type { AnalysisRequest } from "@/lib/ui/analysisProtocol";
 import { saveLastRun } from "@/lib/ui/lastRun";
-import { JudgmentNote } from "./shell/JudgmentNote";
-import { SitePanel, type Site } from "./field/SitePanel";
-import { FieldForm } from "./field/FieldForm";
+import { goToStep, useStepHash, type StepId } from "@/lib/ui/steps";
+import { composeVerdict } from "@/lib/ui/verdict";
+import type { Site } from "./field/site";
+import { FieldStep } from "./field/FieldStep";
 import { EvidenceSection } from "./evidence/EvidenceSection";
-import { DEFAULT_SCENARIO, ScenarioBar, type ScenarioDraft } from "./compare/ScenarioBar";
-import { EconomicsEditor, EMPTY_ECON, econToInput, type EconDraft } from "./compare/EconomicsEditor";
-import { PlanCard, type CompareContext } from "./compare/PlanCard";
-import { ParetoChart } from "./compare/ParetoChart";
-import { RotationBuilder } from "./compare/RotationBuilder";
-import { AssumptionsPanel } from "./compare/AssumptionsPanel";
+import { DEFAULT_SCENARIO, type ScenarioDraft } from "./compare/ScenarioBar";
+import { EMPTY_ECON, econToInput, type EconDraft } from "./compare/EconomicsEditor";
+import type { CompareContext } from "./compare/PlanCard";
+import { ResultsStep } from "./compare/ResultsStep";
+import { StepBar, StepHint } from "./flow/StepBar";
+import { Onboarding } from "./onboarding/Onboarding";
 
 type Imerg = "validated" | "not_validated" | null;
 
 export function AgroShiftApp() {
-  const { t, n, L } = useI18n();
+  const { t, n, L, lang } = useI18n();
   const [pilots, setPilots] = useState<SnapshotIndexEntry[] | null>(null);
   const [site, setSite] = useState<Site | null>(null);
   const [data, setData] = useState<SiteData | null>(null);
@@ -39,16 +40,8 @@ export function AgroShiftApp() {
   const [extraPlans, setExtraPlans] = useState<RotationSequence[]>([]);
   const genRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    loadSnapshotIndex()
-      .then((idx) => alive && setPilots(idx))
-      .catch(() => alive && setPilots([]));
-    return () => {
-      alive = false;
-    };
-  }, []);
+  /** "Try a sample field" clicked before the pilot index arrived. */
+  const pendingSample = useRef(false);
 
   /** Apply one finished part, if it still belongs to the current site. */
   const applyPart = useCallback(<K extends PartName>(gen: number, k: K, part: SiteData[K]) => {
@@ -95,10 +88,9 @@ export function AgroShiftApp() {
     return { gen, signal: ctrl.signal };
   }, []);
 
-  const selectPilot = useCallback(
-    (id: string) => {
-      const entry = pilots?.find((p) => p.id === id);
-      if (!entry) return;
+  const selectEntry = useCallback(
+    (entry: SnapshotIndexEntry) => {
+      const id = entry.id;
       const { gen, signal } = startSite({ kind: "pilot", id, nameTr: entry.nameTr, nameEn: entry.nameEn, lat: entry.lat, lon: entry.lon, retrievedAt: entry.retrievedAt });
       loadSnapshot(id)
         .then((snap) => {
@@ -118,7 +110,32 @@ export function AgroShiftApp() {
         })
         .catch(() => fetchLive(gen, ["climate", "soil", "ndvi"], entry.lat, entry.lon, signal));
     },
-    [pilots, startSite, fetchLive, applyPart],
+    [startSite, fetchLive, applyPart],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    loadSnapshotIndex()
+      .then((idx) => {
+        if (!alive) return;
+        setPilots(idx);
+        if (pendingSample.current && idx[0]) {
+          pendingSample.current = false;
+          selectEntry(idx[0]);
+        }
+      })
+      .catch(() => alive && setPilots([]));
+    return () => {
+      alive = false;
+    };
+  }, [selectEntry]);
+
+  const selectPilot = useCallback(
+    (id: string) => {
+      const entry = pilots?.find((p) => p.id === id);
+      if (entry) selectEntry(entry);
+    },
+    [pilots, selectEntry],
   );
 
   const selectPoint = useCallback(
@@ -205,109 +222,114 @@ export function AgroShiftApp() {
   const status = result ? t("sc.ms", { n: result.optimizer.replayedExactly, w: result.windows.count, ms: n(analysis.ms ?? 0) }) : null;
   const zoneLabel = result ? L(ZONE_LABEL[result.zone]) : null;
 
+  // ── guided flow ─────────────────────────────────────────────────────────
+  const hashStep = useStepHash();
+  const locked = site === null;
+  const step: StepId = locked ? "tarlam" : hashStep;
+  const soilLoading = data?.soil.status === "loading";
+  const blocker = !site ? t("cta.needSite") : !fieldCheck.field || (soilDraft !== null && !soilCheck.profile) ? t("cta.invalid") : null;
+  const siteName = site ? (site.kind === "pilot" ? ((lang === "tr" ? site.nameTr : site.nameEn) ?? "") : `${n(site.lat, 2)}°, ${n(site.lon, 2)}°`) : null;
+  const sub: Record<StepId, string> = {
+    tarlam: siteName ?? t("step.fieldSub"),
+    oneriler: analysis.running && site ? t("step.compareBusy") : result ? t("step.compareSub", { s: n(composeVerdict(result).best.score.composite) }) : "",
+    kanit: climateSummary ? t("step.evidenceSub", { n: climateSummary.completeYears.length }) : "",
+  };
+
+  // A new step starts at the top of the page, with focus on its content for screen readers.
+  const rootRef = useRef<HTMLElement>(null);
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "instant" });
+    rootRef.current?.focus({ preventScroll: true });
+  }, [step]);
+
+  const runSample = () => {
+    const first = pilots?.[0];
+    if (first) selectEntry(first);
+    else pendingSample.current = true;
+    goToStep("oneriler");
+  };
+
+  const sampleName = pilots?.[0] ? (lang === "tr" ? pilots[0].nameTr : pilots[0].nameEn) : null;
+
   return (
-    <main className="mx-auto max-w-[1320px] px-4 pb-10 sm:px-6">
-      <div className="pt-6">
-        <JudgmentNote />
+    <>
+      <Onboarding sampleName={sampleName} onSample={runSample} onOwn={() => goToStep("tarlam")} />
+      <div data-shell>
+        <StepBar current={step} locked={locked} sub={sub} />
+        <StepHint key={step} id={step} />
+        <main ref={rootRef} data-step-root tabIndex={-1} className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 outline-none sm:px-6 sm:pt-8" aria-labelledby={`h-${step}`}>
+          <div key={step} className="enter">
+            <h2 id={`h-${step}`} className="sr-only">
+              {t(step === "tarlam" ? "step.field" : step === "oneriler" ? "step.compare" : "step.evidence")}
+            </h2>
+
+            {step === "tarlam" && (
+              <FieldStep
+                pilots={pilots}
+                site={site}
+                data={data}
+                elevation={rawClimate?.elevation ?? null}
+                zoneLabel={zoneLabel}
+                onPilot={selectPilot}
+                onPoint={selectPoint}
+                onRetry={retry}
+                draft={draft}
+                onDraft={setDraft}
+                soil={soilDraft}
+                onSoil={setSoilDraft}
+                soilBase={soilBase}
+                soilCheck={soilCheck}
+                onSoilReset={() => soilBase && setSoilDraft(soilToDraft(soilBase))}
+                fieldCheck={fieldCheck}
+                calibration={calibration}
+                stationInvalid={stationInvalid}
+                calibrationImpossible={calibrationImpossible}
+                soilLoading={soilLoading}
+                econ={econ}
+                onEcon={setEcon}
+                blocker={blocker}
+                onShow={() => goToStep("oneriler")}
+              />
+            )}
+
+            {step === "oneriler" && (
+              <ResultsStep
+                result={result}
+                ctx={compareCtx}
+                running={analysis.running}
+                error={analysis.error}
+                status={status}
+                scenario={scenario}
+                onScenario={setScenario}
+                fieldBudget={fieldBudget}
+                rainfed={draft.rainfed}
+                calibration={calibration}
+                econ={econ}
+                onEcon={setEcon}
+                extraPlans={extraPlans}
+                onExtraPlans={setExtraPlans}
+              />
+            )}
+
+            {step === "kanit" && (
+              <>
+                <p className="mb-6 max-w-[72ch] text-ink-2">{t("step.evidence.lead")}</p>
+                {climateSummary && data ? (
+                  <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
+                ) : (
+                  <p className={`rounded-2xl border border-dashed border-rule px-4 py-12 text-center text-ink-2 ${analysis.running ? "recalc" : ""}`}>{t("ev.waitingData")}</p>
+                )}
+              </>
+            )}
+          </div>
+        </main>
       </div>
-
-      <Step n={1} id="tarla" title={t("step.field")} lead={t("step.field.lead")}>
-        <SitePanel
-          pilots={pilots}
-          site={site}
-          data={data}
-          elevation={rawClimate?.elevation ?? null}
-          zoneLabel={zoneLabel}
-          onPilot={selectPilot}
-          onPoint={selectPoint}
-          onRetry={retry}
-        />
-        {site && (
-          <div className="mt-6">
-            <FieldForm
-              draft={draft}
-              onDraft={setDraft}
-              soil={soilDraft}
-              onSoil={setSoilDraft}
-              soilBase={soilBase}
-              soilCheck={soilCheck}
-              onSoilReset={() => soilBase && setSoilDraft(soilToDraft(soilBase))}
-              fieldCheck={fieldCheck}
-              calibration={calibration}
-              stationInvalid={stationInvalid}
-              calibrationImpossible={calibrationImpossible}
-              soilLoading={data?.soil.status === "loading"}
-            />
-          </div>
-        )}
-      </Step>
-
-      <Step n={2} id="kanit" title={t("step.evidence")} lead={t("step.evidence.lead")}>
-        {climateSummary && data ? (
-          <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
-        ) : (
-          <Placeholder busy={analysis.running}>{analysis.running ? t("run.first") : t("ev.waitingData")}</Placeholder>
-        )}
-      </Step>
-
-      <Step n={3} id="karsilastir" title={t("step.compare")} lead={t("step.compare.lead")}>
-        {site && (
-          <div className="mb-5 space-y-3">
-            <ScenarioBar value={scenario} onChange={setScenario} fieldBudget={fieldBudget} rainfed={draft.rainfed} running={analysis.running} status={status} calibration={calibration} />
-            <JudgmentNote compact />
-          </div>
-        )}
-        {analysis.error && (
-          <p className="mb-4 rounded-md bg-warn px-3 py-2 text-warn-ink" role="alert">
-            {t("run.error", { msg: analysis.error })}
-          </p>
-        )}
-        {result && compareCtx ? (
-          <div className={`space-y-6 ${analysis.running ? "opacity-80 transition-opacity" : ""}`}>
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              <PlanCard plan={result.current} ctx={compareCtx} />
-              {result.alternatives.map((p) => (
-                <PlanCard key={p.id} plan={p} ctx={compareCtx} />
-              ))}
-              {result.userPlans.map((p) => (
-                <PlanCard key={p.id} plan={p} ctx={compareCtx} onRemove={() => setExtraPlans((xs) => xs.filter((x) => x.join() !== p.crops.join()))} />
-              ))}
-            </div>
-            <RotationBuilder
-              existing={[result.current.crops, ...result.alternatives.map((a) => a.crops), ...extraPlans]}
-              onAdd={(r) => setExtraPlans((xs) => [...xs, r])}
-            />
-            <EconomicsEditor value={econ} onChange={setEcon} />
-            <ParetoChart result={result} />
-            <AssumptionsPanel result={result} calibration={calibration} />
-          </div>
-        ) : (
-          <Placeholder busy={analysis.running}>{analysis.running ? t("run.first") : t("run.waiting")}</Placeholder>
-        )}
-      </Step>
-    </main>
+    </>
   );
-}
-
-function Step({ n, id, title, lead, children }: { n: number; id: string; title: string; lead: string; children: ReactNode }) {
-  return (
-    <section id={id} aria-labelledby={`${id}-h`} className="mt-12 first-of-type:mt-10">
-      <div className="mb-5 grid grid-cols-[auto_1fr] items-baseline gap-x-4 border-b border-rule pb-3">
-        <span className="font-serif text-4xl font-medium leading-none text-loam tabular-nums" aria-hidden="true">
-          {n}
-        </span>
-        <div>
-          <h2 id={`${id}-h`} className="font-serif text-[1.85rem] font-semibold leading-tight tracking-tight">
-            {title}
-          </h2>
-          <p className="mt-1 max-w-[72ch] text-ink-2">{lead}</p>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Placeholder({ children, busy }: { children: ReactNode; busy: boolean }) {
-  return <p className={`rounded-lg border border-dashed border-rule px-4 py-8 text-center text-ink-2 ${busy ? "recalc" : ""}`}>{children}</p>;
 }

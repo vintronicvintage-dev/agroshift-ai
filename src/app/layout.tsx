@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Public_Sans, Spectral } from "next/font/google";
 import { I18nProvider } from "@/lib/i18n";
-import { LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
+import { INTRO_BOOT_SCRIPT, LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
 import { TraceProvider } from "@/components/trace/TraceProvider";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
@@ -36,13 +36,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="tr" data-theme="light" suppressHydrationWarning className={`${publicSans.variable} ${spectral.variable} h-full`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT + ";" + LANG_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT + ";" + LANG_BOOT_SCRIPT + ";" + INTRO_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <I18nProvider>
           <TraceProvider>
             <SiteHeader />
-            <div id="icerik" className="flex-1">
+            <div id="icerik" tabIndex={-1} className="flex-1 outline-none">
               {children}
             </div>
             <SiteFooter />

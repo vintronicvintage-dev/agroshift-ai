@@ -35,7 +35,7 @@ export function EconomicsEditor({ value, onChange }: { value: EconDraft; onChang
   const setCrop = (id: CropId, k: "price" | "cost", v: string) => onChange({ ...value, crops: { ...value.crops, [id]: { ...value.crops[id], [k]: v } } });
   return (
     <details className="rounded-lg border border-rule bg-panel p-4">
-      <summary className="font-semibold">
+      <summary className="tap flex items-center font-semibold">
         <span className="chev mr-1.5 text-ink-2">›</span>
         {t("sc.econ")} <span className="ml-1 rounded-full border border-loam px-2 text-xs font-medium text-loam">{t("plan.marginTag")}</span>
       </summary>

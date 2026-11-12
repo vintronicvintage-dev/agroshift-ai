@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState, type ReactNode } from "react";
 import type { ClimateSummary, NdviSeries, SourceMeta, TrendResult } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import type { CalibrationInfo } from "@/lib/ui/calibration";
@@ -122,8 +123,19 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
           <p className="mt-3 text-sm text-ink-2">{t("ev.scenarioNote")}</p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="lg:col-span-2">
+        <ChartTabs
+          label={t("ev.tabs")}
+          tabs={[
+            { id: "annual", label: t("ev.tab.annual") },
+            { id: "monthly", label: t("ev.tab.monthly") },
+            { id: "days", label: t("ev.tab.days") },
+            { id: "gwet", label: t("ev.tab.gwet") },
+            { id: "ndvi", label: t("ev.tab.ndvi") },
+          ]}
+        >
+          {(tab) => (
+            <>
+          {tab === "annual" && (
             <ChartCard
               title={
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -152,8 +164,9 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
             >
               <AnnualPrecipEt0Chart annual={c.annual} trends={c.trends} />
             </ChartCard>
-          </div>
+          )}
 
+          {tab === "monthly" && (
           <ChartCard
             title={
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -176,7 +189,9 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
           >
             <MonthlyBalanceChart monthly={c.monthly} />
           </ChartCard>
+          )}
 
+          {tab === "days" && (
           <ChartCard
             title={t("ev.daysTitle")}
             legend={
@@ -196,7 +211,9 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
             <CountBarsChart annual={c.annual} field="frostDays" trend={trend("frost_days")} color="var(--c-frost)" label={t("ev.frostDays")} height={120} />
             <CountBarsChart annual={c.annual} field="hotDays" trend={trend("hot_days")} color="var(--c-hot)" label={t("ev.hotDays")} height={120} />
           </ChartCard>
+          )}
 
+          {tab === "gwet" && (
           <ChartCard
             title={t("ev.gwetTitle")}
             legend={
@@ -211,7 +228,9 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
           >
             <WetnessAnomalyChart annual={c.annual} trend={trend("gwet_root")} />
           </ChartCard>
+          )}
 
+          {tab === "ndvi" && (
           <ChartCard
             title={t("ev.ndviTitle")}
             legend={<span>{t("ev.ndviBare")}</span>}
@@ -233,7 +252,10 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
             )}
             {ndvi.status === "ok" && (ndvi.data.points.length ? <NdviChart ndvi={ndvi.data} /> : <p className="text-sm text-ink-2">{t("ev.ndviMissing")}</p>)}
           </ChartCard>
-        </div>
+          )}
+            </>
+          )}
+        </ChartTabs>
 
         <div className="rounded-lg border border-rule p-4 text-sm">
           <h3 className="font-semibold">{t("ev.quality")}</h3>
@@ -257,6 +279,53 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
         </div>
       </div>
       <Explainers />
+    </div>
+  );
+}
+
+/** WAI-ARIA tabs with roving focus (arrows, Home, End). One chart at a time. */
+function ChartTabs({ label, tabs, children }: { label: string; tabs: { id: string; label: string }[]; children: (id: string) => ReactNode }) {
+  const [active, setActive] = useState(tabs[0].id);
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const move = (k: number) => {
+    const i = (k + tabs.length) % tabs.length;
+    setActive(tabs[i].id);
+    refs.current[i]?.focus();
+  };
+  const idx = tabs.findIndex((x) => x.id === active);
+  return (
+    <div>
+      <div role="tablist" aria-label={label} className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {tabs.map((tab, i) => (
+          <button
+            key={tab.id}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`evtab-${tab.id}`}
+            aria-selected={tab.id === active}
+            aria-controls={`evpanel-${tab.id}`}
+            tabIndex={tab.id === active ? 0 : -1}
+            className={`tap shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab.id === active ? "bg-ink text-paper" : "text-ink-2 hover:bg-panel-2 hover:text-ink"}`}
+            onClick={() => setActive(tab.id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") move(i + 1);
+              else if (e.key === "ArrowLeft") move(i - 1);
+              else if (e.key === "Home") move(0);
+              else if (e.key === "End") move(tabs.length - 1);
+              else return;
+              e.preventDefault();
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div key={active} role="tabpanel" id={`evpanel-${active}`} aria-labelledby={`evtab-${active}`} tabIndex={0} className="enter mt-3 rounded-2xl">
+        {children(tabs[idx].id)}
+      </div>
     </div>
   );
 }

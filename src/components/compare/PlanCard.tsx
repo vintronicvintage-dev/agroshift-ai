@@ -19,7 +19,7 @@ export interface CompareContext {
   domains: { deficit: [number, number]; margin: [number, number] };
 }
 
-export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: CompareContext; onRemove?: () => void }) {
+export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: CompareContext; onRemove?: () => void; id?: string }) {
   const { t, n, L } = useI18n();
   const { result } = ctx;
   const sc = result.scenario;
@@ -117,7 +117,8 @@ export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: Compa
 
   return (
     <article
-      className={`flex min-w-0 flex-col rounded-lg border bg-panel p-4 sm:p-5 ${isCurrent ? "border-ink-2 border-dashed" : plan.rank === 1 ? "border-sky border-2" : "border-rule"}`}
+      id={id}
+      className={`flex min-w-0 flex-col rounded-2xl border bg-panel p-4 sm:p-6 ${isCurrent ? "border-ink-2 border-dashed" : "border-rule"}`}
       aria-label={`${title}: ${plan.crops.map((c) => L(CROPS[c].name)).join(", ")}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -148,8 +149,9 @@ export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: Compa
         </div>
       )}
 
+      <div className="grid gap-x-8 md:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]">
       {/* water */}
-      <section className="mt-4">
+      <section className="mt-4 border-t border-rule pt-3">
         <h4 className="text-sm text-ink-2">
           {t("plan.deficit")} <span className="text-xs">({t("plan.deficitHelp")})</span>
         </h4>
@@ -286,6 +288,7 @@ export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: Compa
           ))}
         </ul>
       </section>
+      </div>
 
       <WhyPanel explanation={plan.explanation} resolve={ctx.resolve} extraGaps={ctx.calibration ? undefined : [t("cal.caution")]} />
 

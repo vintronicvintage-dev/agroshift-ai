@@ -1,26 +1,249 @@
 @import "tailwindcss";
 
+/*
+ * AgroShift tokens. Lichen-grey paper and pine ink by day, night-field green by night.
+ * Sky blue = water, loam brown = soil. Chart series use Okabe–Ito (colour-blind safe).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #e6ebe2;
+  --panel: #f5f7f1;
+  --panel-2: #edf1e8;
+  --ink: #1d2a23;
+  --ink-2: #4b5a51;
+  --rule: #c2cbbd;
+  --sky: #1f5f8b;
+  --sky-soft: #d7e5ee;
+  --loam: #7a4a21;
+  --warn: #f2e2bf;
+  --warn-ink: #573905;
+  --bad: #9c2f17;
+  --c-precip: #0072b2;
+  --c-et0: #c54f00;
+  --c-frost: #3a8fc4;
+  --c-hot: #c54f00;
+  --c-green: #007a59;
+  --c-muted: #9aa69d;
+  --band-ink: #15201a;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #101713;
+  --panel: #18211c;
+  --panel-2: #1e2923;
+  --ink: #e1e8de;
+  --ink-2: #a2b0a6;
+  --rule: #2f3c35;
+  --sky: #8cc3e8;
+  --sky-soft: #1c3342;
+  --loam: #dcaa79;
+  --warn: #3b2f16;
+  --warn-ink: #f2dcaa;
+  --bad: #ff9a7a;
+  --c-precip: #56b4e9;
+  --c-et0: #f08a4b;
+  --c-frost: #8fcff5;
+  --c-hot: #f08a4b;
+  --c-green: #3cc79c;
+  --c-muted: #5d6b63;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-loam: var(--loam);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-spectral), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  /* 16 px on phones, grows to 19 px on wide projector screens */
+  font-size: clamp(16px, 0.55vw + 10px, 19px);
+  background: var(--paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.prose-serif {
+  font-family: var(--font-serif);
+  line-height: 1.6;
+}
+
+/* Hero numbers: light weight, tabular, tight */
+.num-hero {
+  font-weight: 300;
+  font-size: clamp(2.1rem, 3.2vw, 2.9rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.num-mid {
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* A number you can click to see where it came from */
+.traced {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--ink-2);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  color: inherit;
+  font-family: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.traced:hover {
+  text-decoration-color: var(--sky);
+  color: var(--sky);
+}
+
+/* Inputs */
+.field-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.field-input:focus-visible {
+  outline-offset: 0;
+}
+select.field-input {
+  appearance: auto;
+}
+
+input[type="range"] {
+  accent-color: var(--sky);
+  width: 100%;
+}
+input[type="checkbox"] {
+  accent-color: var(--sky);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+.btn:hover {
+  border-color: var(--ink-2);
+}
+.btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.btn-primary {
+  background: var(--sky);
+  border-color: var(--sky);
+  color: var(--panel);
+}
+:root[data-theme="dark"] .btn-primary {
+  color: #0d1a24;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+/* Fallow hatch, used in strip calendar and legends */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, var(--loam) 0 1.5px, transparent 1.5px 6px);
+  opacity: 0.55;
+}
+
+/* Native dialog */
+dialog.trace {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 0;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+}
+dialog.trace::backdrop {
+  background: rgb(10 18 14 / 0.45);
+}
+
+details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary .chev {
+  display: inline-block;
+  transition: transform 160ms ease;
+}
+details[open] > summary .chev {
+  transform: rotate(90deg);
+}
+
+/* Leaflet theming */
+.leaflet-container {
+  font: inherit;
+  background: var(--panel-2);
+}
+:root[data-theme="dark"] .leaflet-tile-pane .osm-base {
+  filter: brightness(0.62) contrast(1.15) saturate(0.55);
+}
+.leaflet-control-attribution {
+  font-size: 0.68rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Stale-result shimmer: the one bit of non-user motion, while a recalculation runs */
+@keyframes recalc {
+  0% { opacity: 1; }
+  50% { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+.recalc {
+  animation: recalc 1.1s ease-in-out infinite;
 }

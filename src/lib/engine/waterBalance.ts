@@ -1,0 +1,220 @@
+/**
+ * Daily soil water balance (FAO-56 Chapters 6–8, single crop coefficient).
+ *
+ * Soil column of fixed depth Zcol split into two buckets that hold plant-available water
+ * (water above wilting point, mm):
+ *   top  = current root zone (0…Zr) during a crop, evaporation layer (0…Ze) when bare;
+ *   sub  = Zr…Zcol, a store that roots grow into (carry-over between seasons).
+ * When the top depth changes, water moves between buckets assuming a uniform profile in the
+ * bucket that loses depth (mass conserving). Water above field capacity in the top drains to
+ * the sub bucket the same day; above field capacity in the column it leaves as deep percolation.
+ *
+ * Crop day (FAO-56): Kc curve (Fig. 34), Zr linear to max at start of mid-season, p adjusted
+ * for ETc (Table 22 note: p = p_tab + 0.04(5 − ETc)), TAW = TAW/m · Zr, RAW = p·TAW,
+ * Ks (Eq. 84), ETa = Ks·Kc·ET₀. Irrigation: when Dr ≥ RAW and budget remains, refill the
+ * root zone (Dr ≈ RAW at trigger), limited by the remaining net budget.
+ * Bare day: E = Kr·Ke,max·ET₀ with Kr from the evaporation-layer depletion (FAO-56 Eq. 74).
+ * Runoff: SCS-CN with a cover-dependent CN.
+ *
+ * Mass balance per run: P + I = ET + RO + DP + ΔS (tested to ±0.01 mm).
+ */
+import type { CoverType, CropDef, StageName } from "../types";
+import type { PreparedClimate } from "./climate";
+import { scsRunoff } from "./soil";
+
+export interface SimContext {
+  clim: PreparedClimate;
+  tawPerM: number;
+  zCol: number;
+  zBare: number;
+  zMin: number;
+  rew: number;
+  keMax: number;
+  cn: Record<CoverType, number>;
+}
+
+export interface SoilState { wTop: number; wSub: number; zTop: number }
+
+export interface Fluxes { precip: number; runoff: number; irrigation: number; et: number; deepPerc: number }
+
+export function newFluxes(): Fluxes {
+  return { precip: 0, runoff: 0, irrigation: 0, et: 0, deepPerc: 0 };
+}
+
+/** Resolved, flat per-crop parameters for the inner loop. */
+export interface CropParams {
+  kcIni: number; kcMid: number; kcEnd: number;
+  zMax: number; pTab: number; ky: number; cn: number;
+  frostC: number; frostMask: number; winterKillC: number;
+  heatC: number; heatMask: number; gddBase: number;
+}
+
+const STAGE_BIT: Record<StageName, number> = { ini: 1, dev: 2, mid: 4, late: 8 };
+
+export function cropParams(def: CropDef, cn: Record<CoverType, number>): CropParams {
+  const a = def.agronomy;
+  if (!a) throw new Error(`cropParams: ${def.id} has no agronomy (fallow)`);
+  const mask = (s: StageName[]) => s.reduce((m, x) => m | STAGE_BIT[x], 0);
+  return {
+    kcIni: a.kc.value.ini, kcMid: a.kc.value.mid, kcEnd: a.kc.value.end,
+    zMax: a.rootDepthMaxM.value, pTab: a.p.value, ky: a.ky.value, cn: cn[a.cover.value],
+    frostC: a.frost.value.criticalC, frostMask: mask(a.frost.value.stages),
+    winterKillC: a.frost.value.winterKillC ?? -Infinity,
+    heatC: a.heat.value.thresholdC, heatMask: mask(a.heat.value.stages),
+    gddBase: a.gdd.value.baseC,
+  };
+}
+
+export function uniformState(ctx: SimContext, wetness: number): SoilState {
+  const w = Math.min(1, Math.max(0, wetness));
+  return { wTop: w * ctx.tawPerM * ctx.zBare, wSub: w * ctx.tawPerM * (ctx.zCol - ctx.zBare), zTop: ctx.zBare };
+}
+
+export function storage(s: SoilState): number {
+  return s.wTop + s.wSub;
+}
+
+/** Change the top-bucket depth, moving water between buckets (uniform profile assumption). */
+export function setTopDepth(s: SoilState, z: number, zCol: number): void {
+  if (z === s.zTop) return;
+  if (z > s.zTop) {
+    const subDepth = zCol - s.zTop;
+    const moved = subDepth > 0 ? (s.wSub * (z - s.zTop)) / subDepth : 0;
+    s.wSub -= moved; s.wTop += moved;
+  } else {
+    const moved = s.zTop > 0 ? (s.wTop * (s.zTop - z)) / s.zTop : 0;
+    s.wTop -= moved; s.wSub += moved;
+  }
+  s.zTop = z;
+}
+
+export interface SeasonOutcome {
+  etc: number; eta: number;
+  irrigation: number; events: number;
+  /** ETc − ETa over the season (unmet crop water demand). */
+  unmet: number;
+  /** 1 if at some point irrigation was due (Dr ≥ RAW) but the budget could not refill the root zone. */
+  limited: number;
+  /** ETc − ETa accumulated from the first budget-limited day on (deficit caused by the budget running out), mm. */
+  shortfall: number;
+  frostDays: number; winterKillDays: number; heatDays: number; gdd: number;
+  /** Plant-available water in the column at sowing, mm. */
+  awAtSow: number;
+}
+
+export function emptySeason(): SeasonOutcome {
+  return { etc: 0, eta: 0, irrigation: 0, events: 0, unmet: 0, limited: 0, shortfall: 0, frostDays: 0, winterKillDays: 0, heatDays: 0, gdd: 0, awAtSow: 0 };
+}
+
+/**
+ * Simulate one crop season starting at `sowIdx` (inclusive) for sum(stages) days.
+ * `budgetNet` is the net irrigation water available for this season (mm); 0 = rainfed.
+ * State is mutated; on return the top bucket is reset to the bare evaporation layer (harvest).
+ */
+export function simulateSeason(
+  ctx: SimContext, cp: CropParams, sowIdx: number, stages: readonly number[],
+  state: SoilState, budgetNet: number, flux: Fluxes,
+): SeasonOutcome {
+  const c = ctx.clim;
+  const zCol = ctx.zCol, tawPerM = ctx.tawPerM;
+  const L1 = stages[0], L2 = L1 + stages[1], L3 = L2 + stages[2], L4 = L3 + stages[3];
+  const out = emptySeason();
+  out.awAtSow = state.wTop + state.wSub;
+  let remaining = budgetNet;
+  const zMin = Math.min(ctx.zMin, cp.zMax);
+  for (let t = 0; t < L4; t++) {
+    const d = sowIdx + t;
+    // Stage, Kc, root depth
+    let kc: number, bit: number;
+    if (t < L1) { kc = cp.kcIni; bit = 1; }
+    else if (t < L2) { kc = cp.kcIni + ((cp.kcMid - cp.kcIni) * (t - L1 + 1)) / (L2 - L1); bit = 2; }
+    else if (t < L3) { kc = cp.kcMid; bit = 4; }
+    else { kc = cp.kcMid + ((cp.kcEnd - cp.kcMid) * (t - L3 + 1)) / (L4 - L3); bit = 8; }
+    const zr = L2 > 0 ? zMin + (cp.zMax - zMin) * Math.min(1, (t + 1) / L2) : cp.zMax;
+    setTopDepth(state, zr, zCol);
+    const taw = tawPerM * zr;
+    const et0 = c.et0[d];
+    const etc = kc * et0;
+    let p = cp.pTab + 0.04 * (5 - etc);
+    p = p < 0.1 ? 0.1 : p > 0.8 ? 0.8 : p;
+    const raw = p * taw;
+    let dr = taw - state.wTop;
+    if (dr < 0) dr = 0;
+    // Irrigation decision at the start of the day (yesterday's state)
+    if (dr >= raw && dr > 0) {
+      if (remaining > 0) {
+        const irr = dr < remaining ? dr : remaining;
+        if (irr < dr - 1e-9) out.limited = 1;
+        remaining -= irr;
+        state.wTop += irr;
+        out.irrigation += irr;
+        out.events++;
+        flux.irrigation += irr;
+        dr -= irr;
+      } else {
+        out.limited = 1;
+      }
+    }
+    const ks = dr <= raw ? 1 : (taw - dr) / ((1 - p) * taw);
+    let eta = (ks > 0 ? ks : 0) * etc;
+    const P = c.precip[d];
+    const ro = scsRunoff(P, cp.cn);
+    state.wTop += P - ro - eta;
+    if (state.wTop < 0) { eta += state.wTop; state.wTop = 0; }
+    if (state.wTop > taw) {
+      state.wSub += state.wTop - taw;
+      state.wTop = taw;
+      const capSub = tawPerM * (zCol - zr);
+      if (state.wSub > capSub) { flux.deepPerc += state.wSub - capSub; state.wSub = capSub; }
+    }
+    flux.precip += P; flux.runoff += ro; flux.et += eta;
+    out.etc += etc; out.eta += eta;
+    if (out.limited) out.shortfall += etc - eta;
+    // Climate stress counters
+    const tn = c.tmin[d], tx = c.tmax[d];
+    if ((cp.frostMask & bit) !== 0 && tn < cp.frostC) out.frostDays++;
+    if (bit <= 2 && tn < cp.winterKillC) out.winterKillDays++;
+    if ((cp.heatMask & bit) !== 0 && tx > cp.heatC) out.heatDays++;
+    const g = (tx + tn) / 2 - cp.gddBase;
+    if (g > 0) out.gdd += g;
+  }
+  out.unmet = out.etc - out.eta;
+  setTopDepth(state, ctx.zBare, zCol);
+  return out;
+}
+
+/** Simulate bare soil from `startIdx` (inclusive) to `endIdx` (exclusive). Returns soil evaporation, mm. */
+export function simulateBare(ctx: SimContext, startIdx: number, endIdx: number, state: SoilState, flux: Fluxes): number {
+  const c = ctx.clim;
+  const zCol = ctx.zCol, tawPerM = ctx.tawPerM;
+  setTopDepth(state, ctx.zBare, zCol);
+  const tew = tawPerM * ctx.zBare;
+  const rew = Math.min(ctx.rew, 0.8 * tew);
+  const capSub = tawPerM * (zCol - ctx.zBare);
+  const cn = ctx.cn.bare;
+  let evap = 0;
+  for (let d = startIdx; d < endIdx; d++) {
+    const de = tew - state.wTop;
+    const kr = de <= rew ? 1 : Math.max(0, (tew - de) / (tew - rew));
+    let e = kr * ctx.keMax * c.et0[d];
+    const P = c.precip[d];
+    const ro = scsRunoff(P, cn);
+    state.wTop += P - ro - e;
+    if (state.wTop < 0) { e += state.wTop; state.wTop = 0; }
+    if (state.wTop > tew) {
+      state.wSub += state.wTop - tew;
+      state.wTop = tew;
+      if (state.wSub > capSub) { flux.deepPerc += state.wSub - capSub; state.wSub = capSub; }
+    }
+    flux.precip += P; flux.runoff += ro; flux.et += e;
+    evap += e;
+  }
+  return evap;
+}
+
+/** FAO-33 yield response: Ya/Ym = 1 − Ky (1 − ETa/ETc), clamped to [0, 1]. */
+export function yieldRatio(ky: number, eta: number, etc: number): number {
+  if (etc <= 0) return 1;
+  const r = 1 - ky * (1 - eta / etc);
+  return r < 0 ? 0 : r > 1 ? 1 : r;
+}

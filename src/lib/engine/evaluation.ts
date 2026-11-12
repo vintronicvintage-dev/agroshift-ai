@@ -115,7 +115,8 @@ function summarize(
     s.irrYear[k] = se.irrigation; s.unmetYear[k] = se.etc - se.eta;
     s.irrigation += se.irrigation / 3;
     s.unmet += (se.etc - se.eta) / 3;
-    s.exceeded[k] = se.shortfall >= BUDGET_SHORTFALL_MM;
+    // Rainfed (budget 0): there is no budget to exceed; the deficit is reported as unmet demand only.
+    s.exceeded[k] = ev.budgetNet > 0 && se.shortfall >= BUDGET_SHORTFALL_MM;
     if (r < LOW_YIELD_RATIO) s.lowYield = true;
     s.cropYears++;
     if (se.frost + se.wk >= 1 || se.heat >= STRESS_HEAT_DAYS) s.stressedCropYears++;

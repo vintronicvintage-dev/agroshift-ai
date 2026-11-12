@@ -1,6 +1,6 @@
 "use client";
 
-import type { AnalysisResult, NdviSeries, SourceMeta, TrendResult } from "@/lib/types";
+import type { ClimateSummary, NdviSeries, SourceMeta, TrendResult } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import type { CalibrationInfo } from "@/lib/ui/calibration";
 import { metaToRef, type SourceRef } from "@/lib/ui/sources";
@@ -12,7 +12,7 @@ import { Explainers } from "./Explainers";
 import type { Part } from "@/lib/ui/siteData";
 
 interface Props {
-  result: AnalysisResult;
+  climate: ClimateSummary;
   ndvi: Part<NdviSeries>;
   calibration: CalibrationInfo | null;
   imerg: "validated" | "not_validated" | null;
@@ -20,9 +20,9 @@ interface Props {
   onRetryNdvi: () => void;
 }
 
-export function EvidenceSection({ result, ndvi, calibration, imerg, methodRef, onRetryNdvi }: Props) {
+export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, onRetryNdvi }: Props) {
   const { t, n } = useI18n();
-  const c = result.climate;
+  const c = climate;
   const climateRefs = c.sources.map(metaToRef);
   const fao = methodRef("FAO-56");
   const mk = methodRef("Mann–Kendall");

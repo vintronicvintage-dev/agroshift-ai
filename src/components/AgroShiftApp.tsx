@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { loadSnapshot, loadSnapshotIndex, matchSnapshotId, type SnapshotIndexEntry } from "@/lib/data/snapshots";
-import { METHOD_SOURCES, ZONE_LABEL } from "@/lib/engine";
+import { METHOD_SOURCES, ZONE_LABEL, climateEvidence } from "@/lib/engine";
 import type { ClimateSeries, RotationSequence, SoilProfile } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { applyPrecipCalibration, calibrationFor, parseStationMm } from "@/lib/ui/calibration";
@@ -173,6 +173,8 @@ export function AgroShiftApp() {
   }, [fieldCheck, soilCheck, scenario, econ, extraPlans, draft.rainfed]);
 
   const analysis = useAnalysis(climate, climateKey, request);
+  // Climate evidence does not depend on the field or scenario: show it as soon as data is loaded.
+  const climateSummary = useMemo(() => (climate ? climateEvidence(climate) : null), [climate]);
   const result = analysis.result;
 
   useEffect(() => {
@@ -241,8 +243,8 @@ export function AgroShiftApp() {
       </Step>
 
       <Step n={2} id="kanit" title={t("step.evidence")} lead={t("step.evidence.lead")}>
-        {result && data ? (
-          <EvidenceSection result={result} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
+        {climateSummary && data ? (
+          <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
         ) : (
           <Placeholder busy={analysis.running}>{analysis.running ? t("run.first") : t("ev.waitingData")}</Placeholder>
         )}

@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import { CROPS } from "../crops/database";
 import { ZONE_LABEL } from "../crops/calendar";
+import { legumeSuccessions } from "../crops/rules";
 
 type Lang = "tr" | "en";
 type Params = Record<string, number | string>;
@@ -270,8 +271,15 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
       "Year {year} {crop}: sowing {sow}, harvest {harvest} assumed; confirm with local varieties and the provincial extension calendar.",
       undefined, { crop: cropTr(s.cropId) }));
   }
+  for (const s of legumeSuccessions(crops)) {
+    const next = s.year === 3 ? 1 : s.year + 1;
+    localReview.push(item("review.legumeSuccession", { from: cropEn(s.from), to: cropEn(s.to), year: s.year, next },
+      "{year}. yıl {from} → {next}. yıl {to}: iki baklagil üst üste. Ortak toprak kaynaklı hastalık (Fusarium, Rhizoctonia, Sclerotinia) ve nematod riski artar; arada bir tahıl önerilir, yerel uzmanla değerlendirin.",
+      "Year {year} {from} → year {next} {to}: two legumes in a row. Shared soil-borne disease (Fusarium, Rhizoctonia, Sclerotinia) and nematode risk increases; a cereal break is advised, review with a local expert.",
+      undefined, { from: cropTr(s.from), to: cropTr(s.to) }));
+  }
   const set = new Set(crops);
-  const rv = (key: string, tr: string, en: string) => localReview.push(item(key, {}, tr, en));
+  const rv =(key: string, tr: string, en: string) => localReview.push(item(key, {}, tr, en));
   if (set.has("sugar_beet")) rv("review.sugarBeet", "Şeker pancarı: fabrika kotası/sözleşmesi, nematod ve rizomani durumu kontrol edilmeli.", "Sugar beet: check factory quota/contract, beet cyst nematode and rhizomania status.");
   if (set.has("sunflower")) rv("review.sunflower", "Ayçiçeği: orobanş (canavar otu) riski ve dayanıklı çeşit seçimi yerel uzmanla konuşulmalı.", "Sunflower: discuss broomrape (Orobanche) risk and resistant hybrids with a local expert.");
   if (set.has("chickpea")) rv("review.chickpea", "Nohut: yağışlı ilkbaharlarda antraknoz (Ascochyta) riski; dayanıklı çeşit ve ekim zamanı.", "Chickpea: Ascochyta blight risk in wet springs; resistant variety and sowing date.");

@@ -151,7 +151,9 @@ Bunlar ölçüm değil göstergedir; arayüz böyle etiketler.
 ### 4.6 Optimizasyon
 Aday ürün kümesinden tüm üç yıllık diziler numaralandırılır (n³, n ≤ 12). Sert kısıtlar:
 ekim takvimi çakışması yok, bölge iklimine uygunluk (GDD ve don penceresi), kullanıcının
-dışladığı ürünler, aynı ürün üst üste en çok 2 (şeker pancarı ve ayçiçeği için 1).
+dışladığı ürünler, aynı ürün üst üste en çok 2 (şeker pancarı, ayçiçeği, nohut, mercimek, kuru fasulye ve fiğ için 1).
+Kural döngüseldir: 3. yıldan sonraki 1. yıla geçiş de sayılır. Farklı baklagillerin art arda
+gelmesi yasak değildir ama toprak sağlığı puanında cezalandırılır ve yerel inceleme maddesi olur.
 Amaç: çiftçi öncelik ağırlıklarıyla (su tasarrufu, gelir, toprak sağlığı, risk azlığı)
 normalize edilmiş çok amaçlı puan. Çıktı: mevcut rotasyon + en iyi 3 alternatif + Pareto
 cephesi (su açığı × marj × toprak puanı). Her öneri için gerekçe metni kural tabanlı üretilir

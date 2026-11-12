@@ -18,6 +18,7 @@ const TR55 = "USDA-NRCS TR-55 Table 2-2b";
 const ECON = "Scenario assumption (2025/26 TL order of magnitude) — edit for your farm";
 const YIELD = "Assumption, TÜİK national-average order of magnitude";
 const SPEC = "AgroShift spec §4.6 rotation rule";
+const LEGUME_BREAK = "AgroShift rule: grain legumes and vetch never follow themselves (Ascochyta, Fusarium/Rhizoctonia and nematode build-up; extension guidance is 3–4 years between chickpea or lentil crops)";
 
 export function lit<T>(value: T, source: string): Sourced<T> {
   return { value, source, confidence: "literature" };
@@ -112,7 +113,7 @@ export const CROPS: Record<CropId, CropDef> = {
     refYieldTHa: asm({ irrigated: 2.0, rainfed: 1.1 }, YIELD),
     priceTLPerKg: asm(40, ECON),
     varCostTLPerDa: asm(3500, ECON),
-    maxConsecutive: lit(2, SPEC),
+    maxConsecutive: lit(1, LEGUME_BREAK),
   },
   lentil_red: {
     id: "lentil_red",
@@ -138,7 +139,7 @@ export const CROPS: Record<CropId, CropDef> = {
     refYieldTHa: asm({ irrigated: 1.8, rainfed: 1.2 }, YIELD),
     priceTLPerKg: asm(30, ECON),
     varCostTLPerDa: asm(3000, ECON),
-    maxConsecutive: lit(2, SPEC),
+    maxConsecutive: lit(1, LEGUME_BREAK),
   },
   sugar_beet: {
     id: "sugar_beet",
@@ -242,7 +243,7 @@ export const CROPS: Record<CropId, CropDef> = {
     refYieldTHa: asm({ irrigated: 2.6, rainfed: 1.0 }, YIELD),
     priceTLPerKg: asm(70, ECON),
     varCostTLPerDa: asm(7000, ECON),
-    maxConsecutive: lit(2, SPEC),
+    maxConsecutive: lit(1, LEGUME_BREAK),
   },
   alfalfa: {
     id: "alfalfa",
@@ -294,7 +295,7 @@ export const CROPS: Record<CropId, CropDef> = {
     refYieldTHa: asm({ irrigated: 6, rainfed: 3.5 }, `${YIELD} (dry hay)`),
     priceTLPerKg: asm(7, ECON),
     varCostTLPerDa: asm(3000, ECON),
-    maxConsecutive: lit(2, SPEC),
+    maxConsecutive: lit(1, LEGUME_BREAK),
   },
   cotton: {
     id: "cotton",

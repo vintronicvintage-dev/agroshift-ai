@@ -5,6 +5,7 @@
 import type { CropId, RotationSequence, SoilHealthComponent, SoilHealthResult } from "../types";
 import { CROPS } from "../crops/database";
 import type { SequenceSchedule } from "../crops/calendar";
+import { legumeSuccessions } from "../crops/rules";
 
 /** Points per component (sum = 100). Documented on the method page. */
 export const SOIL_HEALTH_WEIGHTS = {
@@ -32,6 +33,7 @@ export function soilHealth(seq: RotationSequence, schedule: SequenceSchedule, sl
     if (a !== "fallow" && b !== "fallow" && CROPS[a].family === CROPS[b].family) sameFamilyPairs++;
   }
   const legumeYears = seq.filter((c) => CROPS[c].family === "fabaceae").length;
+  const legumePairs = legumeSuccessions(seq).length;
   const n = seq.reduce((acc, c) => ({ low: acc.low + CROPS[c].nContributionKgHa.value.low, high: acc.high + CROPS[c].nContributionKgHa.value.high }), { low: 0, high: 0 });
   const roots = crops.map((c) => CROPS[c].agronomy!.rootDepthMaxM.value);
   const rootRange = roots.length ? Math.max(...roots) - Math.min(...roots) : 0;
@@ -44,7 +46,8 @@ export function soilHealth(seq: RotationSequence, schedule: SequenceSchedule, sl
   const v = {
     diversity: familyCount / 3,
     family_break: 1 - sameFamilyPairs / 3,
-    legume: legumeYears === 0 ? 0 : legumeYears === 1 ? 0.75 : 1,
+    // Legume credit, minus 0.5 per legume → legume succession (shared soil-borne disease cycle).
+    legume: Math.max(0, (legumeYears === 0 ? 0 : legumeYears === 1 ? 0.75 : 1) - 0.5 * legumePairs),
     bare_soil: Math.max(0, 1 - (bare / 365) * slopeFactor),
     root_diversity: Math.min(1, rootRange / 0.8),
     residue: residueMean,
@@ -60,7 +63,8 @@ export function soilHealth(seq: RotationSequence, schedule: SequenceSchedule, sl
   const detail = {
     diversity: `${familyCount} families`,
     family_break: `${sameFamilyPairs} of 3 cyclic pairs share a family`,
-    legume: `${legumeYears} legume years, N ${n.low}–${n.high} kg/ha per cycle`,
+    legume: `${legumeYears} legume years, N ${n.low}–${n.high} kg/ha per cycle` +
+      (legumePairs ? `; ${legumePairs} legume→legume succession(s), −0.5 each` : ""),
     bare_soil: `${Math.round(bare)} bare days/yr, slope factor ${slopeFactor.toFixed(2)}`,
     root_diversity: `root depth range ${rootRange.toFixed(2)} m`,
     residue: `mean residue class ${residueClass}`,
@@ -75,6 +79,7 @@ export function soilHealth(seq: RotationSequence, schedule: SequenceSchedule, sl
     familyCount,
     sameFamilyPairs,
     legumeYears,
+    legumeSuccessions: legumePairs,
     nContributionKgHa: n,
     bareDaysPerYear: bare,
     rootDepthRangeM: rootRange,

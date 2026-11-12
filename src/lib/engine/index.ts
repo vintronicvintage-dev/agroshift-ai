@@ -193,6 +193,15 @@ export function analyze(input: AnalysisInput): AnalysisResult {
   };
 }
 
+/**
+ * Climate evidence only (annual series, monthly balance, trends) for the observed climate, without
+ * running the rotation analysis. Same numbers as `analyze(...).climate` for the "typical" scenario.
+ */
+export function climateEvidence(series: AnalysisInput["climate"]): AnalysisResult["climate"] {
+  const base = prepareClimate(series, 1, 0);
+  return summarizeClimate(base, base, series);
+}
+
 /** Evaluate specific plans only (no optimisation) — convenience wrapper around `analyze`. */
 export function evaluatePlans(input: AnalysisInput, plans: RotationSequence[]): PlanResult[] {
   return analyze({ ...input, options: { ...input.options, extraPlans: plans } }).userPlans;
@@ -211,7 +220,7 @@ function collectAssumptions(zone: AnalysisResult["zone"], omAssumed: boolean, we
     const n = name(id);
     out.push({ key: `price.${id}`, label: { tr: `${n.tr} fiyatı`, en: `${n.en} price` }, value: `${c.priceTLPerKg.value} TL/kg`, source: c.priceTLPerKg.source, confidence: c.priceTLPerKg.confidence });
     out.push({ key: `cost.${id}`, label: { tr: `${n.tr} değişken maliyet`, en: `${n.en} variable cost` }, value: `${c.varCostTLPerDa.value} TL/da`, source: c.varCostTLPerDa.source, confidence: c.varCostTLPerDa.confidence });
-    out.push({ key: `yield.${id}`, label: { tr: `${n.tr} referans verim (sulu/kuru)`, en: `${n.en} reference yield (irrigated/rainfed)` }, value: `${c.refYieldTHa.value.irrigated} / ${c.refYieldTHa.value.rainfed} t/ha`, source: c.refYieldTHa.source, confidence: c.refYieldTHa.confidence });
+    out.push({ key: `yield.${id}`, label: { tr: `${n.tr} referans verim (sulu = hesaplarda Ym; kuru yalnız karşılaştırma için)`, en: `${n.en} reference yield (irrigated = Ym used in the model; rainfed shown for comparison only)` }, value: `${c.refYieldTHa.value.irrigated} / ${c.refYieldTHa.value.rainfed} t/ha`, source: c.refYieldTHa.source, confidence: c.refYieldTHa.confidence });
     const a = c.agronomy;
     if (!a) continue;
     const cal = a.calendar[zone];

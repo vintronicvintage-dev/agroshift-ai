@@ -71,7 +71,7 @@ export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: Compa
     }),
     irrigation: (): Trace => ({
       title: `${title}: ${t("plan.irrigation")}`,
-      value: distStr(w.irrigationGrossM3PerDaPerYr, `m³/da/${yr}`),
+      value: `${distStr(w.irrigationNetMmPerYr, `m³/da/${yr}`)}; ${t("plan.irrigationGross", { v: n(w.irrigationGrossM3PerDaPerYr?.p50), e: n(sc.irrigationEfficiency, 2) })}`,
       formula: t("f.irrigation"),
       inputs: baseInputs(),
       sources: [...ctx.climateRefs, fao],
@@ -184,9 +184,14 @@ export function PlanCard({ plan, ctx, onRemove }: { plan: PlanResult; ctx: Compa
             <dt className="text-ink-2">{t("plan.irrigation")}</dt>
             <dd className="mt-0.5">
               <Traced trace={tr.irrigation} className="text-base font-semibold">
-                {n(w.irrigationGrossM3PerDaPerYr?.p50)}
+                {n(w.irrigationNetMmPerYr?.p50)}
               </Traced>{" "}
-              <span className="text-xs text-ink-2">m³/da</span>
+              <span className="text-xs text-ink-2">
+                m³/da {t("plan.irrigationOfBudget", { b: n(sc.budgetNetMm) })}
+              </span>
+              <span className="block text-xs text-ink-2">
+                {t("plan.irrigationGross", { v: n(w.irrigationGrossM3PerDaPerYr?.p50), e: n(sc.irrigationEfficiency, 2) })}
+              </span>
             </dd>
           </div>
         </dl>

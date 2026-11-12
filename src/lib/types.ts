@@ -301,6 +301,8 @@ export interface SoilHealthResult {
   familyCount: number;
   sameFamilyPairs: number;
   legumeYears: number;
+  /** Cyclic legume → legume successions (e.g. chickpea → lentil); penalised in the legume component. */
+  legumeSuccessions: number;
   nContributionKgHa: { low: number; high: number };
   bareDaysPerYear: number;
   rootDepthRangeM: number;

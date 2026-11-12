@@ -12,5 +12,5 @@ export const PILOTS: Pilot[] = [
   { id: "sanliurfa-harran", nameTr: "Şanlıurfa-Harran", nameEn: "Sanliurfa-Harran", lat: 36.87, lon: 39.03 },
   { id: "adana-yuregir", nameTr: "Adana-Yüreğir", nameEn: "Adana-Yuregir", lat: 36.98, lon: 35.43 },
   { id: "edirne-uzunkopru", nameTr: "Edirne-Uzunköprü", nameEn: "Edirne-Uzunkopru", lat: 41.27, lon: 26.69 },
-  { id: "polatli-ankara", nameTr: "Polatlı-Ankara", nameEn: "Polatli-Ankara", lat: 39.58, lon: 32.15 },
+  { id: "polatli-ankara", nameTr: "Ankara-Polatlı", nameEn: "Ankara-Polatli", lat: 39.58, lon: 32.15 },
 ];

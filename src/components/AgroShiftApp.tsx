@@ -25,10 +25,10 @@ import { ResultsStep } from "./compare/ResultsStep";
 import { StepHint } from "./flow/StepBar";
 import { Onboarding } from "./onboarding/Onboarding";
 import { DashboardShell } from "./shell/DashboardShell";
-import { JudgmentNote } from "./shell/JudgmentNote";
 import { Overview } from "./overview/Overview";
 import { GettingStarted } from "./overview/GettingStarted";
 import { TopbarControls } from "./overview/TopbarControls";
+import { EmptyArt } from "./ui/EmptyArt";
 
 type Imerg = "validated" | "not_validated" | null;
 
@@ -312,11 +312,11 @@ export function AgroShiftApp() {
       >
         <div ref={rootRef} data-step-root tabIndex={-1} className="outline-none" aria-labelledby={`h-${section}`}>
           <div key={section} className="enter">
-            <header className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <h1 id={`h-${section}`} className="font-display text-[1.55rem] font-semibold leading-tight tracking-[-0.025em] sm:text-[1.7rem]">
+            <header className="mb-6">
+              <h1 id={`h-${section}`} className="font-display text-[length:var(--text-step-2)] font-[560] leading-tight tracking-[-0.015em]">
                 {t(SECTION_TITLE[section])}
               </h1>
-              {lead[section] && <p className="max-w-[72ch] text-[0.92rem] text-ink-2">{lead[section]}</p>}
+              {lead[section] && <p className="lbl mt-1 max-w-[65ch] text-[0.95rem]">{lead[section]}</p>}
             </header>
 
             {section === "genel" && (
@@ -340,9 +340,6 @@ export function AgroShiftApp() {
                   onPoint={selectPoint}
                   onOpenPlan={openPlan}
                 />
-                <div className="mt-4">
-                  <JudgmentNote />
-                </div>
               </>
             )}
 
@@ -402,7 +399,10 @@ export function AgroShiftApp() {
               (climateSummary && data ? (
                 <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
               ) : (
-                <p className={`rounded-2xl border border-dashed border-rule-strong px-4 py-12 text-center text-ink-2 ${analysis.running ? "recalc" : ""}`}>{t("ev.waitingData")}</p>
+                <div className="sec flex items-center gap-4">
+                  <EmptyArt kind="evidence" size={120} />
+                  <p className={`text-ink-2 ${analysis.running ? "recalc" : ""}`}>{t("ev.waitingData")}</p>
+                </div>
               ))}
           </div>
         </div>

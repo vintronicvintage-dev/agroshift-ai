@@ -1,11 +1,26 @@
 @import "tailwindcss";
 
 /*
- * AgroShift v2 tokens. Dark first: charcoal with a green cast, cards one step lighter with a thin
- * rule and a faint top sheen. One accent, fresh-sprout yellow-green, for the active place, the
- * primary action and selection only. Water blue, soil amber and alert red appear when they carry
- * meaning. Chart series keep Okabe–Ito (colour-blind safe).
+ * AgroShift tokens: a field notebook that is also an instrument.
+ * Dark first (charcoal with a green cast); light is warm notebook paper. Sections sit on the paper
+ * and are separated by hairline rules, not boxed; only media (maps, photos), dialogs and the open
+ * plan get a frame. Colour carries meaning only: sprout green = the one primary action and the
+ * "best" mark; water blue, soil amber and alert red appear only where they mean water, soil or
+ * worse. Chart series keep Okabe–Ito (colour-blind safe). Three faces: a text serif for titles and
+ * the verdict, a grotesque for everything you read or tap, a mono for measured readouts.
+ *
+ * Spacing: 4 px base, steps 4 8 12 16 24 32 48. Type: 1.25 modular scale on 16 px
+ * (13, 16, 20, 25, 31, 39).
  */
+:root {
+  --text-step--1: 0.8125rem;
+  --text-step-0: 1rem;
+  --text-step-1: 1.25rem;
+  --text-step-2: 1.5625rem;
+  --text-step-3: 1.953rem;
+  --text-step-4: 2.441rem;
+}
+
 :root,
 :root[data-theme="dark"] {
   --paper: #0d1310;
@@ -42,14 +57,14 @@
 }
 
 :root[data-theme="light"] {
-  --paper: #edf1e9;
-  --rail: #e3e9dd;
-  --panel: #fbfcf9;
-  --panel-2: #f1f5ed;
-  --ink: #142019;
-  --ink-2: #4a5a50;
-  --rule: #d4dbce;
-  --rule-strong: #b9c4b3;
+  --paper: #f3f1e9;
+  --rail: #ebe8de;
+  --panel: #fbfaf5;
+  --panel-2: #e9e6db;
+  --ink: #1a211b;
+  --ink-2: #4c5449;
+  --rule: #d9d5c7;
+  --rule-strong: #bdb7a4;
   --sheen: rgb(255 255 255 / 0.8);
   --accent: #c8f25a;
   --accent-edge: #8db326;
@@ -65,9 +80,9 @@
   --bad: #a3301a;
   --bad-soft: rgb(163 48 26 / 0.09);
   --c-precip: #0072b2;
-  --c-et0: #c54f00;
+  --c-et0: #ad4500;
   --c-frost: #3a8fc4;
-  --c-hot: #c54f00;
+  --c-hot: #ad4500;
   --c-green: #007a59;
   --c-muted: #9aa69d;
   --band-ink: #15201a;
@@ -97,8 +112,9 @@
   --color-bad-soft: var(--bad-soft);
   --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
   /* the display face: page titles, card titles, the verdict. Never numbers or labels. */
-  --font-serif: var(--font-bricolage), var(--font-hanken), ui-sans-serif, sans-serif;
-  --font-display: var(--font-bricolage), var(--font-hanken), ui-sans-serif, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
 html {
@@ -132,20 +148,54 @@ body {
   line-height: 1.65;
 }
 
-/* Hero numbers: light weight, tabular, tight */
+/* Measured readouts: the instrument voice (mono, tabular); the unit always sits beside the number */
 .num-hero {
-  font-weight: 300;
-  font-size: clamp(2rem, 2.6vw, 2.6rem);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--text-step-3);
   line-height: 1;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums lining-nums;
 }
 .num-mid {
+  font-family: var(--font-mono);
   font-weight: 400;
-  font-size: 1.5rem;
+  font-size: var(--text-step-1);
   line-height: 1.1;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums lining-nums;
+}
+.readout {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.unit {
+  font-family: var(--font-sans);
+  font-size: var(--text-step--1);
+  color: var(--ink-2);
+  letter-spacing: 0;
+}
+
+/* A section: content on the paper, opened by a hairline and a serif title. No box. */
+.sec {
+  min-width: 0;
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+}
+.sec-title {
+  font-family: var(--font-display);
+  font-weight: 560;
+  font-size: var(--text-step-1);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.lbl {
+  font-size: var(--text-step--1);
+  line-height: 1.35;
+  color: var(--ink-2);
 }
 
 /* A number you can click to see where it came from */
@@ -165,20 +215,19 @@ body {
   text-decoration-color: var(--accent-ink);
 }
 
-/* Cards: one elevation, a thin rule and a faint top sheen */
+/* A frame, only for what needs one (maps, dialogs, the open plan). One elevation: a rule. */
 .card {
   position: relative;
   min-width: 0;
   background: var(--panel);
   border: 1px solid var(--rule);
-  border-radius: 16px;
-  box-shadow: inset 0 1px 0 var(--sheen);
+  border-radius: 12px;
 }
 .card-title {
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.02rem;
-  line-height: 1.25;
+  font-weight: 560;
+  font-size: var(--text-step-1);
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
@@ -241,9 +290,9 @@ input[type="checkbox"] {
   border-color: var(--ink-2);
 }
 .btn[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent-edge);
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
   font-weight: 600;
 }
 .btn-primary {
@@ -397,9 +446,9 @@ details[open] > summary .chev {
   cursor: pointer;
 }
 .choice:has(> input:checked) {
-  border-color: var(--accent-edge);
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-edge);
+  border-color: var(--ink);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 .choice:has(> input:focus-visible) {
   outline: 2px solid var(--focus);
@@ -415,8 +464,8 @@ details[open] > summary .chev {
   flex: none;
 }
 .choice:has(> input:checked) .tick {
-  border-color: var(--accent-edge);
-  background: var(--accent);
+  border-color: var(--ink);
+  background: var(--ink);
   box-shadow: inset 0 0 0 3px var(--panel);
 }
 
@@ -455,8 +504,8 @@ details[open] > summary .chev {
   cursor: pointer;
 }
 .seg > label:has(> input:checked) {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--ink);
+  color: var(--paper);
 }
 .seg > label:has(> input:focus-visible) {
   outline: 2px solid var(--focus);
@@ -524,9 +573,12 @@ details[open] > summary .chev {
   color: var(--ink);
 }
 .nav-item[aria-current="page"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--ink);
   font-weight: 650;
+}
+.nav-item[aria-current="page"] > svg {
+  color: var(--accent-ink);
 }
 .nav-item[aria-disabled="true"] {
   cursor: not-allowed;
@@ -593,8 +645,8 @@ html:has(.topbar) {
   font-weight: 650;
 }
 .bottomnav a[aria-current="page"] .bn-icon {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  color: var(--accent-ink);
 }
 .bottomnav .bn-icon {
   display: grid;
@@ -668,18 +720,14 @@ html[data-gs~="dismissed"] .gs-compact {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.75rem;
   align-items: start;
-  padding: 0.8rem 0.85rem;
-  border-radius: 14px;
-  border: 1px solid var(--rule);
-  background: var(--panel);
-  box-shadow: inset 0 1px 0 var(--sheen);
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease, transform 140ms var(--ease-out);
+  transition: background-color 150ms ease, transform 140ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
   .gs-card:hover {
-    border-color: var(--rule-strong);
     background: var(--panel-2);
   }
 }
@@ -797,12 +845,10 @@ html[data-intro="open"]:has(.intro) {
 .auth-tone {
   background: rgb(7 11 9 / 0.12);
 }
-/* 0.72 keeps AA against pure white behind the card: 7.6:1 for #e6ede4, 6.0:1 for #c9d4cb */
+/* A solid caption plate, no blur: 0.86 keeps AA against pure white behind it (>10:1 for #e6ede4) */
 .auth-glass {
-  background: rgb(9 14 11 / 0.72);
-  border: 1px solid rgb(255 255 255 / 0.08);
-  backdrop-filter: blur(12px) saturate(1.1);
-  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.6);
+  background: rgb(9 14 11 / 0.86);
+  border-top: 1px solid rgb(255 255 255 / 0.12);
 }
 /* Photo credit chip: legible on any image, never a link target (the Methods page has the links) */
 .img-credit {
@@ -815,10 +861,10 @@ html[data-intro="open"]:has(.intro) {
 .gs-thumb {
   position: relative;
   display: block;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--panel-2);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
 }

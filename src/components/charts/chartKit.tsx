@@ -77,7 +77,7 @@ export function ChartCard({ title, legend, children, table, footer, id }: { titl
   return (
     <figure id={id} className="min-w-0 card p-4">
       <figcaption>
-        <h3 className="font-serif text-lg font-semibold leading-snug">{title}</h3>
+        <h3 className="sec-title">{title}</h3>
         {legend && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-2">{legend}</div>}
       </figcaption>
       <div className="mt-3">{children}</div>

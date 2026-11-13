@@ -37,7 +37,7 @@ export function ScenarioBar({ value, onChange, fieldBudget, rainfed, running, st
   return (
     <div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h3 id="sc-h" className="font-serif text-lg font-semibold">
+        <h3 id="sc-h" className="sec-title">
           {t("sc.title")}
         </h3>
         <div className="seg w-full max-sm:grid-flow-row sm:w-auto sm:max-w-full" role="radiogroup" aria-labelledby="sc-h">
@@ -60,7 +60,7 @@ export function ScenarioBar({ value, onChange, fieldBudget, rainfed, running, st
         </div>
       </div>
       <details className="group mt-2">
-        <summary className="tap inline-flex items-center gap-1.5 rounded-sm py-1 text-sm font-semibold text-sky">
+        <summary className="tap inline-flex items-center gap-1.5 rounded-sm py-1 text-sm font-semibold text-ink">
           <span className="transition-transform duration-200 group-open:rotate-90">
             <Chevron size={12} />
           </span>

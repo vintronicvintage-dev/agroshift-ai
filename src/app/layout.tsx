@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
+import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import { I18nProvider } from "@/lib/i18n";
 import { GS_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
 import { TraceProvider } from "@/components/trace/TraceProvider";
@@ -11,17 +11,24 @@ const hanken = Hanken_Grotesk({
   subsets: ["latin", "latin-ext"],
 });
 
-/** Display face for titles and the verdict only. */
-const bricolage = Bricolage_Grotesque({
-  variable: "--font-bricolage",
+/** Notebook voice: a text serif for page titles, section titles and the verdict. Never for labels. */
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin", "latin-ext"],
-  axes: ["opsz", "wdth"],
+  axes: ["opsz"],
+});
+
+/** Instrument voice: measured readouts only (big numbers, units beside them). */
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
   title: "AgroShift: ekim nöbeti karar desteği",
   description:
-    "NASA POWER, MODIS ve SoilGrids verisiyle üç yıllık ekim nöbeti stratejilerini su, toprak sağlığı, risk ve senaryo marjı açısından karşılaştırır. Karar vermez, karar destekler.",
+    "Tarlanın şu anki üç yıllık ekim sırasını, NASA POWER, MODIS ve SoilGrids verisiyle başka sıralarla karşılaştırır: su, toprak sağlığı, risk ve kâr. Karar vermez, kararına destek olur.",
 };
 
 export const viewport: Viewport = {
@@ -33,7 +40,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="tr" data-theme="dark" suppressHydrationWarning className={`${hanken.variable} ${bricolage.variable} h-full`}>
+    <html lang="tr" data-theme="dark" suppressHydrationWarning className={`${hanken.variable} ${newsreader.variable} ${plexMono.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: [THEME_BOOT_SCRIPT, LANG_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, GS_BOOT_SCRIPT].join(";") }} />
       </head>

@@ -24,10 +24,10 @@ export function GettingStarted({ locked }: { locked: boolean }) {
   const total = GS_STEPS.length;
   const allDone = k >= total;
   return (
-    <section aria-labelledby="gs-h" className="mb-5">
+    <section aria-labelledby="gs-h" className="mb-10">
       <div className="gs-full">
         <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 id="gs-h" className="card-title text-[1.05rem]">
+          <h2 id="gs-h" className="sec-title">
             {t("gs.title")}
           </h2>
           <span className="flex items-center gap-2 text-[0.8rem] text-ink-2 tabular-nums">
@@ -49,19 +49,19 @@ export function GettingStarted({ locked }: { locked: boolean }) {
             </button>
           </span>
         </div>
-        <ol className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 xl:grid-cols-5">
+        <ol className="-mx-4 flex snap-x overflow-x-auto border-y border-rule px-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 xl:grid-cols-5 xl:divide-x xl:divide-rule">
           {GS_STEPS.map((s, i) => {
             const done = gs.done.includes(s);
             const target = locked && TARGET[s] !== "tarlam" ? "tarlam" : TARGET[s];
             return (
-              <li key={s} className="w-[15.5rem] shrink-0 snap-start sm:w-auto">
+              <li key={s} className="w-[15rem] shrink-0 snap-start sm:w-auto xl:px-1.5 xl:first:pl-0 xl:last:pr-0">
                 <button type="button" className="gs-card h-full w-full" data-done={done} onClick={() => goToSection(target)}>
                   <span className="gs-thumb" aria-hidden="true">
                     <Image src={IMAGES[THUMB[s]].src} alt="" width={40} height={40} sizes="40px" className="h-full w-full object-cover" />
                   </span>
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="text-[0.86rem] font-semibold leading-tight">
+                      <span className="text-[0.9rem] font-semibold leading-tight">
                         <span className="text-ink-2 tabular-nums">{i + 1}. </span>
                         {t(`gs.${s}.t` as DictKey)}
                       </span>
@@ -69,7 +69,7 @@ export function GettingStarted({ locked }: { locked: boolean }) {
                         <Icon name="check" size={12} />
                       </span>
                     </span>
-                    <span className="mt-1 block text-[0.76rem] leading-snug text-ink-2">{t(`gs.${s}.b` as DictKey)}</span>
+                    <span className="lbl mt-1 block">{t(`gs.${s}.b` as DictKey)}</span>
                     <span className="sr-only">, {done ? t("gs.done") : t("gs.todo")}</span>
                   </span>
                 </button>
@@ -79,7 +79,7 @@ export function GettingStarted({ locked }: { locked: boolean }) {
         </ol>
       </div>
 
-      <div className="gs-compact items-center gap-3 rounded-xl border border-rule bg-panel px-3.5 py-2 text-[0.82rem]">
+      <div className="gs-compact items-center gap-3 border-y border-rule py-2 text-[0.85rem]">
         <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-on-accent">
           <Icon name="check" size={13} />
         </span>

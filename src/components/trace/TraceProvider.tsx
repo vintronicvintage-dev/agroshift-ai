@@ -78,11 +78,11 @@ export function TraceProvider({ children }: { children: ReactNode }) {
                 <li key={`${s.name}-${i}`}>
                   {s.url ? (
                     s.url.startsWith("/") ? (
-                      <Link className="font-medium text-sky underline" href={s.url} onClick={() => ref.current?.close()}>
+                      <Link className="font-medium underline decoration-ink-2 underline-offset-2 hover:decoration-ink" href={s.url} onClick={() => ref.current?.close()}>
                         {s.name}
                       </Link>
                     ) : (
-                      <a className="font-medium text-sky underline" href={s.url} target="_blank" rel="noreferrer">
+                      <a className="font-medium underline decoration-ink-2 underline-offset-2 hover:decoration-ink" href={s.url} target="_blank" rel="noreferrer">
                         {s.name}
                       </a>
                     )
@@ -96,7 +96,7 @@ export function TraceProvider({ children }: { children: ReactNode }) {
               ))}
             </ul>
             <p className="mt-5 text-sm">
-              <Link className="text-sky underline" href="/yontem" onClick={() => ref.current?.close()}>
+              <Link className="underline decoration-ink-2 underline-offset-2 hover:decoration-ink" href="/yontem" onClick={() => ref.current?.close()}>
                 {t("trace.methods")}
               </Link>
             </p>

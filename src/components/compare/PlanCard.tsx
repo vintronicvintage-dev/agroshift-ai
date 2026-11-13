@@ -118,13 +118,13 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
   return (
     <article
       id={id}
-      className={`flex min-w-0 flex-col rounded-2xl border bg-panel p-4 sm:p-6 ${isCurrent ? "border-ink-2 border-dashed" : "border-rule"}`}
+      className={`flex min-w-0 flex-col rounded-xl border bg-panel p-4 sm:p-6 ${isCurrent ? "border-ink-2 border-dashed" : "border-rule"}`}
       aria-label={`${title}: ${plan.crops.map((c) => L(CROPS[c].name)).join(", ")}`}
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={`text-sm font-semibold ${isCurrent ? "text-ink-2" : "text-sky"}`}>{title}</p>
-          <h3 className="mt-0.5 font-serif text-lg font-semibold leading-snug">{plan.crops.map((c) => L(CROPS[c].name)).join(", ")}</h3>
+          <p className={`text-sm font-semibold ${isCurrent ? "text-ink-2" : "text-ink"}`}>{title}</p>
+          <h3 className="sec-title mt-0.5">{plan.crops.map((c) => L(CROPS[c].name)).join(", ")}</h3>
         </div>
         <div className="shrink-0 text-right">
           <Traced trace={tr.score} className="num-mid">
@@ -149,17 +149,17 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
         </div>
       )}
 
-      <div className="grid gap-x-8 md:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]">
+      <div className="grid gap-x-10 md:grid-cols-2">
       {/* water */}
       <section className="mt-4 border-t border-rule pt-3">
-        <h4 className="text-sm text-ink-2">
-          {t("plan.deficit")} <span className="text-xs">({t("plan.deficitHelp")})</span>
+        <h4 className="text-[0.95rem] font-semibold">
+          {t("plan.deficit")} <span className="lbl font-normal">({t("plan.deficitHelp")})</span>
         </h4>
         <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
           <Traced trace={tr.deficit} className="num-hero">
             {n(w.requirementMmPerYr?.p50)}
           </Traced>
-          <span className="text-ink-2">mm/{t("ev.year").toLowerCase()}</span>
+          <span className="unit">mm/{t("unit.yr")}</span>
           {dDef !== null && Math.abs(dDef) >= 1 && (
             <span className={`ml-1 text-sm font-semibold ${dDef < 0 ? "text-[var(--c-green)]" : "text-[var(--c-et0)]"}`}>
               {sign(dDef)}
@@ -224,7 +224,7 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
       {/* soil */}
       <section className="mt-4 border-t border-rule pt-3">
         <div className="flex items-baseline justify-between gap-2">
-          <h4 className="text-sm text-ink-2">{t("plan.soil")}</h4>
+          <h4 className="text-[0.95rem] font-semibold">{t("plan.soil")}</h4>
           <p>
             <Traced trace={tr.soil} className="num-mid">
               {n(plan.soilHealth.score)}
@@ -234,7 +234,7 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
         </div>
         <ul className="mt-2 space-y-1">
           {plan.soilHealth.components.map((c) => (
-            <li key={c.key} className="grid grid-cols-[1fr_4.5rem] items-center gap-2 text-xs" title={c.detail}>
+            <li key={c.key} className="grid grid-cols-[1fr_6rem] items-center gap-3 text-[0.8125rem]" title={c.detail}>
               <span className="truncate text-ink-2">{L(c.label)}</span>
               <span className="relative h-2 rounded-full bg-paper" aria-label={`${n(c.value * c.weight, 1)} / ${c.weight}`} role="img">
                 <span className="absolute inset-y-0 left-0 rounded-full bg-[var(--c-green)]" style={{ width: `${c.value * 100}%` }} />
@@ -247,7 +247,7 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
 
       {/* margin */}
       <section className="mt-4 border-t border-rule pt-3">
-        <h4 className="flex items-center gap-2 text-sm text-ink-2">
+        <h4 className="flex items-center gap-2 text-[0.95rem] font-semibold">
           {t("plan.margin")}
           <span className="rounded-full border border-loam px-2 text-xs font-medium text-loam">{t("plan.marginTag")}</span>
         </h4>
@@ -255,7 +255,7 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
           <Traced trace={tr.margin} className="num-mid">
             {n(plan.economics.grossMarginTLPerDaPerYr?.p50)}
           </Traced>
-          <span className="text-sm text-ink-2">TL/da/{t("ev.year").toLowerCase()}</span>
+          <span className="unit">TL/da/{t("unit.yr")}</span>
           {dMar !== null && Math.abs(dMar) >= 1 && (
             <span className={`text-sm font-semibold ${dMar > 0 ? "text-[var(--c-green)]" : "text-[var(--c-et0)]"}`}>
               {sign(dMar)}
@@ -274,12 +274,12 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
       {/* risk */}
       <section className="mt-4 border-t border-rule pt-3">
         <div className="flex items-baseline justify-between gap-2">
-          <h4 className="text-sm text-ink-2">{t("plan.risk")}</h4>
+          <h4 className="text-[0.95rem] font-semibold">{t("plan.risk")}</h4>
           <Traced trace={tr.risk} className={`font-semibold ${riskLevel === "high" ? "text-bad" : riskLevel === "mid" ? "text-[var(--c-et0)]" : "text-[var(--c-green)]"}`}>
             {t(`plan.risk.${riskLevel}`)} ({n(plan.risk.score, 2)})
           </Traced>
         </div>
-        <ul className="mt-1 grid grid-cols-2 gap-x-3 text-xs text-ink-2">
+        <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2 sm:grid-cols-2">
           {(Object.keys(plan.risk.components) as (keyof PlanResult["risk"]["components"])[]).map((k) => (
             <li key={k} className="flex justify-between gap-2">
               <span className="truncate">{t(`plan.riskComp.${k}`)}</span>

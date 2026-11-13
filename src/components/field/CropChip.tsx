@@ -5,6 +5,7 @@ import type { CropId } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { cropColor } from "@/lib/ui/crops";
 import { Chevron } from "@/components/ui/Glyphs";
+import { CropArt } from "@/components/brand/CropArt";
 
 /** Crop-family swatch, the same colour as the crop's band in the strip calendar; fallow is hatched. */
 export function CropSwatch({ id, size = 14 }: { id: CropId; size?: number }) {
@@ -21,12 +22,12 @@ export function CropChip({ id, label, value, onChange }: { id: string; label: st
         {label}
       </label>
       <div className="relative mt-1">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">
-          <CropSwatch id={value} />
+        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
+          <CropArt crop={value} size={28} />
         </span>
         <select
           id={id}
-          className="field-input w-full cursor-pointer appearance-none truncate rounded-full py-2 pl-8 pr-7 text-[0.92rem] font-medium"
+          className="field-input min-h-11 w-full cursor-pointer appearance-none truncate py-2 pl-11 pr-7 text-[0.92rem] font-medium"
           style={{ appearance: "none" }}
           value={value}
           onChange={(e) => onChange(e.target.value as CropId)}

@@ -122,7 +122,7 @@ export function MethodsPage() {
               {last.sources.map((s) => (
                 <li key={s.name}>
                   {s.url.startsWith("http") ? (
-                    <a href={s.url} className="font-medium text-sky underline" target="_blank" rel="noreferrer">
+                    <a href={s.url} className="font-medium underline decoration-ink-2 underline-offset-2 hover:decoration-ink" target="_blank" rel="noreferrer">
                       {s.name}
                     </a>
                   ) : (
@@ -154,7 +154,7 @@ export function MethodsPage() {
       <Sec id="formuller" title={t("m.formulas")}>
         <ul className="prose-serif max-w-[72ch] space-y-3">
           {formulas.map((k) => (
-            <li key={k} className="border-l-2 border-rule pl-3">
+            <li key={k} className="border-l border-rule pl-3">
               {t(k)}
             </li>
           ))}
@@ -272,7 +272,7 @@ export function MethodsPage() {
             <li key={s.id}>
               {s.citation}{" "}
               {s.url && (
-                <a href={s.url} target="_blank" rel="noreferrer" className="font-sans text-sm text-sky underline">
+                <a href={s.url} target="_blank" rel="noreferrer" className="font-sans text-sm underline decoration-ink-2 underline-offset-2 hover:decoration-ink">
                   {s.url.replace(/^https?:\/\//, "")}
                 </a>
               )}
@@ -306,7 +306,7 @@ export function MethodsPage() {
                     <dd>{L(img.edits)}</dd>
                   </div>
                 </dl>
-                <a href={img.sourceUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-6 items-center font-medium text-sky underline underline-offset-2">
+                <a href={img.sourceUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-6 items-center font-medium underline decoration-ink-2 underline-offset-2 hover:decoration-ink underline-offset-2">
                   {t("m.images.source")}
                   <span className="sr-only">: {img.title}</span>
                 </a>

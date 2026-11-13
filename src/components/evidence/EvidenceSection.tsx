@@ -342,7 +342,7 @@ function SourceLine({ s }: { s: SourceMeta }) {
   return (
     <span>
       {s.url ? (
-        <a href={s.url} className="text-sky underline" target={s.url.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
+        <a href={s.url} className="underline decoration-ink-2 underline-offset-2 hover:decoration-ink" target={s.url.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
           {s.name}
         </a>
       ) : (

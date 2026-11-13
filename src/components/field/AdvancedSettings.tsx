@@ -35,7 +35,7 @@ export interface AdvancedProps {
 function Group({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <fieldset className="min-w-0 border-t border-rule pt-4">
-      <legend className="float-left mb-3 flex w-full flex-wrap items-center justify-between gap-2 font-serif text-lg font-semibold">
+      <legend className="float-left mb-3 flex w-full flex-wrap items-center justify-between gap-2 sec-title">
         {title}
         {aside}
       </legend>
@@ -145,7 +145,7 @@ export function AdvancedSettings(p: AdvancedProps) {
                 {t("q.water.fine")}
               </label>
               <output htmlFor="f-budget-fine" className="tabular-nums">
-                <span className="font-serif text-lg font-semibold">{n(parseNum(d.budget))}</span> <span className="text-xs text-ink-2">{t("field.budgetUnit")}</span>
+                <span className="sec-title">{n(parseNum(d.budget))}</span> <span className="text-xs text-ink-2">{t("field.budgetUnit")}</span>
               </output>
             </div>
             <input

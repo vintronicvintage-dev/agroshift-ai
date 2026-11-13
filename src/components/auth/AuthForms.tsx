@@ -9,6 +9,7 @@ import { confirmUrl, getBrowserSupabase } from "@/lib/auth/browser";
 import { authErrorKind, isObfuscatedExistingUser, type AuthErrorKind } from "@/lib/auth/errors";
 import { isValidEmail, PASSWORD_MIN, passwordStrength } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/redirect";
+import { EmptyArt } from "@/components/ui/EmptyArt";
 import { Icon } from "@/components/ui/Icons";
 
 type Status = { kind: "idle" } | { kind: "busy"; what: "password" | "magic" | "submit" } | { kind: "error"; err: AuthErrorKind } | { kind: "sent"; key: DictKey; email: string };
@@ -105,11 +106,9 @@ function StatusLine({ status }: { status: Status }) {
 function Sent({ status, onReset }: { status: Extract<Status, { kind: "sent" }>; onReset: () => void }) {
   const { t } = useI18n();
   return (
-    <div role="status" className="rounded-2xl border border-rule bg-panel p-5">
-      <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-on-accent">
-        <Icon name="mail" size={20} />
-      </span>
-      <p className="mt-3 font-display text-[1.2rem] font-semibold tracking-[-0.01em]">{t("auth.sentTitle")}</p>
+    <div role="status" className="border-t border-rule pt-5">
+      <EmptyArt kind="sent" size={144} />
+      <p className="mt-3 font-display text-[length:var(--text-step-2)] font-[560] tracking-[-0.01em]">{t("auth.sentTitle")}</p>
       <p className="mt-1 text-[0.9rem] text-ink-2">{t(status.key, { email: status.email })}</p>
       <button type="button" className="btn mt-4" onClick={onReset}>
         {t("auth.resend")}

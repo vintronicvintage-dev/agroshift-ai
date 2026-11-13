@@ -15,7 +15,7 @@ export function Explainers() {
   const { t } = useI18n();
   return (
     <aside className="h-fit rounded-lg bg-panel-2 p-4 xl:sticky xl:top-[calc(var(--stepbar-h)+1rem)]" aria-labelledby="ex-title">
-      <h3 id="ex-title" className="font-serif text-lg font-semibold">
+      <h3 id="ex-title" className="sec-title">
         {t("ex.title")}
       </h3>
       <div className="mt-2 divide-y divide-rule">

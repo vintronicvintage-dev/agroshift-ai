@@ -87,7 +87,7 @@ export function FieldStep(p: Props) {
         <Question n={1} title={t("q.where")}>
           {p.site && (
             <div aria-live="polite">
-              <p className="font-serif text-[1.65rem] font-semibold leading-tight">{p.site.kind === "pilot" ? pname(p.site) : `${n(p.site.lat, 3)}°, ${n(p.site.lon, 3)}°`}</p>
+              <p className="font-display text-[length:var(--text-step-2)] font-[560] leading-tight">{p.site.kind === "pilot" ? pname(p.site) : `${n(p.site.lat, 3)}°, ${n(p.site.lon, 3)}°`}</p>
               <p className="mt-0.5 text-sm text-ink-2 tabular-nums">
                 {n(p.site.lat, 2)}° N, {n(p.site.lon, 2)}° E{p.elevation !== null && <>, {t("site.elevation", { m: n(p.elevation) })}</>}
                 {p.zoneLabel && <>. {t("site.zone")}: {p.zoneLabel}</>}
@@ -240,11 +240,11 @@ function Question({ n, title, sub, children }: { n: number; title: string; sub?:
   return (
     <section className="border-t border-rule pb-6 pt-5 first:border-t-0 first:pt-0" aria-labelledby={`q-${n}`}>
       <h3 id={`q-${n}`} className="flex items-baseline gap-3">
-        <span className="font-serif text-xl font-medium tabular-nums text-loam" aria-hidden="true">
+        <span className="readout text-[length:var(--text-step-1)] text-loam" aria-hidden="true">
           {n}
         </span>
-        <span className="font-serif text-[1.45rem] font-semibold leading-tight tracking-[-0.01em]">{title}</span>
-        {sub && <span className="text-sm text-ink-2">{sub}</span>}
+        <span className="font-display text-[length:var(--text-step-2)] font-[560] leading-tight tracking-[-0.01em]">{title}</span>
+        {sub && <span className="lbl">{sub}</span>}
       </h3>
       <div className="mt-3">{children}</div>
     </section>

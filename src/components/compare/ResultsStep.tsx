@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import type { CalibrationInfo } from "@/lib/ui/calibration";
 import { composeVerdict } from "@/lib/ui/verdict";
 import { JudgmentNote } from "@/components/shell/JudgmentNote";
+import { EmptyArt } from "@/components/ui/EmptyArt";
 import { Chevron } from "@/components/ui/Glyphs";
 import { AssumptionsPanel } from "./AssumptionsPanel";
 import { CompareTable } from "./CompareTable";
@@ -41,7 +42,7 @@ export function ResultsStep(p: Props) {
   const { result, ctx, openId } = p;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {p.error && (
         <p className="rounded-xl bg-warn px-4 py-3 text-warn-ink" role="alert">
           {t("run.error", { msg: p.error })}
@@ -50,12 +51,17 @@ export function ResultsStep(p: Props) {
 
       {result && ctx ? (
         <>
-          <header className={p.running ? "opacity-80 transition-opacity" : undefined}>
+          <header className={`grid gap-x-10 gap-y-6 xl:grid-cols-[minmax(0,1fr)_20rem] ${p.running ? "opacity-80 transition-opacity" : ""}`}>
             <Verdict result={result} />
-            <p className="mt-3 max-w-[80ch] text-sm text-ink-2">
-              {t("v.basis", { s: n(composeVerdict(result).best.score.composite), w: result.windows.count })} {t("step.compare.lead")}
-            </p>
-            <div className="mt-4">
+            <div className="space-y-4 xl:border-l xl:border-rule xl:pl-6">
+              <p className="flex items-baseline gap-2">
+                <span className="lbl">{t("plan.score")}</span>
+                <span className="readout text-[length:var(--text-step-3)] text-accent-ink">{n(composeVerdict(result).best.score.composite)}</span>
+                <span className="unit">/100</span>
+              </p>
+              <p className="lbl max-w-[60ch]">
+                {t("v.basis", { s: n(composeVerdict(result).best.score.composite), w: result.windows.count })} {t("step.compare.lead")}
+              </p>
               <JudgmentNote compact />
             </div>
           </header>
@@ -83,7 +89,7 @@ export function ResultsStep(p: Props) {
               <span className="self-center text-ink-2 transition-transform duration-200 group-open:rotate-90">
                 <Chevron />
               </span>
-              <span className="font-serif text-xl font-semibold">{t("more.title")}</span>
+              <span className="sec-title">{t("more.title")}</span>
               <span className="hidden text-sm text-ink-2 sm:inline">{t("more.sub")}</span>
             </summary>
             <div className="enter mt-5 space-y-6">
@@ -95,7 +101,10 @@ export function ResultsStep(p: Props) {
           </details>
         </>
       ) : (
-        <p className={`rounded-2xl border border-dashed border-rule px-4 py-12 text-center text-ink-2 ${p.running ? "recalc" : ""}`}>{p.running ? t("run.first") : t("run.waiting")}</p>
+        <div className="sec flex items-center gap-4">
+          <EmptyArt kind="options" size={120} />
+          <p className={`text-ink-2 ${p.running ? "recalc" : ""}`}>{p.running ? t("run.first") : t("run.waiting")}</p>
+        </div>
       )}
     </div>
   );

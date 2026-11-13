@@ -18,7 +18,7 @@ export function WhyPanel({ explanation, resolve, extraGaps }: { explanation: Exp
   const { t } = useI18n();
   return (
     <details className="group mt-4 border-t border-rule pt-3">
-      <summary className="flex items-center gap-1.5 font-semibold text-sky">
+      <summary className="flex items-center gap-1.5 font-semibold text-ink">
         <span className="chev" aria-hidden="true">
           ›
         </span>
@@ -35,7 +35,7 @@ export function WhyPanel({ explanation, resolve, extraGaps }: { explanation: Exp
               <h4 className="text-sm font-semibold text-ink-2">{t(label)}</h4>
               <ul className="prose-serif mt-1 space-y-1.5 text-[0.95rem]">
                 {extras.map((x) => (
-                  <li key={x} className="border-l-2 border-warn-ink/50 pl-2.5">
+                  <li key={x} className="border-l border-warn-ink/50 pl-2.5">
                     {x}
                   </li>
                 ))}
@@ -54,7 +54,7 @@ export function WhyPanel({ explanation, resolve, extraGaps }: { explanation: Exp
 function Item({ it, resolve, accent }: { it: ExplanationItem; resolve: (name: string) => SourceRef; accent: boolean }) {
   const { L } = useI18n();
   return (
-    <li className={`pl-2.5 ${accent ? "border-l-2 border-loam" : "border-l-2 border-rule"}`}>
+    <li className={`pl-2.5 ${accent ? "border-l border-loam" : "border-l border-rule"}`}>
       {L(it.text)}
       {it.sources && it.sources.length > 0 && (
         <span className="ml-1 font-sans text-xs text-ink-2">
@@ -66,11 +66,11 @@ function Item({ it, resolve, accent }: { it: ExplanationItem; resolve: (name: st
                 {i > 0 && ", "}
                 {r.url ? (
                   r.url.startsWith("/") ? (
-                    <Link href={r.url} className="underline hover:text-sky">
+                    <Link href={r.url} className="underline hover:text-ink">
                       {s}
                     </Link>
                   ) : (
-                    <a href={r.url} target="_blank" rel="noreferrer" className="underline hover:text-sky">
+                    <a href={r.url} target="_blank" rel="noreferrer" className="underline hover:text-ink">
                       {s}
                     </a>
                   )

@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n";
 import type { CalibrationInfo } from "@/lib/ui/calibration";
 import { Traced } from "@/components/trace/TraceProvider";
+import { Icon } from "@/components/ui/Icons";
 
 /** Shown next to every rainfall figure: the applied station factor, or an "uncalibrated" flag. */
 export function CalibrationBadge({ calibration, small = false }: { calibration: CalibrationInfo | null; small?: boolean }) {
@@ -11,7 +12,7 @@ export function CalibrationBadge({ calibration, small = false }: { calibration: 
   if (!calibration) {
     return (
       <span className={`inline-flex items-center gap-1 rounded-full bg-warn font-sans font-medium text-warn-ink ${size}`}>
-        <span aria-hidden="true">!</span> {t("cal.none")}
+        <Icon name="alert" size={12} /> {t("cal.none")}
       </span>
     );
   }

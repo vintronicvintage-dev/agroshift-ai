@@ -13,13 +13,15 @@ import type { SiteData } from "@/lib/ui/siteData";
 import { composeVerdict } from "@/lib/ui/verdict";
 import type { SectionId } from "@/lib/ui/steps";
 import type { Site } from "@/components/field/site";
-import { CropSwatch } from "@/components/field/CropChip";
+import { CropArt } from "@/components/brand/CropArt";
+import { SpotArt } from "@/components/brand/SpotArt";
 import { MonthlyBalanceChart } from "@/components/charts/ClimateCharts";
 import { Swatch } from "@/components/charts/chartKit";
 import { StripCalendar } from "@/components/compare/StripCalendar";
 import { usePlanTitle, Verdict } from "@/components/compare/Verdict";
 import { CalibrationBadge } from "@/components/evidence/CalibrationBadge";
 import { JudgmentNote } from "@/components/shell/JudgmentNote";
+import { EmptyArt } from "@/components/ui/EmptyArt";
 import { Num } from "@/components/ui/Num";
 import { HashLink } from "@/components/ui/HashLink";
 import { Icon } from "@/components/ui/Icons";
@@ -48,47 +50,39 @@ interface Props {
   onOpenPlan: (planId: string) => void;
 }
 
-/** The overview bento. Every number comes from the data layer or the engine result. */
+/**
+ * The overview, read in this order: the answer (which plan, how it differs from yours), where the
+ * field is, the three climate readouts, then the plan table and what to watch, then supporting
+ * detail. Sections sit on the paper under hairlines on one 12-column grid. Every number comes from
+ * the data layer or the engine result.
+ */
 export function Overview(p: Props) {
-  const { t } = useI18n();
-  const best = p.result ? composeVerdict(p.result).best : null;
+  if (!p.site) return <OverviewEmpty {...p} />;
   return (
-    <div className="bento">
-      <MapCard {...p} />
-      <StatTiles climate={p.climate} calibration={p.calibration} fit={best?.score.composite ?? null} running={p.running && !p.result} />
-      <BestPlanCard result={p.result} running={p.running} hasSite={!!p.site} />
-      <ClimateDayCard data={p.data} raw={p.rawClimate} hasSite={!!p.site} />
-      <Card className="md:col-span-3 xl:col-span-5" title={t("ov.wb.title")} action={p.climate ? <SectionLink to="kanit" label={t("ov.wb.more")} /> : undefined}>
-        {p.climate ? (
-          <>
-            <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-2">
-              <Swatch color="var(--c-precip)" label={t("ev.precipShort")} />
-              <Swatch color="var(--c-et0)" label="ET₀" />
-              <CalibrationBadge calibration={p.calibration} small />
-            </div>
-            <MonthlyBalanceChart monthly={p.climate.monthly} height={168} />
-          </>
-        ) : (
-          <Empty icon="rain">{t("ov.wb.empty")}</Empty>
-        )}
-      </Card>
-      <AlertsCard {...p} />
+    <div className="grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-6 xl:grid-cols-12">
+      <BestPlan result={p.result} running={p.running} />
+      <MapBlock {...p} />
+      <Readouts climate={p.climate} calibration={p.calibration} />
       <PlanTable result={p.result} onOpenPlan={p.onOpenPlan} />
-      <SoilCard result={p.result} />
+      <AlertsSection {...p} />
+      <WaterBalance climate={p.climate} calibration={p.calibration} />
+      <ClimateDay data={p.data} raw={p.rawClimate} />
+      <SoilSection result={p.result} />
     </div>
   );
 }
 
 // ── building blocks ───────────────────────────────────────────────────────
 
-function Card({ title, action, className = "", children, labelledBy }: { title: string; action?: ReactNode; className?: string; children: ReactNode; labelledBy?: string }) {
-  const id = labelledBy ?? `c-${title.replace(/[^\p{L}\d]+/gu, "-").toLowerCase()}`;
+/** One section anatomy everywhere: hairline, serif title, optional quiet link on the right. */
+function Section({ title, action, className = "", children }: { title: string; action?: ReactNode; className?: string; children: ReactNode }) {
+  const id = `s-${title.replace(/[^\p{L}\d]+/gu, "-").toLowerCase()}`;
   return (
-    <section className={`card flex flex-col p-4 sm:p-5 ${className}`} aria-labelledby={id}>
-      <header className="mb-3 flex min-h-7 items-center justify-between gap-3">
-        <h3 id={id} className="card-title">
+    <section className={`sec flex flex-col ${className}`} aria-labelledby={id}>
+      <header className="mb-4 flex min-h-8 items-baseline justify-between gap-3">
+        <h2 id={id} className="sec-title">
           {title}
-        </h3>
+        </h2>
         {action}
       </header>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
@@ -98,262 +92,307 @@ function Card({ title, action, className = "", children, labelledBy }: { title: 
 
 function SectionLink({ to, label }: { to: SectionId; label: string }) {
   return (
-    <HashLink to={to} className="tap inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[0.8rem] font-semibold text-accent-ink hover:bg-panel-2">
+    <HashLink to={to} className="tap inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[0.85rem] font-semibold text-accent-ink hover:bg-panel-2">
       {label}
       <Icon name="arrow" size={14} />
     </HashLink>
   );
 }
 
-function Empty({ icon, children, action }: { icon: Parameters<typeof Icon>[0]["name"]; children: ReactNode; action?: ReactNode }) {
+function Waiting({ children }: { children: ReactNode }) {
+  return <p className="lbl recalc py-2">{children}</p>;
+}
+
+// ── nothing picked yet: one empty state, one action ────────────────────────
+
+function OverviewEmpty(p: Props) {
+  const { t, lang } = useI18n();
+  const pname = (x: { nameTr: string | null; nameEn: string | null }) => (lang === "tr" ? x.nameTr : x.nameEn) ?? "";
   return (
-    <div className="flex flex-1 flex-col items-start justify-center gap-3 rounded-xl border border-dashed border-rule-strong px-4 py-5 text-sm text-ink-2">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-panel-2 text-ink-2">
-        <Icon name={icon} size={18} />
-      </span>
-      <div className="max-w-[38ch]">{children}</div>
-      {action}
+    <div className="grid gap-8 md:grid-cols-6 xl:grid-cols-12">
+      <section className="sec md:col-span-6 xl:col-span-5" aria-labelledby="ov-empty-h">
+        <EmptyArt kind="field" />
+        <h2 id="ov-empty-h" className="mt-4 font-display text-[length:var(--text-step-3)] font-[560] leading-[1.1] tracking-[-0.02em]">
+          {t("ov.empty.title")}
+        </h2>
+        <p className="mt-3 max-w-[52ch] text-ink-2">{t("ov.empty.body")}</p>
+        <ul className="mt-4 max-w-[52ch] space-y-2 text-[0.95rem]">
+          {(["ov.empty.i1", "ov.empty.i2", "ov.empty.i3"] as const).map((k) => (
+            <li key={k} className="flex gap-2.5">
+              <span className="mt-[0.55rem] h-px w-3 shrink-0 bg-ink-2" aria-hidden="true" />
+              {t(k)}
+            </li>
+          ))}
+        </ul>
+        <HashLink to="tarlam" className="btn btn-primary btn-lg mt-6">
+          {t("ov.map.pick")}
+          <Icon name="arrow" size={16} />
+        </HashLink>
+        <div className="mt-6 border-t border-rule pt-4">
+          <JudgmentNote compact />
+        </div>
+      </section>
+      <div className="md:col-span-6 xl:col-span-7">
+        <div className="card relative isolate h-[20rem] overflow-hidden xl:h-[28rem]">
+          <FieldMap
+            pilots={(p.pilots ?? []).map((x) => ({ id: x.id, name: pname(x), lat: x.lat, lon: x.lon }))}
+            selected={null}
+            showNdvi={false}
+            onPick={p.onPoint}
+            onPilot={p.onPilot}
+            label={t("ov.map.label")}
+            base="satellite"
+            focusZoom={7}
+          />
+        </div>
+        <p className="lbl mt-2">{t("ov.map.empty")}</p>
+      </div>
     </div>
   );
 }
 
-const PickFirst = () => {
+// ── the answer ───────────────────────────────────────────────────────────
+
+function BestPlan({ result, running }: { result: AnalysisResult | null; running: boolean }) {
   const { t } = useI18n();
+  const v = result ? composeVerdict(result) : null;
   return (
-    <HashLink to="tarlam" className="btn btn-primary">
-      {t("ov.map.pick")}
-      <Icon name="arrow" size={16} />
-    </HashLink>
+    <section className="md:col-span-6 xl:col-span-7" aria-labelledby="ov-best-h">
+      <h2 id="ov-best-h" className="sr-only">
+        {t("ov.best.title")}
+      </h2>
+      {result && v ? (
+        <div className={running ? "opacity-80 transition-opacity" : undefined}>
+          <Verdict result={result} />
+          <div className="mt-6">
+            <StripCalendar crops={v.best.crops} zone={result.zone} />
+          </div>
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            <p className="flex items-baseline gap-3">
+              <span className="lbl">{t("plan.score")}</span>
+              <span className="readout text-[length:var(--text-step-3)] text-accent-ink">
+                <Num value={v.best.score.composite} />
+              </span>
+              <span className="unit">/100</span>
+              {!v.bestIsCurrent && (
+                <span className="lbl ml-1 tabular-nums">
+                  {t("ov.fitRef", { s: String(Math.round(result.current.score.composite)) })}
+                </span>
+              )}
+            </p>
+            <HashLink to="oneriler" className="btn btn-primary btn-lg">
+              {t("ov.best.compare")}
+              <Icon name="arrow" size={16} />
+            </HashLink>
+          </div>
+          <div className="mt-5 border-t border-rule pt-4">
+            <JudgmentNote compact />
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="recalc font-display text-[length:var(--text-step-2)] font-[560] leading-tight">{running ? t("run.first") : t("ov.best.empty")}</p>
+          <div className="mt-5 border-t border-rule pt-4">
+            <JudgmentNote compact />
+          </div>
+        </div>
+      )}
+    </section>
   );
-};
+}
 
-// ── map ──────────────────────────────────────────────────────────────────
+// ── where ────────────────────────────────────────────────────────────────
 
-function MapCard(p: Props) {
+function MapBlock(p: Props) {
   const { t, n, lang } = useI18n();
   const pname = (x: { nameTr: string | null; nameEn: string | null }) => (lang === "tr" ? x.nameTr : x.nameEn) ?? "";
   const elevation = p.rawClimate?.elevation ?? null;
+  const site = p.site!;
   return (
-    <section className="card relative isolate h-[19rem] overflow-hidden md:col-span-6 xl:col-span-5 xl:h-[21rem]" aria-label={t("ov.map.title")}>
-      <FieldMap
-        pilots={(p.pilots ?? []).map((x) => ({ id: x.id, name: pname(x), lat: x.lat, lon: x.lon }))}
-        selected={p.site ? { lat: p.site.lat, lon: p.site.lon } : null}
-        showNdvi={false}
-        onPick={p.onPoint}
-        onPilot={p.onPilot}
-        label={t("ov.map.label")}
-        base="satellite"
-        focusZoom={7}
-      />
-      <HashLink to="tarlam" className="btn absolute right-3 top-3 z-[500] bg-panel/90 backdrop-blur">
-        <Icon name="pin" size={16} />
-        {p.site ? t("ov.map.change") : t("ov.map.pick")}
-      </HashLink>
-      <div className="pointer-events-none absolute inset-x-3 bottom-7 z-[500]">
-        <div className="pointer-events-auto inline-block max-w-full rounded-xl border border-rule-strong bg-panel/92 px-3.5 py-2.5 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.6)] backdrop-blur" aria-live="polite">
-          {p.site ? (
-            <>
-              <p className="font-display text-[1.15rem] font-semibold leading-tight tracking-[-0.01em]">{p.siteName}</p>
-              <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[0.8rem] text-ink-2 tabular-nums">
-                <div className="flex gap-1">
-                  <dt className="sr-only">{t("site.selected")}</dt>
-                  <dd>
-                    {n(p.site.lat, 2)}° N, {n(p.site.lon, 2)}° E
-                  </dd>
-                </div>
-                {elevation !== null && (
-                  <div className="flex gap-1">
-                    <dt>{t("ov.map.elevation")}</dt>
-                    <dd className="text-ink">{n(elevation)} m</dd>
-                  </div>
-                )}
-                {p.areaDa !== null && (
-                  <div className="flex gap-1">
-                    <dt>{t("ov.map.area")}</dt>
-                    <dd className="text-ink">
-                      {n(p.areaDa)} {t("field.areaUnit")}
-                    </dd>
-                  </div>
-                )}
-                {p.zoneLabel && (
-                  <div className="flex gap-1">
-                    <dt>{t("ov.map.zone")}</dt>
-                    <dd className="text-ink">{p.zoneLabel}</dd>
-                  </div>
-                )}
-              </dl>
-            </>
-          ) : (
-            <p className="max-w-[34ch] text-sm text-ink">{t("ov.map.empty")}</p>
-          )}
+    <section className="md:col-span-6 xl:col-span-5" aria-label={t("ov.map.title")}>
+      <div className="card relative isolate h-[15rem] overflow-hidden sm:h-[17rem]">
+        <FieldMap
+          pilots={(p.pilots ?? []).map((x) => ({ id: x.id, name: pname(x), lat: x.lat, lon: x.lon }))}
+          selected={{ lat: site.lat, lon: site.lon }}
+          showNdvi={false}
+          onPick={p.onPoint}
+          onPilot={p.onPilot}
+          label={t("ov.map.label")}
+          base="satellite"
+          focusZoom={7}
+        />
+      </div>
+      <div className="mt-3 flex items-start justify-between gap-3" aria-live="polite">
+        <div className="min-w-0">
+          <p className="font-display text-[length:var(--text-step-1)] font-[560] leading-tight">{p.siteName}</p>
+          <dl className="lbl mt-1 flex flex-wrap gap-x-4 gap-y-0.5 tabular-nums">
+            <div className="flex gap-1">
+              <dt className="sr-only">{t("site.selected")}</dt>
+              <dd>
+                {n(site.lat, 2)}° N, {n(site.lon, 2)}° E
+              </dd>
+            </div>
+            {elevation !== null && (
+              <div className="flex gap-1">
+                <dt>{t("ov.map.elevation")}</dt>
+                <dd className="text-ink">{n(elevation)} m</dd>
+              </div>
+            )}
+            {p.areaDa !== null && (
+              <div className="flex gap-1">
+                <dt>{t("ov.map.area")}</dt>
+                <dd className="text-ink">
+                  {n(p.areaDa)} {t("field.areaUnit")}
+                </dd>
+              </div>
+            )}
+            {p.zoneLabel && (
+              <div className="flex gap-1">
+                <dt>{t("ov.map.zone")}</dt>
+                <dd className="text-ink">{p.zoneLabel}</dd>
+              </div>
+            )}
+          </dl>
         </div>
+        <HashLink to="tarlam" className="btn shrink-0">
+          <Icon name="pin" size={16} />
+          {t("ov.map.change")}
+        </HashLink>
       </div>
     </section>
   );
 }
 
-// ── stat tiles ───────────────────────────────────────────────────────────
+// ── three climate readouts, each with a reference ─────────────────────────
 
-function StatTiles({ climate, calibration, fit, running }: { climate: ClimateSummary | null; calibration: CalibrationInfo | null; fit: number | null; running: boolean }) {
-  const { t } = useI18n();
+function Readouts({ climate, calibration }: { climate: ClimateSummary | null; calibration: CalibrationInfo | null }) {
+  const { t, n } = useI18n();
   const P = climate?.meanAnnualPrecipMm ?? null;
   const E = climate?.meanAnnualEt0Mm ?? null;
   const gap = P !== null && E !== null ? E - P : null;
-  const years = climate ? t("ov.st.years", { n: climate.completeYears.length }) : t("ov.st.wait");
+  const years = climate ? t("ov.st.years", { n: climate.completeYears.length }) : "";
   return (
-    <div className="grid grid-cols-2 gap-3 md:col-span-6 md:grid-cols-4 xl:col-span-3 xl:grid-cols-2 xl:gap-4" role="group" aria-label={`${t("ov.st.precip")}, ${t("ov.st.et0")}, ${t("ov.st.gap")}, ${t("ov.st.fit")}`}>
-      <Stat label={t("ov.st.precip")} value={P} unit="mm" sub={years} tone="var(--c-precip)" extra={climate && !calibration ? <span className="text-warn-ink">{t("cal.none")}</span> : undefined} />
-      <Stat label={t("ov.st.et0")} value={E} unit="mm" sub={years} tone="var(--c-et0)" />
-      <Stat label={t("ov.st.gap")} value={gap} unit="mm" sub={t("ov.st.gapSub")} />
-      <Stat label={t("ov.st.fit")} value={fit} unit="/100" sub={running ? t("run.first") : fit === null ? t("ov.st.wait") : t("ov.st.fitSub")} tone="var(--accent-ink)" busy={running} />
-    </div>
+    <section className="sec md:col-span-6 xl:col-span-12" aria-labelledby="ov-rd-h">
+      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="ov-rd-h" className="sec-title">
+          {t("ov.rd.title")}
+        </h2>
+        {climate && (
+          <span className="flex items-center gap-3">
+            <span className="lbl">{years}</span>
+            <CalibrationBadge calibration={calibration} small />
+          </span>
+        )}
+      </header>
+      {climate ? (
+        <dl className="grid grid-cols-1 gap-y-5 sm:grid-cols-3 sm:divide-x sm:divide-rule">
+          <Readout label={t("ov.st.precip")} value={P} unit="mm" sub={P !== null && E ? t("ov.st.precipRef", { p: n((P / E) * 100) }) : ""} color="var(--c-precip)" />
+          <Readout label={t("ev.et0")} value={E} unit="mm" sub={t("ov.st.et0Sub")} color="var(--c-et0)" />
+          <Readout label={t("ov.st.gap")} value={gap} unit="mm" sub={t("ov.st.gapSub")} />
+        </dl>
+      ) : (
+        <Waiting>{t("ov.cl.loading")}</Waiting>
+      )}
+    </section>
   );
 }
 
-function Stat({ label, value, unit, sub, tone, extra, busy }: { label: string; value: number | null; unit: string; sub: string; tone?: string; extra?: ReactNode; busy?: boolean }) {
+function Readout({ label, value, unit, sub, color }: { label: string; value: number | null; unit: string; sub: string; color?: string }) {
   return (
-    <div className="card flex min-h-[8.75rem] flex-col justify-between p-3.5 xl:min-h-[9.75rem] xl:p-4">
-      <p className="text-[0.8rem] font-medium leading-tight text-ink-2">{label}</p>
-      <p className={`mt-2 flex items-baseline gap-1 ${busy ? "recalc" : ""}`}>
-        <span className="text-[clamp(1.65rem,1.95vw,2.2rem)] font-light leading-none tracking-[-0.035em] tabular-nums" style={tone && value !== null ? { color: tone } : undefined}>
+    <div className="min-w-0 sm:px-6 sm:first:pl-0">
+      <dt className="lbl flex items-center gap-2">
+        {color && <span className="h-2 w-2 rounded-full" style={{ background: color }} aria-hidden="true" />}
+        {label}
+      </dt>
+      <dd className="mt-2">
+        <span className="readout text-[length:var(--text-step-3)] xl:text-[length:var(--text-step-4)]">
           <Num value={value} />
         </span>
-        <span className="text-[0.8rem] text-ink-2">{unit}</span>
-      </p>
-      <p className="mt-1.5 text-[0.72rem] leading-tight text-ink-2">
-        {sub}
-        {extra && <>, {extra}</>}
-      </p>
+        <span className="unit ml-1.5">{unit}</span>
+        <span className="lbl mt-1.5 block">{sub}</span>
+      </dd>
     </div>
   );
 }
 
-// ── best plan ────────────────────────────────────────────────────────────
+// ── plans ────────────────────────────────────────────────────────────────
 
-function BestPlanCard({ result, running, hasSite }: { result: AnalysisResult | null; running: boolean; hasSite: boolean }) {
+function PlanTable({ result, onOpenPlan }: { result: AnalysisResult | null; onOpenPlan: (id: string) => void }) {
   const { t, L } = useI18n();
   const title = usePlanTitle();
-  const v = result ? composeVerdict(result) : null;
-  return (
-    <Card
-      className="md:col-span-6 xl:col-span-4"
-      title={t("ov.best.title")}
-      action={
-        v ? (
-          <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[0.78rem] font-semibold tabular-nums text-accent-ink">
-            {t("plan.score")} <Num value={v.best.score.composite} />
-          </span>
-        ) : undefined
-      }
-    >
-      {result && v ? (
-        <div className={`flex flex-1 flex-col gap-3 ${running ? "opacity-80 transition-opacity" : ""}`}>
-          <Verdict result={result} size="sm" />
-          <div>
-            <p className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem] text-ink-2">
-              <span className="font-semibold text-ink">{title(v.best)}</span>
-              {v.best.crops.map((c, i) => (
-                <span key={i} className="inline-flex items-center gap-1">
-                  <CropSwatch id={c} size={9} />
-                  {shortName(L(CROPS[c].name))}
-                </span>
-              ))}
-            </p>
-            <StripCalendar crops={v.best.crops} zone={result.zone} />
-          </div>
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
-            <JudgmentNote compact />
-            <HashLink to="oneriler" className="btn btn-primary">
-              {t("ov.best.compare")}
-              <Icon name="arrow" size={16} />
-            </HashLink>
-          </div>
-        </div>
-      ) : (
-        <Empty icon="options" action={hasSite ? undefined : <PickFirst />}>
-          <p className={running ? "recalc" : undefined}>{running ? t("run.first") : t("ov.best.empty")}</p>
-          <div className="mt-3">
-            <JudgmentNote compact />
-          </div>
-        </Empty>
-      )}
-    </Card>
-  );
-}
-
-// ── climate day ──────────────────────────────────────────────────────────
-
-function lastRecord(raw: ClimateSeries): DailyWeather | null {
-  for (let i = raw.daily.length - 1; i >= 0; i--) {
-    const d = raw.daily[i];
-    if (d.tmean !== null || d.tmax !== null || d.precip !== null) return d;
+  const cls = "md:col-span-6 xl:col-span-8";
+  if (!result) {
+    return (
+      <Section className={cls} title={t("ov.tbl.title")}>
+        <Waiting>{t("ov.tbl.empty")}</Waiting>
+      </Section>
+    );
   }
-  return null;
-}
-
-function ClimateDayCard({ data, raw, hasSite }: { data: SiteData | null; raw: ClimateSeries | null; hasSite: boolean }) {
-  const { t, n, locale } = useI18n();
-  const day = raw ? lastRecord(raw) : null;
-  const status = data?.climate.status;
-  const dateText = day ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day.date}T00:00:00Z`)) : null;
+  const plans = [result.current, ...result.alternatives, ...result.userPlans];
+  const best = composeVerdict(result).best;
+  const cols: { k: DictKey; unit: DictKey }[] = [
+    { k: "tbl.fit", unit: "tbl.soilUnit" },
+    { k: "tbl.deficit", unit: "tbl.deficitUnit" },
+    { k: "tbl.margin", unit: "tbl.marginUnit" },
+  ];
   return (
-    <Card className="md:col-span-3 xl:col-span-3" title={t("ov.cl.title")}>
-      {day && dateText ? (
-        <div className="flex flex-1 flex-col">
-          <p className="text-[0.8rem] text-ink-2">
-            <time dateTime={day.date} className="font-semibold text-ink">
-              {dateText}
-            </time>
-            <span className="block">{t("ov.cl.source", { date: day.date })}</span>
-          </p>
-          <p className="mt-3">
-            <span className="text-[2.6rem] font-light leading-none tracking-[-0.04em] tabular-nums">{n(day.tmean, 1)}°</span>
-            <span className="mt-1 block text-[0.78rem] text-ink-2 tabular-nums">
-              {t("ov.cl.temp")}, {t("ov.cl.range", { lo: n(day.tmin, 1), hi: n(day.tmax, 1) })}
-            </span>
-          </p>
-          <dl className="mt-4 grid gap-2 text-sm">
-            <Row icon="rain" label={t("ov.cl.rain")} value={`${n(day.precip, 1)} mm`} />
-            <Row icon="wind" label={t("ov.cl.wind")} value={`${n(day.wind2m, 1)} m/s`} />
-            <Row icon="drop" label={t("ov.cl.root")} value={day.gwetRoot === null ? "—" : `%${n(day.gwetRoot * 100)}`} hint={t("ov.cl.rootHelp")} />
-          </dl>
-          <p className="mt-auto pt-3 text-[0.72rem] leading-snug text-ink-2">{t("ov.cl.note")}</p>
-        </div>
-      ) : status === "loading" ? (
-        <Empty icon="satellite">
-          <span className="recalc">{t("ov.cl.loading")}</span>
-        </Empty>
-      ) : status === "error" ? (
-        <Empty icon="alert" action={<HashLink to="tarlam" className="btn">{t("load.retry")}</HashLink>}>
-          {t("ov.cl.error")}
-        </Empty>
-      ) : (
-        <Empty icon="thermo" action={hasSite ? undefined : <PickFirst />}>
-          {t("ov.cl.empty")}
-        </Empty>
-      )}
-    </Card>
-  );
-}
-
-function Row({ icon, label, value, hint }: { icon: "rain" | "wind" | "drop"; label: string; value: string; hint?: string }) {
-  return (
-    <div className="flex items-center gap-2.5 border-t border-rule pt-2">
-      <span className="text-ink-2">
-        <Icon name={icon} size={17} />
-      </span>
-      <dt className="min-w-0 flex-1 text-ink-2">
-        {label}
-        {hint && <span className="sr-only">, {hint}</span>}
-      </dt>
-      <dd className="font-semibold tabular-nums">{value}</dd>
-    </div>
+    <Section className={cls} title={t("ov.tbl.title")} action={<SectionLink to="oneriler" label={t("ov.tbl.all")} />}>
+      <div className="-mx-2 overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm">
+          <caption className="sr-only">{t("tbl.caption")}</caption>
+          <thead>
+            <tr className="lbl align-bottom">
+              <th scope="col" className="px-2 pb-2 font-normal">
+                {t("tbl.plan")}
+              </th>
+              {cols.map((c) => (
+                <th key={c.k} scope="col" className="px-2 pb-2 text-right font-normal">
+                  <span className="block font-semibold text-ink">{t(c.k)}</span>
+                  {t(c.unit)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((pl) => (
+              <tr key={pl.id} className="cmp-row border-t border-rule">
+                <th scope="row" className="px-2 py-3 font-normal">
+                  <button type="button" className="tap -mx-1 rounded-md px-1 text-left" aria-label={t("ov.tbl.open", { plan: title(pl) })} onClick={() => onOpenPlan(pl.id)}>
+                    <span className="flex items-center gap-2">
+                      <span className={`font-semibold ${pl.kind === "current" ? "text-ink-2" : "text-ink"}`}>{title(pl)}</span>
+                      {pl === best && <span className="rounded-full bg-accent px-1.5 py-0.5 text-[0.68rem] font-bold leading-none text-on-accent">{t("tbl.best")}</span>}
+                    </span>
+                    <span className="lbl mt-0.5 flex flex-wrap gap-x-2.5">
+                      {pl.crops.map((c, i) => (
+                        <span key={i} className="inline-flex items-center gap-1">
+                          <CropArt crop={c} size={28} />
+                          {shortName(L(CROPS[c].name))}
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                </th>
+                <td className="readout px-2 py-3 text-right text-[1.1rem]">
+                  <Num value={pl.score.composite} />
+                </td>
+                <td className="readout px-2 py-3 text-right text-[1rem]">
+                  <Num value={pl.water.requirementMmPerYr?.p50 ?? null} />
+                </td>
+                <td className="readout px-2 py-3 text-right text-[1rem]">
+                  <Num value={pl.economics.grossMarginTLPerDaPerYr?.p50 ?? null} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   );
 }
 
 // ── things to watch ──────────────────────────────────────────────────────
 
-function AlertsCard(p: Props) {
+function AlertsSection(p: Props) {
   const { t, n } = useI18n();
   const title = usePlanTitle();
   const best = p.result ? composeVerdict(p.result).best : null;
@@ -366,25 +405,24 @@ function AlertsCard(p: Props) {
     soil: p.soil,
     best,
     n: (v, d) => n(v, d),
-    unit: (v) => (v === "hot_days" || v === "frost_days" ? t("unit.days") : v === "gwet_root" ? "" : t("unit.mm")),
+    unit: (v) => (v === "hot_days" || v === "frost_days" ? ` ${t("unit.days")}` : v === "gwet_root" ? "" : ` ${t("unit.mm")}`),
     dir: (d) => t(`ev.dir.${d}`),
   });
   return (
-    <Card className="md:col-span-6 xl:col-span-4" title={t("ov.al.title")} action={alerts.length ? <span className="rounded-full bg-panel-2 px-2 py-0.5 text-[0.75rem] font-semibold tabular-nums text-ink-2">{alerts.length}</span> : undefined}>
-      {!p.site ? (
-        <Empty icon="alert" action={<PickFirst />}>
-          {t("ov.al.noSite")}
-        </Empty>
-      ) : alerts.length === 0 ? (
-        <Empty icon="check">{t("ov.al.empty")}</Empty>
+    <Section className="md:col-span-6 xl:col-span-4" title={t("ov.al.title")} action={alerts.length ? <span className="lbl tabular-nums">{t("ov.al.count", { n: alerts.length })}</span> : undefined}>
+      {alerts.length === 0 ? (
+        <div className="flex items-center gap-4">
+          <SpotArt name="no-alerts" width={96} />
+          <p className="lbl">{t("ov.al.empty")}</p>
+        </div>
       ) : (
-        <ul className="-mr-1 max-h-[19rem] space-y-2 overflow-y-auto pr-1">
+        <ul className="divide-y divide-rule">
           {alerts.map((a) => (
             <AlertRow key={a.id} a={a} plan={best ? title(best) : ""} />
           ))}
         </ul>
       )}
-    </Card>
+    </Section>
   );
 }
 
@@ -393,145 +431,147 @@ function AlertRow({ a, plan }: { a: Alert; plan: string }) {
   const warn = a.tone === "warn";
   const sub = a.subText ? L(a.subText) : a.sub ? t(a.sub, { plan, ...a.subParams }) : null;
   return (
-    <li className="flex items-start gap-3 rounded-xl bg-panel-2 p-2.5">
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${warn ? "bg-warn text-warn-ink" : "bg-sky-soft text-sky"}`}>
-        <Icon name={warn ? "alert" : "info"} size={18} />
+    <li className="flex items-start gap-3 py-3 first:pt-0">
+      <span className={`mt-0.5 shrink-0 ${warn ? "text-warn-ink" : "text-ink-2"}`}>
+        <Icon name={warn ? "alert" : "info"} size={17} />
+        <span className="sr-only">{warn ? t("ov.al.warn") : t("ov.al.info")}</span>
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.86rem] font-semibold leading-snug">{t(a.title, a.params)}</p>
-        {sub && <p className="mt-0.5 text-[0.76rem] leading-snug text-ink-2">{sub}</p>}
+        <p className="text-[0.92rem] font-semibold leading-snug">{t(a.title, a.params)}</p>
+        {sub && <p className="lbl mt-0.5">{sub}</p>}
+        <HashLink to={a.section} className="tap mt-1 inline-flex min-h-7 items-center gap-1 text-[0.82rem] font-semibold text-accent-ink hover:underline">
+          {t(a.action)}
+          <Icon name="arrow" size={13} />
+        </HashLink>
       </div>
-      <HashLink to={a.section} className="btn shrink-0 px-2.5 py-1 text-[0.76rem]">
-        {t(a.action)}
-      </HashLink>
     </li>
   );
 }
 
-// ── compact plan table ───────────────────────────────────────────────────
+// ── supporting detail ────────────────────────────────────────────────────
 
-function PlanTable({ result, onOpenPlan }: { result: AnalysisResult | null; onOpenPlan: (id: string) => void }) {
-  const { t, L } = useI18n();
-  const title = usePlanTitle();
-  if (!result) {
-    return (
-      <Card className="md:col-span-6 xl:col-span-8" title={t("ov.tbl.title")}>
-        <Empty icon="options">{t("ov.tbl.empty")}</Empty>
-      </Card>
-    );
-  }
-  const plans = [result.current, ...result.alternatives, ...result.userPlans];
-  const best = composeVerdict(result).best;
-  const cols: { k: DictKey; unit?: DictKey }[] = [
-    { k: "tbl.fit", unit: "tbl.soilUnit" },
-    { k: "tbl.deficit", unit: "tbl.deficitUnit" },
-    { k: "tbl.margin", unit: "tbl.marginUnit" },
-  ];
+function WaterBalance({ climate, calibration }: { climate: ClimateSummary | null; calibration: CalibrationInfo | null }) {
+  const { t } = useI18n();
   return (
-    <Card className="md:col-span-6 xl:col-span-8" title={t("ov.tbl.title")} action={<SectionLink to="oneriler" label={t("ov.tbl.all")} />}>
-      <div className="-mx-1 overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm">
-          <caption className="sr-only">{t("tbl.caption")}</caption>
-          <thead>
-            <tr className="text-[0.76rem] text-ink-2">
-              <th scope="col" className="px-1.5 pb-2 font-medium sm:px-2">
-                {t("tbl.plan")}
-              </th>
-              {cols.map((c) => (
-                <th key={c.k} scope="col" className="px-1.5 pb-2 text-right font-medium sm:px-2">
-                  {t(c.k)}
-                  {c.unit && <span className="block text-[0.7rem] font-normal">{t(c.unit)}</span>}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {plans.map((pl) => (
-              <tr key={pl.id} className="cmp-row cursor-pointer border-t border-rule" onClick={() => onOpenPlan(pl.id)}>
-                <th scope="row" className="px-1.5 py-2.5 font-normal sm:px-2">
-                  <button type="button" className="tap -mx-1 rounded-md px-1 text-left" aria-label={t("ov.tbl.open", { plan: title(pl) })} onClick={(e) => (e.stopPropagation(), onOpenPlan(pl.id))}>
-                    <span className="flex items-center gap-2">
-                      <span className={`text-[0.82rem] font-semibold ${pl.kind === "current" ? "text-ink-2" : "text-ink"}`}>{title(pl)}</span>
-                      {pl === best && <span className="rounded-full bg-accent px-1.5 py-0.5 text-[0.66rem] font-bold leading-none text-on-accent">{t("tbl.best")}</span>}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap gap-x-2 text-[0.76rem] text-ink-2">
-                      {pl.crops.map((c, i) => (
-                        <span key={i} className="inline-flex items-center gap-1">
-                          <CropSwatch id={c} size={8} />
-                          {shortName(L(CROPS[c].name))}
-                        </span>
-                      ))}
-                    </span>
-                  </button>
-                </th>
-                <td className="px-1.5 py-2.5 text-right text-[1.05rem] font-semibold tabular-nums sm:px-2">
-                  <Num value={pl.score.composite} />
-                </td>
-                <td className="px-1.5 py-2.5 text-right tabular-nums sm:px-2">
-                  <Num value={pl.water.requirementMmPerYr?.p50 ?? null} />
-                </td>
-                <td className="px-1.5 py-2.5 text-right tabular-nums sm:px-2">
-                  <Num value={pl.economics.grossMarginTLPerDaPerYr?.p50 ?? null} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <Section className="md:col-span-6 xl:col-span-6" title={t("ov.wb.title")} action={climate ? <SectionLink to="kanit" label={t("ov.wb.more")} /> : undefined}>
+      {climate ? (
+        <>
+          <div className="lbl mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Swatch color="var(--c-precip)" label={t("ev.precipShort")} />
+            <Swatch color="var(--c-et0)" label={t("ov.wb.need")} />
+            {!calibration && <span>{t("cal.none")}</span>}
+          </div>
+          <MonthlyBalanceChart monthly={climate.monthly} height={180} />
+        </>
+      ) : (
+        <Waiting>{t("ov.cl.loading")}</Waiting>
+      )}
+    </Section>
   );
 }
 
-// ── soil indicator ───────────────────────────────────────────────────────
+function lastRecord(raw: ClimateSeries): DailyWeather | null {
+  for (let i = raw.daily.length - 1; i >= 0; i--) {
+    const d = raw.daily[i];
+    if (d.tmean !== null || d.tmax !== null || d.precip !== null) return d;
+  }
+  return null;
+}
 
-function SoilCard({ result }: { result: AnalysisResult | null }) {
+function ClimateDay({ data, raw }: { data: SiteData | null; raw: ClimateSeries | null }) {
+  const { t, n, locale } = useI18n();
+  const day = raw ? lastRecord(raw) : null;
+  const status = data?.climate.status;
+  const dateText = day ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day.date}T00:00:00Z`)) : null;
+  return (
+    <Section className="md:col-span-3 xl:col-span-3" title={t("ov.cl.title")}>
+      {day && dateText ? (
+        <div className="flex flex-1 flex-col">
+          <p className="lbl">
+            <time dateTime={day.date} className="font-semibold text-ink">
+              {dateText}
+            </time>
+            , {t("ov.cl.source")}
+          </p>
+          <p className="mt-3">
+            <span className="readout text-[length:var(--text-step-3)]">{n(day.tmean, 1)}°</span>
+            <span className="lbl mt-1 block tabular-nums">
+              {t("ov.cl.temp")}, {t("ov.cl.range", { lo: n(day.tmin, 1), hi: n(day.tmax, 1) })}
+            </span>
+          </p>
+          <dl className="mt-4 text-sm">
+            <Row label={t("ov.cl.rain")} value={`${n(day.precip, 1)} mm`} />
+            <Row label={t("ov.cl.wind")} value={`${n(day.wind2m, 1)} m/s`} />
+            <Row label={t("ov.cl.root")} value={day.gwetRoot === null ? t("plan.noData") : `%${n(day.gwetRoot * 100)}`} hint={t("ov.cl.rootHelp")} />
+          </dl>
+          <p className="lbl mt-3">{t("ov.cl.note")}</p>
+        </div>
+      ) : status === "error" ? (
+        <div>
+          <p className="lbl">{t("ov.cl.error")}</p>
+          <HashLink to="tarlam" className="btn mt-3">
+            {t("load.retry")}
+          </HashLink>
+        </div>
+      ) : (
+        <Waiting>{t("ov.cl.loading")}</Waiting>
+      )}
+    </Section>
+  );
+}
+
+function Row({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline gap-2 border-t border-rule py-2">
+      <dt className="min-w-0 flex-1 text-ink-2">
+        {label}
+        {hint && <span className="sr-only">, {hint}</span>}
+      </dt>
+      <dd className="readout text-[0.95rem]">{value}</dd>
+    </div>
+  );
+}
+
+function SoilSection({ result }: { result: AnalysisResult | null }) {
   const { t, n, L } = useI18n();
   const title = usePlanTitle();
   const best = result ? composeVerdict(result).best : null;
+  const cls = "md:col-span-3 xl:col-span-3";
   if (!best) {
     return (
-      <Card className="md:col-span-6 xl:col-span-4" title={t("ov.soil.title")}>
-        <Empty icon="field">{t("ov.soil.empty")}</Empty>
-      </Card>
+      <Section className={cls} title={t("ov.soil.title")}>
+        <Waiting>{t("ov.soil.empty")}</Waiting>
+      </Section>
     );
   }
   const sh = best.soilHealth;
-  const R = 34;
-  const C = 2 * Math.PI * R;
-  const frac = Math.max(0, Math.min(1, sh.score / 100));
   return (
-    <Card className="md:col-span-6 xl:col-span-4" title={t("ov.soil.title")}>
-      <p className="-mt-2 mb-3 text-[0.76rem] text-ink-2">
-        {t("ov.soil.sub", { plan: title(best) })}. {t("plan.soilNote")}
+    <Section className={cls} title={t("ov.soil.title")}>
+      <p className="flex items-baseline gap-1.5">
+        <span className="readout text-[length:var(--text-step-3)]">
+          <Num value={sh.score} />
+        </span>
+        <span className="unit">/100</span>
+        <span className="lbl ml-2">{t("ov.soil.sub", { plan: title(best) })}</span>
       </p>
-      <div className="flex items-center gap-4">
-        <div className="relative h-[5.5rem] w-[5.5rem] shrink-0">
-          <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90" role="img" aria-label={`${t("plan.soil")}: ${n(sh.score)} / 100`}>
-            <circle cx="40" cy="40" r={R} fill="none" stroke="var(--panel-2)" strokeWidth="8" />
-            <circle cx="40" cy="40" r={R} fill="none" stroke="var(--c-green)" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${C * frac} ${C}`} style={{ transition: "stroke-dasharray 220ms var(--ease-out)" }} />
-          </svg>
-          <span className="absolute inset-0 grid place-items-center text-center">
-            <span className="text-[1.6rem] font-light leading-none tracking-[-0.03em] tabular-nums">
-              <Num value={sh.score} />
+      <ul className="mt-4 space-y-2">
+        {sh.components.map((c) => (
+          <li key={c.key} className="text-[0.8rem]">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-ink-2" title={L(c.label)}>
+                {L(c.label)}
+              </span>
+              <span className="readout shrink-0">
+                {n(c.value * c.weight)}/{n(c.weight)}
+              </span>
             </span>
-          </span>
-        </div>
-        <ul className="min-w-0 flex-1 space-y-1.5">
-          {sh.components.map((c) => (
-            <li key={c.key} className="text-[0.76rem]">
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-ink-2">{L(c.label)}</span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                  {n(c.value * c.weight)}/{n(c.weight)}
-                </span>
-              </span>
-              <span className="mt-0.5 block h-1 rounded-full bg-panel-2" aria-hidden="true">
-                <span className="block h-full origin-left rounded-full bg-[var(--c-green)] transition-transform duration-200 ease-out" style={{ transform: `scaleX(${Math.max(0, Math.min(1, c.value))})` }} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Card>
+            <span className="mt-1 block h-1 rounded-full bg-panel-2" aria-hidden="true">
+              <span className="block h-full origin-left rounded-full bg-[var(--c-green)] transition-transform duration-200 ease-out" style={{ transform: `scaleX(${Math.max(0, Math.min(1, c.value))})` }} />
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="lbl mt-3">{t("plan.soilNote")}</p>
+    </Section>
   );
 }

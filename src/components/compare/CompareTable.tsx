@@ -8,7 +8,7 @@ import { shortName } from "@/lib/ui/crops";
 import { composeVerdict, deltaTone, metricDelta, planMetrics, SAME_EPS, type MetricKey } from "@/lib/ui/verdict";
 import { Num } from "@/components/ui/Num";
 import { Chevron, DeltaMark } from "@/components/ui/Glyphs";
-import { CropSwatch } from "@/components/field/CropChip";
+import { CropArt } from "@/components/brand/CropArt";
 import { usePlanTitle } from "./Verdict";
 
 /** Column layout shared by the header row and every plan row (md and up). */
@@ -57,7 +57,7 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
   return (
     <div>
       <h3 className="sr-only">{t("tbl.caption")}</h3>
-      <div className={`${COLS} hidden border-b border-rule px-4 pb-2 text-sm text-ink-2`} aria-hidden="true">
+      <div className={`${COLS} hidden border-b border-rule px-3 pb-2 text-[0.8125rem] text-ink-2`} aria-hidden="true">
         <span>{t("tbl.plan")}</span>
         {COLUMNS.map((c) => (
           <span key={c.k} className="leading-tight">
@@ -76,7 +76,7 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
             <li key={p.id}>
               <button
                 type="button"
-                className={`cmp-row tap w-full rounded-xl px-4 py-4 text-left ${COLS} ${open ? "bg-panel" : ""}`}
+                className={`cmp-row tap w-full rounded-lg px-3 py-4 text-left ${COLS} ${open ? "bg-panel-2" : ""}`}
                 aria-expanded={open}
                 aria-controls={open ? detailId(p.id) : undefined}
                 onClick={() => onToggle(p.id)}
@@ -84,13 +84,13 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
                 <span className="flex min-w-0 items-start justify-between gap-3 md:block">
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className={`text-sm font-semibold ${p.kind === "current" ? "text-ink-2" : "text-sky"}`}>{title(p)}</span>
+                      <span className={`text-sm font-semibold ${p.kind === "current" ? "text-ink-2" : "text-ink"}`}>{title(p)}</span>
                       {isBest && <span className="rounded-full bg-accent px-2 py-0.5 text-[0.7rem] font-bold leading-none text-on-accent">{t("tbl.best")}</span>}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-[0.95rem] font-medium leading-snug">
                       {p.crops.map((c, i) => (
                         <span key={i} className="inline-flex items-center gap-1.5">
-                          <CropSwatch id={c} size={11} />
+                          <CropArt crop={c} size={28} />
                           {shortName(L(CROPS[c].name))}
                         </span>
                       ))}
@@ -98,7 +98,7 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
                   </span>
                   <span className="shrink-0 text-right md:mt-1 md:block md:text-left">
                     <span className="text-xs text-ink-2">{t("plan.score")} </span>
-                    <span className="font-serif text-lg font-semibold tabular-nums">
+                    <span className="readout text-lg">
                       <Num value={p.score.composite} />
                     </span>
                   </span>
@@ -119,13 +119,13 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
                           <span className="text-sm text-ink-2">{t("tbl.rainfed")}</span>
                         ) : k === "risk" ? (
                           <span className="block leading-tight">
-                            <span className="font-serif text-[1.35rem] font-semibold">{t(`plan.risk.${p.risk.score < 1 / 3 ? "low" : p.risk.score < 2 / 3 ? "mid" : "high"}`)}</span>{" "}
+                            <span className="text-[1.05rem] font-semibold">{t(`plan.risk.${p.risk.score < 1 / 3 ? "low" : p.risk.score < 2 / 3 ? "mid" : "high"}`)}</span>{" "}
                             <span className="text-xs text-ink-2 tabular-nums">
                               <Num value={v} digits={2} />
                             </span>
                           </span>
                         ) : (
-                          <span className="block font-serif text-[1.35rem] font-semibold leading-tight tabular-nums">
+                          <span className="readout block text-[1.3rem] leading-tight">
                             <Num value={v === null ? null : v * SCALE[k]} digits={DIGITS[k]} />
                           </span>
                         )}

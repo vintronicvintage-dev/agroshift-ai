@@ -27,7 +27,7 @@ export function RotationBuilder({ existing, onAdd }: { existing: RotationSequenc
   const dup = existing.some((e) => e.join() === seq.join());
   return (
     <div className="rounded-lg border border-dashed border-ink-2/60 p-4">
-      <h3 className="font-serif text-lg font-semibold">{t("build.title")}</h3>
+      <h3 className="sec-title">{t("build.title")}</h3>
       <p className="mt-1 max-w-[70ch] text-sm text-ink-2">{t("build.help")}</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto] sm:items-end">
         {[0, 1, 2].map((k) => (

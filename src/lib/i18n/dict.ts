@@ -489,6 +489,14 @@ export const tr = {
   "m.limit.5": "Ekonomi çıktıları tahmin değil senaryodur; piyasa fiyatı, destekler ve kira dahil edilmez.",
   "m.limit.6": "Ürün takvimleri üç kaba iklim bölgesine göre seçilir; yerel çeşit ve ekim tarihleri farklı olabilir.",
   "m.methodRefs": "Yöntem kaynakları",
+  "m.hero.caption": "Harran Ovası, Şanlıurfa, 24 Ağustos 2002 (Landsat 7). Atatürk Barajı'ndan gelen suyla sulanan tarlalar yaz kuraklığında yeşil kalıyor.",
+  "m.images": "Görsel kaynakları",
+  "m.images.lead": "Uygulamadaki tüm fotoğraflar ve uydu görüntüleri, kaynağı ve lisansı ile. Kaynaklar {d} tarihinde kontrol edildi.",
+  "m.images.licence": "Lisans",
+  "m.images.used": "Kullanıldığı yer",
+  "m.images.edits": "Düzenleme",
+  "m.images.source": "Kaynak sayfası",
+  "m.images.note": "NASA görsellerinin kullanılması NASA'nın bu projeyi onayladığı ya da desteklediği anlamına gelmez. Yanlış renkli görüntüler öyle etiketlendi.",
   "m.ai": "Yapay zekâ kullanım beyanı",
   "m.ai.body": "Bu projenin kodu ve belgeleri, ekibin yönlendirmesi ve denetimi altında yapay zekâ kodlama asistanları (Claude) kullanılarak yazıldı. Araç kendisi hiçbir üretken yapay zekâ modeli kullanmaz: tüm sonuçlar, bu sayfada yazılı formüllerle yapılan deterministik hesaplardır ve aynı girdi her zaman aynı çıktıyı verir. Öneri gerekçeleri de şablon ve gerçek sayılarla kural tabanlı üretilir.",
   "m.assumptionsLastRun": "Son analizin varsayımları",
@@ -676,7 +684,9 @@ export const tr = {
   "auth.brand.2": "Her sayının kaynağı ve formülü bir dokunuşta açılır.",
   "auth.brand.3": "Karar senin ve yerel uzmanının.",
   "auth.brand.caption": "2001'den bugüne günlük iklim, uydu bitki örtüsü ve toprak verisi",
-  "auth.brand.label": "Uydu geçişi ve üç yıllık tarla şeritleri",
+  "auth.brand.label": "AgroShift ne yapar",
+  "img.credit": "Görsel: {who}",
+  "img.harran.caption": "Harran Ovası ve Atatürk Barajı, Şanlıurfa. Landsat 7, 24 Ağustos 2002.",
 };
 
 export type DictKey = keyof typeof tr;
@@ -1145,6 +1155,14 @@ export const en: Record<DictKey, string> = {
   "m.limit.5": "Economic outputs are scenarios, not forecasts; market prices, subsidies and rent are not included.",
   "m.limit.6": "Crop calendars are chosen by three coarse climate zones; local varieties and sowing dates can differ.",
   "m.methodRefs": "Method references",
+  "m.hero.caption": "Harran Plain, Şanlıurfa, 24 August 2002 (Landsat 7). Fields irrigated with water from the Atatürk Reservoir stay green through the summer drought.",
+  "m.images": "Image credits",
+  "m.images.lead": "Every photograph and satellite image in the app, with its source and licence. Sources checked on {d}.",
+  "m.images.licence": "Licence",
+  "m.images.used": "Used in",
+  "m.images.edits": "Edits",
+  "m.images.source": "Source page",
+  "m.images.note": "Using NASA imagery does not mean NASA endorses or supports this project. False-color images are labelled as such.",
   "m.ai": "AI-use disclosure",
   "m.ai.body": "The code and documentation of this project were written with AI coding assistants (Claude) under the team's direction and review. The tool itself uses no generative AI model: every result is a deterministic calculation using the formulas on this page, and the same input always gives the same output. Recommendation reasoning is also rule-based, built from templates and real numbers.",
   "m.assumptionsLastRun": "Assumptions of the last analysis",
@@ -1328,7 +1346,9 @@ export const en: Record<DictKey, string> = {
   "auth.brand.2": "Every number opens its source and formula in one tap.",
   "auth.brand.3": "The decision is yours and your local expert's.",
   "auth.brand.caption": "Daily climate, satellite vegetation and soil data from 2001 to today",
-  "auth.brand.label": "A satellite pass over three years of field strips",
+  "auth.brand.label": "What AgroShift does",
+  "img.credit": "Image: {who}",
+  "img.harran.caption": "Harran Plain and Atatürk Reservoir, Şanlıurfa. Landsat 7, 24 August 2002.",
 };
 
 export const DICTS = { tr, en } as const;

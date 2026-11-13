@@ -1,9 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { useI18n, type DictKey } from "@/lib/i18n";
 import { collapseGs, dismissGs, GS_STEPS, reopenGs, useGettingStarted, type GsStep } from "@/lib/ui/gettingStarted";
 import { goToSection, type SectionId } from "@/lib/ui/steps";
 import { Icon } from "@/components/ui/Icons";
+import { IMAGES, type ImageId } from "@/lib/ui/images";
+
+/** One small real image per step (decorative: the card text says what the step is). Credits: Methods page. */
+const THUMB: Record<GsStep, ImageId> = { field: "gsField", water: "gsWater", compare: "gsCompare", scenario: "gsScenario", evidence: "gsEvidence" };
 
 const TARGET: Record<GsStep, SectionId> = { field: "tarlam", water: "tarlam", compare: "oneriler", scenario: "oneriler", evidence: "kanit" };
 
@@ -51,8 +56,8 @@ export function GettingStarted({ locked }: { locked: boolean }) {
             return (
               <li key={s} className="w-[15.5rem] shrink-0 snap-start sm:w-auto">
                 <button type="button" className="gs-card h-full w-full" data-done={done} onClick={() => goToSection(target)}>
-                  <span className="gs-art text-ink-2">
-                    <Art step={s} />
+                  <span className="gs-thumb" aria-hidden="true">
+                    <Image src={IMAGES[THUMB[s]].src} alt="" width={40} height={40} sizes="40px" className="h-full w-full object-cover" />
                   </span>
                   <span className="min-w-0">
                     <span className="flex items-start justify-between gap-2">
@@ -88,61 +93,4 @@ export function GettingStarted({ locked }: { locked: boolean }) {
       </div>
     </section>
   );
-}
-
-/** Small drawings, one per card: geometry only, in the icon family's stroke. */
-function Art({ step }: { step: GsStep }) {
-  const common = { width: 34, height: 34, viewBox: "0 0 40 40", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
-  switch (step) {
-    case "field":
-      return (
-        <svg {...common}>
-          <rect x="2.75" y="2.75" width="34.5" height="34.5" rx="9" stroke="var(--rule-strong)" />
-          <path d="M8 27h24M8 31.5h18" stroke="var(--loam)" />
-          <path d="M20 23s-6-5.2-6-9.7a6 6 0 0 1 12 0c0 4.5-6 9.7-6 9.7Z" stroke="var(--accent-ink)" />
-          <circle cx="20" cy="13.3" r="2" stroke="var(--accent-ink)" />
-        </svg>
-      );
-    case "water":
-      return (
-        <svg {...common}>
-          <rect x="2.75" y="2.75" width="34.5" height="34.5" rx="9" stroke="var(--rule-strong)" />
-          <path d="M15 8.5c2.4 3 4.3 5.4 4.3 8a4.3 4.3 0 0 1-8.6 0c0-2.6 1.9-5 4.3-8Z" stroke="var(--c-precip)" />
-          <rect x="23" y="10" width="10" height="4" rx="2" fill="#E69F00" stroke="none" />
-          <rect x="23" y="17" width="10" height="4" rx="2" fill="#009E73" stroke="none" />
-          <rect x="23.75" y="24.75" width="8.5" height="2.5" rx="1.25" stroke="var(--loam)" strokeDasharray="2 1.6" />
-          <path d="M8 31h24" stroke="var(--rule-strong)" />
-        </svg>
-      );
-    case "compare":
-      return (
-        <svg {...common}>
-          <rect x="2.75" y="2.75" width="34.5" height="34.5" rx="9" stroke="var(--rule-strong)" />
-          <path d="M9 30h22" stroke="var(--rule-strong)" />
-          <rect x="11" y="19" width="4" height="11" rx="1.5" stroke="var(--ink-2)" />
-          <rect x="18" y="12" width="4" height="18" rx="1.5" fill="var(--accent)" stroke="none" />
-          <rect x="25" y="16" width="4" height="14" rx="1.5" stroke="var(--ink-2)" />
-        </svg>
-      );
-    case "scenario":
-      return (
-        <svg {...common}>
-          <rect x="2.75" y="2.75" width="34.5" height="34.5" rx="9" stroke="var(--rule-strong)" />
-          <circle cx="14" cy="15" r="4" stroke="var(--c-et0)" />
-          <path d="M14 7.5v1.6M14 20.9v1.6M6.5 15h1.6M19.9 15h1.6" stroke="var(--c-et0)" />
-          <path d="M18.5 29a4 4 0 0 1 .4-8 5 5 0 0 1 9.4 1.6 3.2 3.2 0 0 1-.3 6.4Z" stroke="var(--ink-2)" />
-          <path d="M22 33h4" stroke="var(--c-precip)" />
-        </svg>
-      );
-    case "evidence":
-      return (
-        <svg {...common}>
-          <rect x="2.75" y="2.75" width="34.5" height="34.5" rx="9" stroke="var(--rule-strong)" />
-          <path d="M7 28c5-12 21-12 26 0" stroke="var(--accent-ink)" strokeDasharray="2 3" />
-          <rect x="17" y="11" width="6" height="6" rx="1.2" transform="rotate(45 20 14)" stroke="var(--ink)" />
-          <path d="M12 9.5l3 3M25 15.5l3 3" stroke="var(--ink-2)" />
-          <path d="M10 32h20" stroke="var(--loam)" />
-        </svg>
-      );
-  }
 }

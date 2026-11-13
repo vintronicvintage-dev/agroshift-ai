@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -7,6 +8,8 @@ import { AUTH_ENABLED } from "@/lib/auth/config";
 import { setTheme, useTheme } from "@/lib/ui/theme";
 import { Wordmark } from "@/components/shell/Wordmark";
 import { Icon } from "@/components/ui/Icons";
+import { ImageCredit } from "@/components/ui/ImageCredit";
+import { IMAGES } from "@/lib/ui/images";
 
 /** Two columns: the form on the left, a code-drawn brand panel on the right. One column on phones. */
 export function AuthShell({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
@@ -61,64 +64,46 @@ function GuestNotice() {
 }
 
 /**
- * Drawn in code: a satellite's ground track sweeping over a field cut into three strips (the
- * three rotation years), with the three value sentences.
+ * A real Landsat scene is the hero: the Harran Plain in August 2002, the Atatürk Reservoir in deep
+ * blue at the top and the irrigated fields green at the lower right. Only a faint uniform tone sits
+ * over the whole picture. The value sentences live in a compact dark glass card anchored over the
+ * low-detail dry land at the lower left, sized for AA contrast against the brightest pixel of the
+ * scene. The panel is dark in both themes, like the scene itself.
  */
 function BrandPanel() {
-  const { t } = useI18n();
+  const { t, L } = useI18n();
+  const img = IMAGES.harranPlain;
   return (
-    <aside className="relative hidden overflow-hidden border-l border-rule bg-rail lg:flex lg:flex-col lg:justify-between" aria-label={t("auth.brand.label")}>
-      <svg viewBox="0 0 640 520" className="absolute inset-x-0 top-0 h-[70%] w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="strip-fade" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="var(--rail)" stopOpacity="0" />
-            <stop offset="1" stopColor="var(--rail)" stopOpacity="1" />
-          </linearGradient>
-        </defs>
-        {/* field strips in perspective: three years, then repeat */}
-        <g transform="translate(320 300) skewX(-24) translate(-320 -300)">
-          {Array.from({ length: 9 }, (_, i) => {
-            const k = i % 3;
-            const fill = k === 0 ? "var(--accent)" : k === 1 ? "var(--c-precip)" : "none";
-            return (
-              <rect
-                key={i}
-                x={120 + i * 46}
-                y={180}
-                width={36}
-                height={320}
-                rx={6}
-                fill={fill}
-                fillOpacity={k === 0 ? 0.72 : 0.38}
-                stroke={k === 2 ? "var(--loam)" : "none"}
-                strokeWidth={1.5}
-                strokeDasharray={k === 2 ? "5 5" : undefined}
-              />
-            );
-          })}
-        </g>
-        <rect x="0" y="300" width="640" height="220" fill="url(#strip-fade)" />
-        {/* orbit and ground track */}
-        <ellipse className="auth-orbit" cx="320" cy="150" rx="300" ry="86" fill="none" stroke="var(--rule-strong)" strokeWidth="1.2" />
-        <path className="auth-pass" d="M -20 250 C 140 120, 360 60, 660 110" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" />
-        <g transform="translate(468 74) rotate(18)">
-          <rect x="-7" y="-7" width="14" height="14" rx="2.5" fill="var(--panel)" stroke="var(--ink)" strokeWidth="1.4" />
-          <rect x="-34" y="-5" width="22" height="10" rx="1.5" fill="none" stroke="var(--ink-2)" strokeWidth="1.3" />
-          <rect x="12" y="-5" width="22" height="10" rx="1.5" fill="none" stroke="var(--ink-2)" strokeWidth="1.3" />
-        </g>
-        <path d="M468 86 L 430 300" stroke="var(--accent)" strokeOpacity="0.35" strokeWidth="1" strokeDasharray="2 5" />
-        <path d="M468 86 L 520 300" stroke="var(--accent)" strokeOpacity="0.35" strokeWidth="1" strokeDasharray="2 5" />
-      </svg>
-      <div className="relative mt-auto px-12 pb-12 pt-[52%]">
-        <ul className="max-w-[30rem] space-y-4">
-          {(["auth.brand.1", "auth.brand.2", "auth.brand.3"] as const).map((k, i) => (
-            <li key={k} className="flex items-start gap-3.5">
-              <span className={`mt-1.5 h-2.5 w-6 shrink-0 rounded-full ${i === 0 ? "bg-accent" : i === 1 ? "bg-[var(--c-precip)]" : "border border-dashed border-loam"}`} aria-hidden="true" />
-              <span className="font-display text-[1.3rem] font-medium leading-snug tracking-[-0.015em]">{t(k)}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-8 text-[0.8rem] text-ink-2">{t("auth.brand.caption")}</p>
+    <aside className="auth-brand relative hidden overflow-hidden border-l border-rule lg:flex lg:flex-col lg:justify-end" aria-label={t("auth.brand.label")}>
+      <Image
+        src={img.src}
+        alt={L(img.alt)}
+        fill
+        sizes="(min-width: 1024px) 52vw, 16px"
+        loading="eager"
+        fetchPriority="high"
+        placeholder="blur"
+        blurDataURL={img.blurDataURL}
+        className="object-cover object-[50%_60%]"
+      />
+      <div className="auth-tone absolute inset-0" aria-hidden="true" />
+      <ImageCredit text={img.creditShort} className="absolute right-4 top-4" />
+      <div className="relative p-6 xl:p-8">
+        <div className="auth-glass max-w-[20.5rem] rounded-2xl px-5 py-4.5 xl:max-w-[24rem]">
+          <ul className="space-y-2.5">
+            {(["auth.brand.1", "auth.brand.2", "auth.brand.3"] as const).map((k, i) => (
+              <li key={k} className="flex items-start gap-3">
+                <span className={`mt-[0.5rem] h-2 w-5 shrink-0 rounded-full ${i === 0 ? "bg-[#c8f25a]" : i === 1 ? "bg-[#56b4e9]" : "border border-dashed border-[#e2ae73]"}`} aria-hidden="true" />
+                <span className="font-display text-[1.06rem] font-medium leading-snug tracking-[-0.01em]">{t(k)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3.5 border-t border-white/10 pt-3 text-[0.76rem] leading-snug text-[#c9d4cb]">{t("auth.brand.caption")}</p>
+          <p className="mt-1.5 flex items-center gap-1.5 text-[0.72rem] leading-snug text-[#c9d4cb]">
+            <Icon name="pin" size={12} />
+            {t("img.harran.caption")}
+          </p>
+        </div>
       </div>
     </aside>
   );

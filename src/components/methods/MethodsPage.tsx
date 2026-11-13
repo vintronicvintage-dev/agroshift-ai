@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { loadSnapshotIndex, type SnapshotIndexEntry } from "@/lib/data/snapshots";
@@ -9,7 +10,9 @@ import { useI18n, type DictKey } from "@/lib/i18n";
 import { useLastRun } from "@/lib/ui/lastRun";
 import { isoDay } from "@/lib/ui/sources";
 import { markGsDone } from "@/lib/ui/gettingStarted";
+import { IMAGES, IMAGE_LIST, IMAGES_RETRIEVED } from "@/lib/ui/images";
 import { DashboardShell } from "@/components/shell/DashboardShell";
+import { ImageCredit } from "@/components/ui/ImageCredit";
 
 const SOIL_LABEL: Record<keyof typeof SOIL_HEALTH_WEIGHTS, { tr: string; en: string }> = {
   diversity: { tr: "Ürün ailesi çeşitliliği", en: "Crop family diversity" },
@@ -64,6 +67,22 @@ export function MethodsPage() {
       </Link>
       <h1 className="mt-3 font-display text-[2.1rem] font-semibold leading-tight tracking-[-0.03em]">{t("m.title")}</h1>
       <p className="prose-serif mt-3 max-w-[68ch] text-lg text-ink-2">{t("m.lead")}</p>
+
+      <figure className="mt-7 grid items-end gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <div className="relative aspect-[1400/1662] overflow-hidden rounded-2xl border border-rule bg-panel-2">
+          <Image
+            src={IMAGES.harranPlain.src}
+            alt={L(IMAGES.harranPlain.alt)}
+            fill
+            sizes="(min-width: 1024px) 352px, (min-width: 640px) 304px, calc(100vw - 2rem)"
+            placeholder="blur"
+            blurDataURL={IMAGES.harranPlain.blurDataURL}
+            className="object-cover"
+          />
+          <ImageCredit text={IMAGES.harranPlain.creditShort} className="absolute bottom-2.5 left-2.5" />
+        </div>
+        <figcaption className="max-w-[46ch] text-[0.86rem] leading-snug text-ink-2 sm:pb-1">{t("m.hero.caption")}</figcaption>
+      </figure>
 
       <Sec id="veri" title={t("m.data")}>
         <ul className="prose-serif max-w-[72ch] list-disc space-y-2 pl-5">
@@ -260,6 +279,42 @@ export function MethodsPage() {
             </li>
           ))}
         </ol>
+      </Sec>
+
+      <Sec id="gorsel-kaynaklari" title={t("m.images")}>
+        <p className="max-w-[72ch] text-ink-2">{t("m.images.lead", { d: IMAGES_RETRIEVED })}</p>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {IMAGE_LIST.map((img) => (
+            <li key={img.id} className="card flex gap-3.5 p-3.5">
+              <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-panel-2">
+                <Image src={img.src} alt="" fill sizes="64px" className="object-cover" />
+              </span>
+              <div className="min-w-0 text-[0.82rem] leading-snug">
+                <p className="font-semibold text-ink">{img.title}</p>
+                <p className="mt-1 text-ink-2">{img.credit}</p>
+                <dl className="mt-1.5 grid gap-0.5 text-ink-2">
+                  <div className="flex gap-1.5">
+                    <dt>{t("m.images.licence")}:</dt>
+                    <dd className="text-ink">{L(img.licence)}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt>{t("m.images.used")}:</dt>
+                    <dd>{L(img.usedIn)}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt>{t("m.images.edits")}:</dt>
+                    <dd>{L(img.edits)}</dd>
+                  </div>
+                </dl>
+                <a href={img.sourceUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-6 items-center font-medium text-sky underline underline-offset-2">
+                  {t("m.images.source")}
+                  <span className="sr-only">: {img.title}</span>
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 max-w-[72ch] text-sm text-ink-2">{t("m.images.note")}</p>
       </Sec>
 
       <Sec id="yapay-zeka" title={t("m.ai")}>

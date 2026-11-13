@@ -686,9 +686,6 @@ html[data-gs~="dismissed"] .gs-compact {
 .gs-card:active {
   transform: scale(0.985);
 }
-.gs-card[data-done="true"] .gs-art {
-  color: var(--accent-ink);
-}
 .gs-check {
   display: grid;
   place-items: center;
@@ -791,20 +788,50 @@ html[data-intro="open"]:has(.intro) {
   animation: rise 220ms var(--ease-out) both;
 }
 
-/* Auth brand panel: the satellite pass draws once on load */
-.auth-orbit {
-  stroke-dasharray: 3 7;
-  animation: orbit-drift 1.4s var(--ease-out) both;
+/* Auth brand panel: a real Landsat scene, always dark like the scene itself, in both themes.
+   A faint uniform tone ties the photo to the charcoal-green UI; text lives in one glass card. */
+.auth-brand {
+  background: #0a0f0c;
+  color: #e6ede4;
 }
-.auth-pass {
-  stroke-dasharray: 900;
-  stroke-dashoffset: 900;
-  animation: draw-pass 1.6s 0.2s var(--ease-out) forwards;
+.auth-tone {
+  background: rgb(7 11 9 / 0.12);
 }
-@keyframes draw-pass {
-  to {
-    stroke-dashoffset: 0;
-  }
+/* 0.72 keeps AA against pure white behind the card: 7.6:1 for #e6ede4, 6.0:1 for #c9d4cb */
+.auth-glass {
+  background: rgb(9 14 11 / 0.72);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(12px) saturate(1.1);
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.6);
+}
+/* Photo credit chip: legible on any image, never a link target (the Methods page has the links) */
+.img-credit {
+  background: rgb(7 11 9 / 0.66);
+  color: #e6ede4;
+  backdrop-filter: blur(6px);
+}
+
+/* Photo thumbnails in the getting-started cards */
+.gs-thumb {
+  position: relative;
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.gs-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+  transition: box-shadow 200ms var(--ease-out);
+}
+.gs-card[data-done="true"] .gs-thumb::after {
+  box-shadow: inset 0 0 0 2px var(--accent-edge);
 }
 
 /* Comparison rows */
@@ -824,9 +851,6 @@ html[data-intro="open"]:has(.intro) {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
-  }
-  .auth-pass {
-    stroke-dashoffset: 0;
   }
 }
 

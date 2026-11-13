@@ -12,7 +12,8 @@ import { makeSourceResolver, metaToRef } from "@/lib/ui/sources";
 import { useAnalysis } from "@/lib/ui/useAnalysis";
 import type { AnalysisRequest } from "@/lib/ui/analysisProtocol";
 import { saveLastRun } from "@/lib/ui/lastRun";
-import { goToStep, useStepHash, type StepId } from "@/lib/ui/steps";
+import { goToSection, useSectionHash, type SectionId } from "@/lib/ui/steps";
+import { markGsDone } from "@/lib/ui/gettingStarted";
 import { composeVerdict } from "@/lib/ui/verdict";
 import type { Site } from "./field/site";
 import { FieldStep } from "./field/FieldStep";
@@ -21,8 +22,13 @@ import { DEFAULT_SCENARIO, type ScenarioDraft } from "./compare/ScenarioBar";
 import { EMPTY_ECON, econToInput, type EconDraft } from "./compare/EconomicsEditor";
 import type { CompareContext } from "./compare/PlanCard";
 import { ResultsStep } from "./compare/ResultsStep";
-import { StepBar, StepHint } from "./flow/StepBar";
+import { StepHint } from "./flow/StepBar";
 import { Onboarding } from "./onboarding/Onboarding";
+import { DashboardShell } from "./shell/DashboardShell";
+import { JudgmentNote } from "./shell/JudgmentNote";
+import { Overview } from "./overview/Overview";
+import { GettingStarted } from "./overview/GettingStarted";
+import { TopbarControls } from "./overview/TopbarControls";
 
 type Imerg = "validated" | "not_validated" | null;
 
@@ -38,6 +44,7 @@ export function AgroShiftApp() {
   const [scenario, setScenario] = useState<ScenarioDraft>(DEFAULT_SCENARIO);
   const [econ, setEcon] = useState<EconDraft>(EMPTY_ECON);
   const [extraPlans, setExtraPlans] = useState<RotationSequence[]>([]);
+  const [openPlanId, setOpenPlanId] = useState<string | null>(null);
   const genRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   /** "Try a sample field" clicked before the pilot index arrived. */
@@ -222,54 +229,126 @@ export function AgroShiftApp() {
   const status = result ? t("sc.ms", { n: result.optimizer.replayedExactly, w: result.windows.count, ms: n(analysis.ms ?? 0) }) : null;
   const zoneLabel = result ? L(ZONE_LABEL[result.zone]) : null;
 
-  // ── guided flow ─────────────────────────────────────────────────────────
-  const hashStep = useStepHash();
+  // ── dashboard sections ──────────────────────────────────────────────────
+  const hashSection = useSectionHash();
   const locked = site === null;
-  const step: StepId = locked ? "tarlam" : hashStep;
+  const section: SectionId = locked && (hashSection === "oneriler" || hashSection === "kanit") ? "genel" : hashSection;
   const soilLoading = data?.soil.status === "loading";
   const blocker = !site ? t("cta.needSite") : !fieldCheck.field || (soilDraft !== null && !soilCheck.profile) ? t("cta.invalid") : null;
   const siteName = site ? (site.kind === "pilot" ? ((lang === "tr" ? site.nameTr : site.nameEn) ?? "") : `${n(site.lat, 2)}°, ${n(site.lon, 2)}°`) : null;
-  const sub: Record<StepId, string> = {
+  const bestScore = result ? composeVerdict(result).best.score.composite : null;
+  const sub: Partial<Record<SectionId, string>> = {
     tarlam: siteName ?? t("step.fieldSub"),
-    oneriler: analysis.running && site ? t("step.compareBusy") : result ? t("step.compareSub", { s: n(composeVerdict(result).best.score.composite) }) : "",
+    oneriler: analysis.running && site ? t("step.compareBusy") : bestScore !== null ? t("step.compareSub", { s: n(bestScore) }) : "",
     kanit: climateSummary ? t("step.evidenceSub", { n: climateSummary.completeYears.length }) : "",
   };
 
-  // A new step starts at the top of the page, with focus on its content for screen readers.
-  const rootRef = useRef<HTMLElement>(null);
+  // ── getting-started ticks, each from a real action ───────────────────────
+  useEffect(() => {
+    if (site) markGsDone("field");
+  }, [site]);
+  useEffect(() => {
+    if (section === "oneriler" && result) markGsDone("compare");
+    if (section === "kanit" && climateSummary) markGsDone("evidence");
+  }, [section, result, climateSummary]);
+  const onDraft = useCallback((next: FieldDraft) => {
+    setDraft((prev) => {
+      if (prev.rainfed !== next.rainfed || prev.budget !== next.budget || prev.rotation.join() !== next.rotation.join()) queueMicrotask(() => markGsDone("water"));
+      return next;
+    });
+  }, []);
+  const onScenario = useCallback((next: ScenarioDraft) => {
+    if (next.preset !== "typical") markGsDone("scenario");
+    setScenario(next);
+  }, []);
+
+  // A new section starts at the top of the page (or at the plan opened from the overview),
+  // with focus on its content for screen readers.
+  const rootRef = useRef<HTMLDivElement>(null);
   const firstStep = useRef(true);
+  const scrollToPlan = useRef<string | null>(null);
+  const openPlan = useCallback((id: string) => {
+    setOpenPlanId(id);
+    scrollToPlan.current = id;
+    goToSection("oneriler");
+  }, []);
   useEffect(() => {
     if (firstStep.current) {
       firstStep.current = false;
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "instant" });
+    const planId = scrollToPlan.current;
+    scrollToPlan.current = null;
+    const target = planId && section === "oneriler" ? document.getElementById(`detay-${planId}`)?.parentElement : null;
+    if (target) target.scrollIntoView({ behavior: reduce ? "auto" : "instant", block: "start" });
+    else window.scrollTo({ top: 0, behavior: reduce ? "auto" : "instant" });
     rootRef.current?.focus({ preventScroll: true });
-  }, [step]);
+  }, [section]);
 
   const runSample = () => {
     const first = pilots?.[0];
     if (first) selectEntry(first);
     else pendingSample.current = true;
-    goToStep("oneriler");
+    goToSection("oneriler");
   };
 
   const sampleName = pilots?.[0] ? (lang === "tr" ? pilots[0].nameTr : pilots[0].nameEn) : null;
+  const lead: Record<SectionId, string> = {
+    genel: site ? t("ov.lead") : t("ov.emptyLead"),
+    tarlam: t("step.field.lead"),
+    oneriler: "",
+    kanit: t("step.evidence.lead"),
+  };
 
   return (
     <>
-      <Onboarding sampleName={sampleName} onSample={runSample} onOwn={() => goToStep("tarlam")} />
-      <div data-shell>
-        <StepBar current={step} locked={locked} sub={sub} />
-        <StepHint key={step} id={step} />
-        <main ref={rootRef} data-step-root tabIndex={-1} className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 outline-none sm:px-6 sm:pt-8" aria-labelledby={`h-${step}`}>
-          <div key={step} className="enter">
-            <h2 id={`h-${step}`} className="sr-only">
-              {t(step === "tarlam" ? "step.field" : step === "oneriler" ? "step.compare" : "step.evidence")}
-            </h2>
+      <Onboarding sampleName={sampleName} onSample={runSample} onOwn={() => goToSection("tarlam")} />
+      <DashboardShell
+        place={section}
+        locked={locked}
+        sub={sub}
+        topbar={<TopbarControls siteName={siteName} scenario={scenario} onScenario={onScenario} running={analysis.running && !!site} />}
+      >
+        <div ref={rootRef} data-step-root tabIndex={-1} className="outline-none" aria-labelledby={`h-${section}`}>
+          <div key={section} className="enter">
+            <header className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h1 id={`h-${section}`} className="font-display text-[1.55rem] font-semibold leading-tight tracking-[-0.025em] sm:text-[1.7rem]">
+                {t(SECTION_TITLE[section])}
+              </h1>
+              {lead[section] && <p className="max-w-[72ch] text-[0.92rem] text-ink-2">{lead[section]}</p>}
+            </header>
 
-            {step === "tarlam" && (
+            {section === "genel" && (
+              <>
+                <GettingStarted locked={locked} />
+                <Overview
+                  pilots={pilots}
+                  site={site}
+                  siteName={siteName}
+                  data={data}
+                  rawClimate={rawClimate}
+                  climate={climateSummary}
+                  result={result}
+                  running={analysis.running}
+                  calibration={calibration}
+                  imerg={imerg}
+                  soil={soilCheck.profile ?? soilBase}
+                  areaDa={fieldCheck.field?.areaDa ?? null}
+                  zoneLabel={zoneLabel}
+                  onPilot={selectPilot}
+                  onPoint={selectPoint}
+                  onOpenPlan={openPlan}
+                />
+                <div className="mt-4">
+                  <JudgmentNote />
+                </div>
+              </>
+            )}
+
+            {section !== "genel" && <StepHint id={section} />}
+
+            {section === "tarlam" && (
               <FieldStep
                 pilots={pilots}
                 site={site}
@@ -280,7 +359,7 @@ export function AgroShiftApp() {
                 onPoint={selectPoint}
                 onRetry={retry}
                 draft={draft}
-                onDraft={setDraft}
+                onDraft={onDraft}
                 soil={soilDraft}
                 onSoil={setSoilDraft}
                 soilBase={soilBase}
@@ -294,11 +373,11 @@ export function AgroShiftApp() {
                 econ={econ}
                 onEcon={setEcon}
                 blocker={blocker}
-                onShow={() => goToStep("oneriler")}
+                onShow={() => goToSection("oneriler")}
               />
             )}
 
-            {step === "oneriler" && (
+            {section === "oneriler" && (
               <ResultsStep
                 result={result}
                 ctx={compareCtx}
@@ -306,7 +385,7 @@ export function AgroShiftApp() {
                 error={analysis.error}
                 status={status}
                 scenario={scenario}
-                onScenario={setScenario}
+                onScenario={onScenario}
                 fieldBudget={fieldBudget}
                 rainfed={draft.rainfed}
                 calibration={calibration}
@@ -314,22 +393,27 @@ export function AgroShiftApp() {
                 onEcon={setEcon}
                 extraPlans={extraPlans}
                 onExtraPlans={setExtraPlans}
+                openId={openPlanId}
+                onOpenId={setOpenPlanId}
               />
             )}
 
-            {step === "kanit" && (
-              <>
-                <p className="mb-6 max-w-[72ch] text-ink-2">{t("step.evidence.lead")}</p>
-                {climateSummary && data ? (
-                  <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
-                ) : (
-                  <p className={`rounded-2xl border border-dashed border-rule px-4 py-12 text-center text-ink-2 ${analysis.running ? "recalc" : ""}`}>{t("ev.waitingData")}</p>
-                )}
-              </>
-            )}
+            {section === "kanit" &&
+              (climateSummary && data ? (
+                <EvidenceSection climate={climateSummary} ndvi={data.ndvi} calibration={calibration} imerg={imerg} methodRef={resolve} onRetryNdvi={() => retry("ndvi")} />
+              ) : (
+                <p className={`rounded-2xl border border-dashed border-rule-strong px-4 py-12 text-center text-ink-2 ${analysis.running ? "recalc" : ""}`}>{t("ev.waitingData")}</p>
+              ))}
           </div>
-        </main>
-      </div>
+        </div>
+      </DashboardShell>
     </>
   );
 }
+
+const SECTION_TITLE: Record<SectionId, "nav.overview" | "step.field" | "step.compare" | "step.evidence"> = {
+  genel: "nav.overview",
+  tarlam: "step.field",
+  oneriler: "step.compare",
+  kanit: "step.evidence",
+};

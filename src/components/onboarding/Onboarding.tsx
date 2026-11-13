@@ -205,7 +205,7 @@ export function Onboarding({ sampleName, onSample, onOwn }: Props) {
                 aria-current={k === i ? "step" : undefined}
                 onClick={() => go(k)}
               >
-                <span className={`block h-2 rounded-full w-6 transition-[transform,background-color] duration-200 ease-out ${k === i ? "bg-ink" : "scale-x-[0.34] bg-ink-2/60"}`} aria-hidden="true" />
+                <span className={`block h-2 rounded-full w-6 transition-[transform,background-color] duration-200 ease-out ${k === i ? "bg-accent" : "scale-x-[0.34] bg-ink-2/60"}`} aria-hidden="true" />
               </button>
             ))}
           </div>

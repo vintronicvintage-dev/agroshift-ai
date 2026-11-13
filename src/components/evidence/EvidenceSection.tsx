@@ -80,7 +80,7 @@ export function EvidenceSection({ climate, ndvi, calibration, imerg, methodRef, 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="min-w-0 space-y-6">
         {/* readout */}
-        <div className="rounded-lg border border-rule bg-panel p-4 sm:p-5">
+        <div className="card p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-sm text-ink-2">{t("ev.period", { start: c.period.start, end: c.period.end, n: nYears })}</p>
             <CalibrationBadge calibration={calibration} />
@@ -308,7 +308,7 @@ function ChartTabs({ label, tabs, children }: { label: string; tabs: { id: strin
             aria-selected={tab.id === active}
             aria-controls={`evpanel-${tab.id}`}
             tabIndex={tab.id === active ? 0 : -1}
-            className={`tap shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab.id === active ? "bg-ink text-paper" : "text-ink-2 hover:bg-panel-2 hover:text-ink"}`}
+            className={`tap shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab.id === active ? "bg-accent text-on-accent" : "text-ink-2 hover:bg-panel-2 hover:text-ink"}`}
             onClick={() => setActive(tab.id)}
             onKeyDown={(e) => {
               if (e.key === "ArrowRight") move(i + 1);

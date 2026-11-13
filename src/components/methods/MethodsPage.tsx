@@ -8,6 +8,8 @@ import type { Sourced } from "@/lib/types";
 import { useI18n, type DictKey } from "@/lib/i18n";
 import { useLastRun } from "@/lib/ui/lastRun";
 import { isoDay } from "@/lib/ui/sources";
+import { markGsDone } from "@/lib/ui/gettingStarted";
+import { DashboardShell } from "@/components/shell/DashboardShell";
 
 const SOIL_LABEL: Record<keyof typeof SOIL_HEALTH_WEIGHTS, { tr: string; en: string }> = {
   diversity: { tr: "Ürün ailesi çeşitliliği", en: "Crop family diversity" },
@@ -21,7 +23,7 @@ const SOIL_LABEL: Record<keyof typeof SOIL_HEALTH_WEIGHTS, { tr: string; en: str
 function Sec({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} aria-labelledby={`${id}-h`} className="mt-10 scroll-mt-6">
-      <h2 id={`${id}-h`} className="border-b border-rule pb-2 font-serif text-2xl font-semibold">
+      <h2 id={`${id}-h`} className="border-b border-rule pb-2 font-display text-[1.45rem] font-semibold tracking-[-0.02em]">
         {title}
       </h2>
       <div className="mt-4">{children}</div>
@@ -33,6 +35,9 @@ export function MethodsPage() {
   const { t, L, n, lang } = useI18n();
   const [index, setIndex] = useState<SnapshotIndexEntry[] | null>(null);
   const last = useLastRun();
+  useEffect(() => {
+    markGsDone("evidence");
+  }, []);
   useEffect(() => {
     let alive = true;
     loadSnapshotIndex()
@@ -52,11 +57,12 @@ export function MethodsPage() {
   const limits: DictKey[] = ["m.limit.1", "m.limit.2", "m.limit.3", "m.limit.4", "m.limit.5", "m.limit.6"];
 
   return (
-    <main className="mx-auto max-w-[980px] px-4 py-10 sm:px-6">
-      <Link href="/" className="text-sm text-sky underline">
+    <DashboardShell place="yontem">
+    <div className="mx-auto max-w-[980px] pb-6">
+      <Link href="/#genel" className="text-sm font-medium text-accent-ink underline underline-offset-2">
         {t("m.back")}
       </Link>
-      <h1 className="mt-3 font-serif text-4xl font-semibold tracking-tight">{t("m.title")}</h1>
+      <h1 className="mt-3 font-display text-[2.1rem] font-semibold leading-tight tracking-[-0.03em]">{t("m.title")}</h1>
       <p className="prose-serif mt-3 max-w-[68ch] text-lg text-ink-2">{t("m.lead")}</p>
 
       <Sec id="veri" title={t("m.data")}>
@@ -210,7 +216,7 @@ export function MethodsPage() {
           </table>
         </div>
         {last && last.assumptions.length > 0 && (
-          <details className="mt-5 rounded-lg border border-rule bg-panel p-4">
+          <details className="mt-5 card p-4">
             <summary className="font-semibold">
               <span className="chev mr-1.5 text-ink-2">›</span>
               {t("m.assumptionsLastRun")} ({last.assumptions.length})
@@ -259,6 +265,7 @@ export function MethodsPage() {
       <Sec id="yapay-zeka" title={t("m.ai")}>
         <p className="prose-serif max-w-[72ch] text-lg">{t("m.ai.body")}</p>
       </Sec>
-    </main>
+    </div>
+    </DashboardShell>
   );
 }

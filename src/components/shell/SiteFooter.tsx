@@ -7,12 +7,12 @@ import { DISCLAIMER } from "@/lib/engine";
 export function SiteFooter() {
   const { t, L } = useI18n();
   return (
-    <footer className="mt-16 border-t border-rule" data-shell>
-      <div className="mx-auto max-w-[1320px] space-y-2 px-4 py-8 text-sm text-ink-2 sm:px-6">
-        <p className="max-w-[70ch]">{L(DISCLAIMER)}</p>
-        <p>
+    <footer className="border-t border-rule">
+      <div className="mx-auto max-w-[1500px] space-y-1.5 px-4 py-6 text-[0.82rem] text-ink-2 sm:px-6">
+        <p className="max-w-[80ch]">{L(DISCLAIMER)}</p>
+        <p className="max-w-[80ch]">
           {t("footer.challenge")} {t("footer.noGen")}{" "}
-          <Link href="/yontem" className="text-sky underline">
+          <Link href="/yontem" className="font-medium text-accent-ink underline underline-offset-2">
             {t("nav.methods")}
           </Link>
         </p>

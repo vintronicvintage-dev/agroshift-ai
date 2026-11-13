@@ -75,7 +75,7 @@ export function YearAxis({ years, x, y, width }: { years: number[]; x: (i: numbe
 export function ChartCard({ title, legend, children, table, footer, id }: { title: ReactNode; legend?: ReactNode; children: ReactNode; table?: ReactNode; footer?: ReactNode; id?: string }) {
   const { t } = useI18n();
   return (
-    <figure id={id} className="min-w-0 rounded-lg border border-rule bg-panel p-4">
+    <figure id={id} className="min-w-0 card p-4">
       <figcaption>
         <h3 className="font-serif text-lg font-semibold leading-snug">{title}</h3>
         {legend && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-2">{legend}</div>}

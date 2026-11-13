@@ -1,13 +1,16 @@
-/** Wordmark: three field strips (the three rotation years) beside the name. */
-export function Wordmark() {
+/**
+ * Wordmark: three field strips, the three rotation years. The first is the sprout accent, the
+ * second is water, the third is a fallow outline in soil amber.
+ */
+export function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="flex items-center gap-2">
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <rect x="1" y="3" width="24" height="5" rx="1.5" fill="#E69F00" />
-        <rect x="1" y="10.5" width="24" height="5" rx="1.5" fill="#009E73" />
-        <rect x="1" y="18" width="24" height="5" rx="1.5" fill="none" stroke="var(--loam)" strokeWidth="1.3" strokeDasharray="2.5 2" />
+    <span className="flex items-center gap-2.5">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" className="shrink-0">
+        <rect x="2" y="3.5" width="24" height="6" rx="3" fill="var(--accent)" />
+        <rect x="2" y="11" width="17" height="6" rx="3" fill="var(--c-precip)" />
+        <rect x="2.75" y="19.25" width="22.5" height="4.5" rx="2.25" fill="none" stroke="var(--loam)" strokeWidth="1.5" strokeDasharray="3 2.4" />
       </svg>
-      <span className="font-serif text-[1.35rem] font-semibold tracking-tight text-ink">AgroShift</span>
+      <span translate="no" className={`font-display text-[1.28rem] font-semibold tracking-[-0.025em] text-ink ${compact ? "sr-only" : ""}`}>AgroShift</span>
     </span>
   );
 }

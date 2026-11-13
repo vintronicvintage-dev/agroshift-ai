@@ -1,22 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Public_Sans, Spectral } from "next/font/google";
+import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import { I18nProvider } from "@/lib/i18n";
-import { INTRO_BOOT_SCRIPT, LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
+import { GS_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
 import { TraceProvider } from "@/components/trace/TraceProvider";
-import { SiteHeader } from "@/components/shell/SiteHeader";
-import { SiteFooter } from "@/components/shell/SiteFooter";
 import "./globals.css";
 
-const publicSans = Public_Sans({
-  variable: "--font-public-sans",
+/** UI, body and every number (tabular figures). */
+const hanken = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin", "latin-ext"],
 });
 
-const spectral = Spectral({
-  variable: "--font-spectral",
+/** Display face for titles and the verdict only. */
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+  axes: ["opsz", "wdth"],
 });
 
 export const metadata: Metadata = {
@@ -27,26 +26,20 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#e6ebe2" },
-    { media: "(prefers-color-scheme: dark)", color: "#101713" },
+    { media: "(prefers-color-scheme: light)", color: "#edf1e9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d1310" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="tr" data-theme="light" suppressHydrationWarning className={`${publicSans.variable} ${spectral.variable} h-full`}>
+    <html lang="tr" data-theme="dark" suppressHydrationWarning className={`${hanken.variable} ${bricolage.variable} h-full`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT + ";" + LANG_BOOT_SCRIPT + ";" + INTRO_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: [THEME_BOOT_SCRIPT, LANG_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, GS_BOOT_SCRIPT].join(";") }} />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full">
         <I18nProvider>
-          <TraceProvider>
-            <SiteHeader />
-            <div id="icerik" tabIndex={-1} className="flex-1 outline-none">
-              {children}
-            </div>
-            <SiteFooter />
-          </TraceProvider>
+          <TraceProvider>{children}</TraceProvider>
         </I18nProvider>
       </body>
     </html>

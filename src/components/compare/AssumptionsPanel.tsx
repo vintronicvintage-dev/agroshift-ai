@@ -7,7 +7,7 @@ import type { CalibrationInfo } from "@/lib/ui/calibration";
 export function AssumptionsPanel({ result, calibration }: { result: AnalysisResult; calibration: CalibrationInfo | null }) {
   const { t, L, n } = useI18n();
   return (
-    <details className="rounded-lg border border-rule bg-panel p-4" id="varsayimlar">
+    <details className="card p-4" id="varsayimlar">
       <summary className="tap flex items-center font-semibold">
         <span className="chev mr-1.5 text-ink-2">›</span>
         {t("asm.title")} <span className="font-normal text-ink-2">({result.assumptions.length + 1})</span>

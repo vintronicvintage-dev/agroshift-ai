@@ -13,7 +13,7 @@ export function usePlanTitle() {
 }
 
 /** The one-sentence answer, assembled from engine numbers only (see lib/ui/verdict.ts). */
-export function Verdict({ result }: { result: AnalysisResult }) {
+export function Verdict({ result, size = "lg" }: { result: AnalysisResult; size?: "lg" | "sm" }) {
   const { t, L } = useI18n();
   const title = usePlanTitle();
   const v = composeVerdict(result);
@@ -36,13 +36,18 @@ export function Verdict({ result }: { result: AnalysisResult }) {
     );
   };
 
+  const cls =
+    size === "sm"
+      ? "max-w-[52ch] font-display text-[1.08rem] font-medium leading-[1.35] tracking-[-0.01em] text-pretty"
+      : "max-w-[52ch] font-display text-[clamp(1.3rem,2.1vw,1.8rem)] font-medium leading-[1.25] tracking-[-0.015em] text-balance";
+
   if (v.bestIsCurrent) {
-    return <p className="max-w-[46ch] font-serif text-[clamp(1.3rem,2.1vw,1.8rem)] font-medium leading-[1.25] tracking-[-0.01em] text-balance">{t("v.current", { crops })}</p>;
+    return <p className={cls}>{t("v.current", { crops })}</p>;
   }
 
   const parts = [clause("v.def", "deficit", v.deficitDelta), clause("v.mar", "margin", v.marginDelta), clause("v.soil", "soil", v.soilDelta)].filter((x) => x !== null);
   return (
-    <p className="max-w-[52ch] font-serif text-[clamp(1.3rem,2.1vw,1.8rem)] font-medium leading-[1.25] tracking-[-0.01em] text-balance">
+    <p className={cls}>
       {t("v.lead", { plan: title(v.best), crops })}: {t("v.vs")}{" "}
       {parts.map((part, i) => (
         <Fragment key={i}>

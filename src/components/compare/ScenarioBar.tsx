@@ -40,7 +40,7 @@ export function ScenarioBar({ value, onChange, fieldBudget, rainfed, running, st
         <h3 id="sc-h" className="font-serif text-lg font-semibold">
           {t("sc.title")}
         </h3>
-        <div className="seg max-w-full" role="radiogroup" aria-labelledby="sc-h">
+        <div className="seg w-full max-sm:grid-flow-row sm:w-auto sm:max-w-full" role="radiogroup" aria-labelledby="sc-h">
           {SCENARIO_PRESETS.map((p) => (
             <label key={p.id}>
               <input type="radio" name="scenario" checked={value.preset === p.id} onChange={() => onChange({ ...value, ...p.scenario, preset: p.id })} />

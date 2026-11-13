@@ -17,11 +17,11 @@ export function JudgmentNote({ compact = false }: { compact?: boolean }) {
     );
   }
   return (
-    <aside role="note" className="flex gap-4 border-l-4 border-loam bg-panel px-4 py-4 sm:px-6">
+    <aside role="note" className="card flex gap-4 px-4 py-4 sm:px-6">
       <HandGlyph large />
       <div className="max-w-[72ch]">
-        <p className="font-serif text-xl font-semibold leading-snug sm:text-2xl">{t("judgment.title")} {t("judgment.body")}</p>
-        <p className="mt-1 text-[0.95rem] text-ink-2">{L(DISCLAIMER)}</p>
+        <p className="font-display text-[1.15rem] font-semibold leading-snug tracking-[-0.01em] sm:text-[1.3rem]">{t("judgment.title")} {t("judgment.body")}</p>
+        <p className="mt-1 text-[0.88rem] text-ink-2">{L(DISCLAIMER)}</p>
       </div>
     </aside>
   );

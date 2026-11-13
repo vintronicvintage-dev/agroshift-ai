@@ -85,7 +85,7 @@ export function CompareTable({ result, openId, onToggle, detailId, renderDetail 
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className={`text-sm font-semibold ${p.kind === "current" ? "text-ink-2" : "text-sky"}`}>{title(p)}</span>
-                      {isBest && <span className="rounded-full bg-ink px-2 py-0.5 text-[0.7rem] font-semibold leading-none text-paper">{t("tbl.best")}</span>}
+                      {isBest && <span className="rounded-full bg-accent px-2 py-0.5 text-[0.7rem] font-bold leading-none text-on-accent">{t("tbl.best")}</span>}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-[0.95rem] font-medium leading-snug">
                       {p.crops.map((c, i) => (

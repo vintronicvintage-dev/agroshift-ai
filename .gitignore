@@ -42,3 +42,5 @@ next-env.d.ts
 
 # data cache (AgroShift)
 /.cache/
+
+!.env.example

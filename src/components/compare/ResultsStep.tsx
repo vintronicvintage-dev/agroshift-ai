@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { AnalysisResult, RotationSequence } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import type { CalibrationInfo } from "@/lib/ui/calibration";
@@ -31,13 +30,15 @@ interface Props {
   onEcon: (e: EconDraft) => void;
   extraPlans: RotationSequence[];
   onExtraPlans: (f: (xs: RotationSequence[]) => RotationSequence[]) => void;
+  /** The plan whose detail is open (lifted so the overview table can open one). */
+  openId: string | null;
+  onOpenId: (id: string | null) => void;
 }
 
 /** Step 2: the verdict first, then the comparison table; everything deeper opens on request. */
 export function ResultsStep(p: Props) {
   const { t, n } = useI18n();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const { result, ctx } = p;
+  const { result, ctx, openId } = p;
 
   return (
     <div className="space-y-8">
@@ -65,7 +66,7 @@ export function ResultsStep(p: Props) {
             <CompareTable
               result={result}
               openId={openId}
-              onToggle={(id) => setOpenId((o) => (o === id ? null : id))}
+              onToggle={(id) => p.onOpenId(openId === id ? null : id)}
               detailId={(id) => `detay-${id}`}
               renderDetail={(plan) => (
                 <PlanCard

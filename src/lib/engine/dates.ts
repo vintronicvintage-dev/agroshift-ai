@@ -10,7 +10,12 @@ export function toEpochDay(date: string): number {
 }
 
 export function epochDayOf(y: number, m: number, d: number): number {
-  return Math.round(Date.UTC(y, m - 1, d) / MS_PER_DAY);
+  const yr = m <= 2 ? y - 1 : y;
+  const era = Math.floor(yr / 400);
+  const yoe = yr - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
 }
 
 export function fromEpochDay(day: number): string {

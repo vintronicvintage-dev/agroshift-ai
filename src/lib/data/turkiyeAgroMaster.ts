@@ -234,6 +234,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 export interface MatchedProvinceResult {
   plaka: string;
   distanceKm: number;
+  isInTurkey: boolean;
   province: MasterProvinceRecord;
   basin: Record<string, unknown>;
 }
@@ -241,6 +242,8 @@ export interface MatchedProvinceResult {
 /**
  * Matches any (lat, lon) coordinate in Turkey to one of the 81 provinces ("01".."81")
  * using bounding-box containment + Haversine distance to provincial agricultural centers.
+ * Sets `isInTurkey: false` when the coordinate lies outside Turkey's borders/bounds so
+ * global parcels (e.g. in the Americas) are never mislabeled as a Turkish province like Edirne.
  */
 export function matchMasterProvince(lat: number, lon: number): MatchedProvinceResult {
   const iller = rawMaster.iller_detayli_81;
@@ -274,12 +277,15 @@ export function matchMasterProvince(lat: number, lon: number): MatchedProvinceRe
 
   const chosenPlaka = insideBestPlaka ?? globalBestPlaka;
   const chosenDist = insideBestPlaka ? insideBestDist : globalBestDist;
+  const inTurkeyBbox = lat >= 35.8 && lat <= 42.15 && lon >= 25.6 && lon <= 44.85;
+  const isInTurkey = insideBestPlaka !== null || (inTurkeyBbox && chosenDist <= 120);
   const province = iller[chosenPlaka];
   const basin = rawMaster.tarim_havzalari[province.kimlik_ve_cografya.havza_kodu];
 
   return {
     plaka: chosenPlaka,
     distanceKm: Number(chosenDist.toFixed(1)),
+    isInTurkey,
     province,
     basin,
   };

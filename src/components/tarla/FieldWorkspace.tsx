@@ -10,8 +10,8 @@ import { tileSourceById } from "@/lib/data/tiles";
 import { metersPerPixel } from "@/lib/data/turkeyRegions";
 import { PILOTS } from "@/lib/data/pilots";
 import { climateEvidence, CROP_IDS, CROPS } from "@/lib/engine";
-import { CROP_ID_TO_MASTER, evaluateMasterPlan, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
-import type { CropId, RotationSequence } from "@/lib/types";
+import { CROP_ID_TO_MASTER, evaluateMasterPlan, MASTER_TO_CROP_ID, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
+import type { CropId, PlanResult, RotationSequence } from "@/lib/types";
 import {
   getStore,
   makeField,
@@ -64,6 +64,7 @@ const MapCanvas = dynamic(() => import("./MapCanvas"), {
 });
 
 const LAYERS_KEY = "agroshift.layers.v2";
+const UI_MODE_KEY = "agroshift.uiMode.v1";
 
 export function FieldWorkspace() {
   const { t, n, lang, L } = useI18n();
@@ -84,6 +85,7 @@ export function FieldWorkspace() {
   const [nasaPanelOpen, setNasaPanelOpen] = useState(true);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [selectedAltIdx, setSelectedAltIdx] = useState<0 | 1 | 2>(0);
+  const [uiMode, setUiMode] = useState<"simple" | "detailed">("simple");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tileErr, setTileErr] = useState<string | null>(null);
   const [pinAt, setPinAt] = useState<LonLat | null>(null);
@@ -93,7 +95,7 @@ export function FieldWorkspace() {
   const fileRef = useRef<HTMLInputElement>(null);
   const { dates, setDate } = useLayerDates();
 
-  // remember the layer choice (per viewer)
+  // remember the layer choice and UI mode (per viewer)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LAYERS_KEY);
@@ -102,6 +104,20 @@ export function FieldWorkspace() {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         if (v && typeof v.base === "string") setLayerState((s) => ({ ...s, ...v }));
       }
+      const savedMode = localStorage.getItem(UI_MODE_KEY);
+      if (savedMode === "simple" || savedMode === "detailed") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setUiMode(savedMode);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const changeUiMode = useCallback((nextMode: "simple" | "detailed") => {
+    setUiMode(nextMode);
+    try {
+      localStorage.setItem(UI_MODE_KEY, nextMode);
     } catch {
       /* ignore */
     }
@@ -562,6 +578,172 @@ export function FieldWorkspace() {
     [centroid?.lat, centroid?.lon, best?.crops, store.inputs.rotation, store.inputs.rainfed, store.inputs.method],
   );
 
+  const commonRegionalCrops = useMemo(() => {
+    if (!masterProvince.isInTurkey) return [];
+    const mat = masterProvince.province.il_urun_verim_su_ve_rotasyon_matrisi;
+    const codes = mat?.stratejik_urunler ?? [];
+    return codes.slice(0, 6).map((code) => ({
+      code,
+      cropId: MASTER_TO_CROP_ID[code],
+      name: mat.urun_detay_tablosu?.[code]?.urun_adi ?? code,
+    }));
+  }, [masterProvince]);
+
+  const explainSequenceOrder = useCallback(
+    (plan: PlanResult) => {
+      const names = plan.crops.map((c) => L(CROPS[c].name).split(" (")[0]);
+      const fam = (c: CropId) => CROPS[c].family;
+      const isLegume = (c: CropId) => fam(c) === "fabaceae";
+      const isCereal = (c: CropId) => fam(c) === "poaceae";
+      const isFallow = (c: CropId) => c === "fallow";
+      const steps: string[] = [];
+
+      for (let i = 0; i < 3; i++) {
+        const cur = plan.crops[i];
+        const next = plan.crops[(i + 1) % 3];
+        const curName = names[i];
+        const nextName = names[(i + 1) % 3];
+        if (i === 0) {
+          steps.push(
+            lang === "tr"
+              ? `1. Yıl (${curName}): Topraktaki mevcut nem ve besin rezervini değerlendirerek döngüyü başlatır${isCereal(cur) ? " ve kış-ilkbahar yağışlarından yüksek verim alır" : isLegume(cur) ? " ve toprağa doğal azot kazandırır" : ""}.`
+              : `Year 1 (${curName}): Starts the cycle using current soil moisture${isCereal(cur) ? " and winter-spring rainfall" : isLegume(cur) ? " while fixing atmospheric nitrogen" : ""}.`,
+          );
+        } else if (i === 1) {
+          const prev = plan.crops[0];
+          let reasonTr = `${names[0]} sonrası farklı kök derinliğiyle toprak yorgunluğunu ve hastalık döngüsünü kırar.`;
+          if (isFallow(cur)) reasonTr = `${names[0]} hasadı sonrası toprağı dinlendirir, yağış suyunu kökte biriktirir.`;
+          else if (isLegume(cur)) reasonTr = `${names[0]} sonrası baklagil olarak toprağa doğal azot bağlar; 3. yıldaki ${nextName} için gübre ihtiyacını düşürür.`;
+          else if (fam(cur) !== fam(prev)) reasonTr = `${names[0]} ile farklı bitki familyasında olduğu için aynı zararlı/hastalık baskısını keser ve ${nextName} öncesi toprağı dengeler.`;
+          steps.push(
+            lang === "tr"
+              ? `2. Yıl (${curName}): ${reasonTr}`
+              : `Year 2 (${curName}): Breaks pest/disease cycles after ${names[0]}${isLegume(cur) ? " and fixes nitrogen ahead of Year 3" : ""}.`,
+          );
+        } else {
+          const prev = plan.crops[1];
+          let reasonTr = `${names[1]} ile hazırlanan toprak yapısını ekonomik getiriye çevirip döngüyü tamamlar.`;
+          if (isLegume(prev) && isCereal(cur)) reasonTr = `2. yıldaki ${names[1]} ürününün bıraktığı doğal azot kredisinden doğrudan yararlanarak düşük gübre maliyetiyle yüksek verim verir.`;
+          else if (isFallow(prev)) reasonTr = `2. yıldaki nadasın biriktirdiği nem rezerviyle kuraklık riskini düşürerek döngüyü kapatır.`;
+          else if (fam(cur) !== fam(prev)) reasonTr = `${names[1]} sonrası farklı familya ile münavebeyi tamamlar ve 1. yıldaki ${names[0]} ekimine temiz tarla bırakır.`;
+          steps.push(
+            lang === "tr"
+              ? `3. Yıl (${curName}): ${reasonTr}`
+              : `Year 3 (${curName}): Capitalizes on Year 2 (${names[1]}) soil legacy and prepares a clean seedbed for ${names[0]}.`,
+          );
+        }
+      }
+      return steps;
+    },
+    [L, lang],
+  );
+
+  const threeRouteCards = useMemo(() => {
+    if (!res || !res.alternatives.length) return [];
+    const alts = res.alternatives;
+    const classicCropSet = new Set(commonRegionalCrops.map((c) => c.cropId).filter(Boolean));
+    const bestPlan = alts[0];
+
+    // Pick classic-crop-aligned plan among alternatives (preferring one distinct from bestPlan if available)
+    let classicPlan = alts[1] ?? alts[0];
+    if (classicCropSet.size > 0) {
+      let bestOverlap = -1;
+      for (const candidate of alts) {
+        const overlap = candidate.crops.filter((c) => classicCropSet.has(c)).length;
+        if (overlap > bestOverlap || (overlap === bestOverlap && candidate.id !== bestPlan.id && classicPlan.id === bestPlan.id)) {
+          bestOverlap = overlap;
+          classicPlan = candidate;
+        }
+      }
+    }
+
+    // Pick remaining distinct alternative
+    const altPlan =
+      alts.find((a) => a.id !== bestPlan.id && a.id !== classicPlan.id) ??
+      alts.find((a) => a.id !== bestPlan.id) ??
+      alts[0];
+
+    const entries: {
+      roleId: "optimal" | "classic" | "alternative";
+      altIdx: 0 | 1 | 2;
+      badgeTr: string;
+      badgeEn: string;
+      subtitleTr: string;
+      subtitleEn: string;
+      plan: PlanResult;
+    }[] = [
+      {
+        roleId: "optimal",
+        altIdx: 0,
+        badgeTr: "En Doğru Rota (Bilimsel Optimum)",
+        badgeEn: "Most Accurate Route (Scientific Optimum)",
+        subtitleTr: "Su tasarrufu, net kâr, toprak sağlığı ve kuraklık dayanıklılığında 1. sıra",
+        subtitleEn: "Rank #1 across water savings, net profit, soil health and drought resilience",
+        plan: bestPlan,
+      },
+      {
+        roleId: "classic",
+        altIdx: Math.max(0, alts.findIndex((a) => a.id === classicPlan.id)) as 0 | 1 | 2,
+        badgeTr: "Klasik Ekilenler Arasından En Mantıklı Rota",
+        badgeEn: "Most Sensible Route Among Classic Crops",
+        subtitleTr: masterProvince.isInTurkey && classicCropSet.size > 0
+          ? `${masterProvince.province.kimlik_ve_cografya.il_adi} bölgesinde yaygın ürünlere en uyumlu münavebe`
+          : "Bölge iklimine alışık klasik tarım ürünleriyle en dengeli seçenek",
+        subtitleEn: "Best-balanced sequence aligned with classic regional crops",
+        plan: classicPlan,
+      },
+      {
+        roleId: "alternative",
+        altIdx: Math.max(0, alts.findIndex((a) => a.id === altPlan.id)) as 0 | 1 | 2,
+        badgeTr: "Alternatif Rota (Çeşitlendirme)",
+        badgeEn: "Alternative Route (Diversification)",
+        subtitleTr: "Farklı piyasa veya su koşullarına karşı yedek 3 yıllık sıralama",
+        subtitleEn: "Backup 3-year sequence for shifting market or water conditions",
+        plan: altPlan,
+      },
+    ];
+
+    const curReq = currentPlan?.water.requirementMmPerYr?.p50 ?? 0;
+    const curMargin = currentPlan?.economics.grossMarginTLPerDaPerYr?.p50 ?? 0;
+
+    return entries.map((e) => {
+      const req = e.plan.water.requirementMmPerYr?.p50 ?? 0;
+      const savedMm = curReq - req;
+      const savedPct = curReq > 1 ? Math.round((savedMm / curReq) * 100) : 0;
+      const margin = e.plan.economics.grossMarginTLPerDaPerYr?.p50 ?? 0;
+      const marginDiff = e.plan.trade?.marginDiffTLPerDaPerYr ?? margin - curMargin;
+      return {
+        ...e,
+        savedMm,
+        savedPct,
+        margin,
+        marginDiff,
+        sequenceReasons: explainSequenceOrder(e.plan),
+      };
+    });
+  }, [res, commonRegionalCrops, masterProvince, currentPlan, explainSequenceOrder]);
+
+  const waterSavingsInfo = useMemo(() => {
+    if (!best || !currentPlan) return null;
+    const curReq = currentPlan.water.requirementMmPerYr?.p50 ?? 0;
+    const bestReq = best.water.requirementMmPerYr?.p50 ?? 0;
+    const savedMmPerYr = curReq - bestReq;
+    const savedPct = curReq > 1 ? Math.round((savedMmPerYr / curReq) * 100) : 0;
+    const savedTotalM3Yr = Math.round(savedMmPerYr * effectiveAreaDa);
+    const marginCur = currentPlan.economics.grossMarginTLPerDaPerYr?.p50 ?? 0;
+    const marginBest = best.economics.grossMarginTLPerDaPerYr?.p50 ?? 0;
+    const marginDiffTL = best.trade?.marginDiffTLPerDaPerYr ?? marginBest - marginCur;
+    return {
+      curReq,
+      bestReq,
+      savedMmPerYr,
+      savedPct,
+      savedTotalM3Yr,
+      marginBest,
+      marginDiffTL,
+    };
+  }, [best, currentPlan, effectiveAreaDa]);
+
   const assignCropYear = useCallback(
     (cropId: CropId, yrIdx: 0 | 1 | 2) => {
       const next: RotationSequence = [...store.inputs.rotation] as RotationSequence;
@@ -612,30 +794,91 @@ export function FieldWorkspace() {
 
   return (
     <div id="kontrol-paneli" className="mx-auto max-w-[1640px] space-y-5 px-3 py-4 sm:px-6 sm:py-5">
-      {/* ── ROW 1: NASA Space Apps Field Shift — 3-Step Flow (Tarla Seç → Su Koşullarını Belirle → Planları Karşılaştır) ── */}
-      <FieldShiftComparison
-        result={res}
-        running={data.analysis.running}
-        effectiveAreaDa={effectiveAreaDa}
-        soilTextureLabel={
-          data.soil
-            ? texName(data.soil.textureClass, t)
-            : masterProvince.province.toprak_profili_0_30cm_soilgrids.toprak_dokusu_sinifi
-        }
-        provinceName={`${masterProvince.province.kimlik_ve_cografya.il_adi} (${masterProvince.province.kimlik_ve_cografya.tagem_iklim_kodu})`}
-        onDrawPolygon={() => {
-          setMode("polygon");
-          document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-        onOpenCoords={() => setCoordOpen(true)}
-        onJumpToMap={() => {
-          document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-        onJumpToProfitability={() => {
-          document.getElementById("analiz-grafikler")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-        onJumpToFormulas={scrollToEvidence}
-      />
+      {/* ── Görünüm Modu Seçici: Kolaylaştırılmış (Çiftçi) vs Detaylı (Teknik) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
+            <Icon name="sliders" size={17} />
+          </span>
+          <div>
+            <p className="text-[13.5px] font-semibold text-ink">
+              {lang === "tr" ? "Görünüm Modu" : "Workspace Mode"}
+            </p>
+            <p className="text-[11.5px] text-ink-2">
+              {uiMode === "simple"
+                ? lang === "tr"
+                  ? "Kolaylaştırılmış mod: Bölge ürünleri, 3 yıllık rota, su tasarrufu ve sade veri gerekçeleri"
+                  : "Simplified mode: Regional crops, 3-year rotation, water savings and plain explanations"
+                : lang === "tr"
+                  ? "Detaylı mod: Tüm bilimsel grafikler, P10–P90 aralıkları, formül kanıtları ve 11 sensör kartı"
+                  : "Detailed mode: All scientific charts, P10–P90 ranges, live equations and 11 sensor cards"}
+            </p>
+          </div>
+        </div>
+        <div
+          role="group"
+          aria-label={lang === "tr" ? "Görünüm Modu Seçimi" : "Workspace Mode Toggle"}
+          className="inline-flex rounded-xl border border-line bg-bg p-1"
+        >
+          <button
+            type="button"
+            aria-pressed={uiMode === "simple"}
+            onClick={() => changeUiMode("simple")}
+            className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              uiMode === "simple"
+                ? "bg-[#1e6b34] text-white shadow-xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+          >
+            {lang === "tr" ? "Kolaylaştırılmış" : "Simplified"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={uiMode === "detailed"}
+            onClick={() => changeUiMode("detailed")}
+            className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              uiMode === "detailed"
+                ? "bg-[#1e6b34] text-white shadow-xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+          >
+            {lang === "tr" ? "Detaylı (Teknik)" : "Detailed (Technical)"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── ROW 1: NASA Space Apps Field Shift — 3-Step Flow (Only in Detailed Mode) ── */}
+      {uiMode === "detailed" && (
+        <FieldShiftComparison
+          result={res}
+          running={data.analysis.running}
+          effectiveAreaDa={effectiveAreaDa}
+          soilTextureLabel={
+            data.soil
+              ? texName(data.soil.textureClass, t)
+              : masterProvince.province.toprak_profili_0_30cm_soilgrids.toprak_dokusu_sinifi
+          }
+          provinceName={
+            masterProvince.isInTurkey
+              ? `${masterProvince.province.kimlik_ve_cografya.il_adi} (${masterProvince.province.kimlik_ve_cografya.tagem_iklim_kodu})`
+              : lang === "tr"
+                ? "Türkiye Dışı · Küresel Uydu Modu"
+                : "Outside Turkey · Global Satellite Mode"
+          }
+          onDrawPolygon={() => {
+            setMode("polygon");
+            document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          onOpenCoords={() => setCoordOpen(true)}
+          onJumpToMap={() => {
+            document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          onJumpToProfitability={() => {
+            document.getElementById("analiz-grafikler")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          onJumpToFormulas={scrollToEvidence}
+        />
+      )}
 
       {/* ── ROW 2: Asymmetric Map (Left ~63%) + Mevcut Durum Özeti (Right ~37%) ── */}
       <section
@@ -1025,13 +1268,15 @@ export function FieldWorkspace() {
         {/* RIGHT CARD: Mevcut Durum Özeti + Veri Kaynakları matching right of Row 2 in mockup */}
         <div className="bento-card flex flex-col justify-between p-5">
           <div>
-            <div className="flex items-center justify-between gap-2 pb-4">
+            <div className="flex items-center justify-between gap-2 pb-3">
               <div className="flex items-center gap-2.5">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
                   <Icon name="leaf" size={18} />
                 </span>
                 <h2 className="font-display text-[18px] font-semibold text-ink">
-                  {lang === "tr" ? "Mevcut Durum Özeti" : "Current Field Status"}
+                  {uiMode === "simple"
+                    ? lang === "tr" ? "Tarla Karar Özeti" : "Parcel Decision Summary"
+                    : lang === "tr" ? "Mevcut Durum Özeti" : "Current Field Status"}
                 </h2>
               </div>
               {data.analysis.running && (
@@ -1042,7 +1287,116 @@ export function FieldWorkspace() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]">
+            {/* ── Key Map-Side Summary: Bölgede Sıklıkla Ekilenler + 3 Yıllık Rota + Su Tasarrufu ── */}
+            <div className="mb-4 space-y-2.5 rounded-xl border border-[#bbf7d0] bg-[#f4fbf6] p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11.5px] font-bold uppercase tracking-wide text-[#166534]">
+                  {masterProvince.isInTurkey
+                    ? `${masterProvince.province.kimlik_ve_cografya.il_adi} · ${n(effectiveAreaDa, 0)} da`
+                    : lang === "tr"
+                      ? `Türkiye Dışı (${n(centroid?.lat ?? 0, 2)}°, ${n(centroid?.lon ?? 0, 2)}°) · ${n(effectiveAreaDa, 0)} da`
+                      : `Outside Turkey (${n(centroid?.lat ?? 0, 2)}°, ${n(centroid?.lon ?? 0, 2)}°) · ${n(effectiveAreaDa, 0)} da`}
+                </span>
+                <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[10.5px] font-semibold text-[#1e6b34]">
+                  {store.inputs.rainfed
+                    ? lang === "tr" ? "Kuru Tarım" : "Rainfed"
+                    : lang === "tr" ? `${store.inputs.budget} mm Sulama` : `${store.inputs.budget} mm Irrigated`}
+                </span>
+              </div>
+
+              {/* Bölgede Sıklıkla Ekilen Ürünler */}
+              <div>
+                <p className="text-[11.5px] font-semibold text-ink-2">
+                  {lang === "tr" ? "Bölgede Sıklıkla Ekilen Ürünler:" : "Commonly Grown Regional Crops:"}
+                </p>
+                {commonRegionalCrops.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {commonRegionalCrops.map((c) => (
+                      <span
+                        key={c.code}
+                        className="rounded-full border border-[#bbf7d0] bg-white px-2.5 py-0.5 text-[11.5px] font-medium text-[#14532d]"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11.5px] text-ink-2">
+                    {!masterProvince.isInTurkey
+                      ? lang === "tr"
+                        ? "Seçili parsel Türkiye 81 il veri seti dışında. Bu koordinat için bölgesel ürün kaydı yok; yalnızca küresel NASA POWER / SoilGrids / SRTM uydu verileriyle analiz yapılıyor."
+                        : "Selected parcel is outside the 81-province Turkey dataset. Analyzing with global NASA POWER / SoilGrids / SRTM satellite data only."
+                      : lang === "tr"
+                        ? "Bu koordinat için yeterli bölgesel ürün kaydı bulunamadı."
+                        : "Insufficient regional crop records for this coordinate."}
+                  </p>
+                )}
+              </div>
+
+              {/* Sonraki 3 Yıl İçin Hesaplanan Rota */}
+              <div className="border-t border-[#dcfce7] pt-2.5">
+                <p className="text-[11.5px] font-semibold text-ink-2">
+                  {lang === "tr" ? "Sonraki 3 Yıl İçin Hesaplanan Rota:" : "Calculated 3-Year Rotation:"}
+                </p>
+                {best ? (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {best.crops.map((cid, idx) => (
+                      <span
+                        key={`${cid}-${idx}`}
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#1e6b34] px-2.5 py-1 text-[12px] font-semibold text-white"
+                      >
+                        <span className="opacity-80">{idx + 1}.</span>
+                        <span>{L(CROPS[cid].name).split(" (")[0]}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[12px] text-ink-2">
+                    {lang === "tr" ? "Rota hesaplanıyor..." : "Calculating rotation..."}
+                  </p>
+                )}
+              </div>
+
+              {/* Su Tasarrufu ve Net Kazanç Özeti */}
+              {waterSavingsInfo && (
+                <div className="grid grid-cols-2 gap-2 border-t border-[#dcfce7] pt-2.5">
+                  <div className="rounded-lg bg-white p-2">
+                    <p className="text-[10.5px] font-semibold text-ink-2">
+                      {lang === "tr" ? "Su Tasarrufu / Bütçe" : "Water Savings / Demand"}
+                    </p>
+                    <p className="numeral text-[15px] font-bold text-[#0277bd]">
+                      {waterSavingsInfo.savedMmPerYr > 0
+                        ? `${n(waterSavingsInfo.savedMmPerYr, 0)} m³/da/yıl tasarruf`
+                        : `${n(waterSavingsInfo.bestReq, 0)} mm/yıl ihtiyaç`}
+                    </p>
+                    <p className="text-[10.5px] text-ink-2">
+                      {waterSavingsInfo.savedMmPerYr > 0
+                        ? lang === "tr"
+                          ? `Tarlada toplam ${n(waterSavingsInfo.savedTotalM3Yr, 0)} m³/yıl (%${Math.abs(waterSavingsInfo.savedPct)} daha az)`
+                          : `${n(waterSavingsInfo.savedTotalM3Yr, 0)} m³/yr total (${Math.abs(waterSavingsInfo.savedPct)}% less)`
+                        : lang === "tr"
+                          ? `Mevcut ekime göre ${n(Math.abs(waterSavingsInfo.savedMmPerYr), 0)} mm fark`
+                          : `${n(Math.abs(waterSavingsInfo.savedMmPerYr), 0)} mm vs current`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-2">
+                    <p className="text-[10.5px] font-semibold text-ink-2">
+                      {lang === "tr" ? "Beklenen Net Kazanç" : "Expected Net Profit"}
+                    </p>
+                    <p className="numeral text-[15px] font-bold text-[#1e6b34]">
+                      {n(waterSavingsInfo.marginBest, 0)} ₺/da/yıl
+                    </p>
+                    <p className="text-[10.5px] text-ink-2">
+                      {waterSavingsInfo.marginDiffTL >= 0 ? "+" : ""}
+                      {n(waterSavingsInfo.marginDiffTL, 0)} ₺/da {lang === "tr" ? "mevcut ekime göre" : "vs current"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {uiMode === "detailed" && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]">
               {/* 5 Real Telemetry Status Rows */}
               <div className="space-y-2.5">
                 {/* 1. Toprak Sağlığı (Model Göstergesi) */}
@@ -1238,6 +1592,7 @@ export function FieldWorkspace() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Quick Action Bar at bottom of Mevcut Durum Özeti */}
@@ -1260,6 +1615,202 @@ export function FieldWorkspace() {
         </div>
       </section>
 
+      {/* ── ALT BÖLÜM (HARİTA ALTINDA): 3 Olası Rota, Sıralama Sebepleri ve Veri Kaynağı ── */}
+      <section
+        id="rota-nedenleri"
+        aria-label={lang === "tr" ? "3 Yıllık Olası Rotalar ve Sıralama Sebepleri" : "3-Year Routes & Sequence Reasoning"}
+        className="space-y-5"
+      >
+        <div className="bento-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+            <div>
+              <h2 className="font-display text-[19px] font-semibold text-ink">
+                {lang === "tr"
+                  ? "Sonraki 3 Yıl İçin 3 Olası Rota ve Sıralama Sebepleri"
+                  : "3 Possible 3-Year Routes & Sequence Reasoning"}
+              </h2>
+              <p className="mt-0.5 text-[13px] text-ink-2">
+                {lang === "tr"
+                  ? "En doğru rota, klasik ekilenler arasından en mantıklı rota ve alternatif rota; 1. → 2. → 3. yıl sıralama gerekçeleriyle birlikte sunulur."
+                  : "Most accurate route, most sensible classic-crop route, and alternative route with 1st → 2nd → 3rd year sequence explanations."}
+              </p>
+            </div>
+          </div>
+
+          {threeRouteCards.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {threeRouteCards.map((card) => {
+                const isSelected = selectedAltIdx === card.altIdx;
+                return (
+                  <article
+                    key={card.roleId}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 transition-colors ${
+                      isSelected
+                        ? "border-[#1e6b34] bg-[#f4fbf6] shadow-xs"
+                        : "border-line bg-bg/60 hover:border-[#86efac]"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold ${
+                            card.roleId === "optimal"
+                              ? "bg-[#1e6b34] text-white"
+                              : card.roleId === "classic"
+                                ? "bg-[#e0f2fe] text-[#0369a1]"
+                                : "bg-[#fef3c7] text-[#b45309]"
+                          }`}
+                        >
+                          {lang === "tr" ? card.badgeTr : card.badgeEn}
+                        </span>
+                        <span className="font-mono text-[11px] font-semibold text-ink-2">
+                          {n(card.plan.soilHealth.score, 0)}/100 {lang === "tr" ? "toprak" : "soil"}
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-[12px] text-ink-2">
+                        {lang === "tr" ? card.subtitleTr : card.subtitleEn}
+                      </p>
+
+                      {/* 3 Yıllık Sıra */}
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        {card.plan.crops.map((cid, idx) => (
+                          <div
+                            key={`${card.roleId}-${cid}-${idx}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5"
+                          >
+                            <CropArt crop={cid} size={22} />
+                            <span className="text-[12px] font-semibold text-ink">
+                              {idx + 1}. {L(CROPS[cid].name).split(" (")[0]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Su Tasarrufu & Net Kazanç */}
+                      <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-white p-2.5">
+                        <div>
+                          <p className="text-[10.5px] font-semibold text-ink-2">
+                            {lang === "tr" ? "Su Tasarrufu / İhtiyaç" : "Water Savings / Need"}
+                          </p>
+                          <p className="numeral text-[13.5px] font-bold text-[#0277bd]">
+                            {card.savedMm > 0
+                              ? `${n(card.savedMm, 0)} m³/da/yıl tasarruf`
+                              : `${n(card.plan.water.requirementMmPerYr?.p50 ?? 0, 0)} mm/yıl`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10.5px] font-semibold text-ink-2">
+                            {lang === "tr" ? "Net Kazanç" : "Net Profit"}
+                          </p>
+                          <p className="numeral text-[13.5px] font-bold text-[#1e6b34]">
+                            {n(card.margin, 0)} ₺/da/yıl
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Neden Bu Sıralama Seçildi? (1 → 2 → 3) */}
+                      <div className="mt-3 space-y-1.5 border-t border-line pt-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-ink-2">
+                          {lang === "tr" ? "Neden Bu 1. → 2. → 3. Yıl Sıralaması Seçildi?" : "Why This 1→2→3 Sequence?"}
+                        </p>
+                        {card.sequenceReasons.map((stepText, sIdx) => (
+                          <p key={sIdx} className="text-[12px] leading-relaxed text-ink">
+                            {stepText}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAltIdx(card.altIdx)}
+                      className={`btn btn-sm mt-3 w-full justify-center ${
+                        isSelected ? "btn-primary" : ""
+                      }`}
+                    >
+                      {isSelected
+                        ? lang === "tr" ? "Seçili Rota (Harita Yanında Gösteriliyor)" : "Selected Route"
+                        : lang === "tr" ? "Bu Rotayı Seç ve İncele" : "Select This Route"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="skel h-40" />
+          )}
+
+          {/* Veri Kaynağı Vurgulu Özet (Kolaylaştırılmış modda ana gerekçeler burada görünür) */}
+          {uiMode === "simple" && best && (
+            <div className="mt-5 grid grid-cols-1 gap-3 border-t border-line pt-4 md:grid-cols-2">
+              <div className="rounded-xl border border-[#bae6fd] bg-[#f0f9ff] p-4">
+                <p className="font-mono text-[11px] font-bold uppercase text-[#0369a1]">
+                  {lang === "tr" ? "NASA Uydu Nem ve İklim Verisine Dayanarak" : "Based on NASA Satellite Moisture & Climate"}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-[#0c4a6e]">
+                  {lang === "tr"
+                    ? `NASA POWER (MERRA-2) uydu verilerine göre bu koordinatta kök bölgesi nemi %${moist ? n(moist.value * 100, 0) : "—"} ve yıllık ortalama yağış ${climateSum ? n(climateSum.meanAnnualPrecipMm, 0) : n(masterProvince.province.iklim_ve_su_serisi_2005_2026.yillik_yagis_tipik_mm, 0)} mm düzeyindedir. Sıralamalar kurak aylardaki su stresini azaltacak şekilde kurgulandı.`
+                    : `According to NASA POWER (MERRA-2) satellite data, root-zone wetness here is ${moist ? n(moist.value * 100, 0) : "—"}% with ${climateSum ? n(climateSum.meanAnnualPrecipMm, 0) : "—"} mm annual rainfall.`}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4">
+                <p className="font-mono text-[11px] font-bold uppercase text-[#166534]">
+                  {lang === "tr" ? "Toprak, Rakım ve Su Tasarrufu" : "Soil, Elevation & Water Savings"}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-[#14532d]">
+                  {lang === "tr"
+                    ? `ISRIC SoilGrids toprak verisi (${data.soil ? texName(data.soil.textureClass, t) : "küresel toprak profili"}) ve NASA SRTM yükseklik verisi (${n(data.terrain?.data.elevationMean ?? masterProvince.province.kimlik_ve_cografya.ortalama_tarim_rakimi_m, 0)} m) kullanıldı. ${
+                        waterSavingsInfo && waterSavingsInfo.savedMmPerYr > 0
+                          ? `Seçili rota mevcut ekiminize göre yılda dekarda ${n(waterSavingsInfo.savedMmPerYr, 0)} m³ (%${Math.abs(waterSavingsInfo.savedPct)}) su tasarrufu ve ${waterSavingsInfo.marginDiffTL >= 0 ? "+" : ""}${n(waterSavingsInfo.marginDiffTL, 0)} ₺/da ek net kazanç öngörüyor.`
+                          : `Seçtiğiniz su bütçesi altında ${waterSavingsInfo ? `${n(waterSavingsInfo.marginBest, 0)} ₺/da/yıl` : ""} net kazanç sağlar.`
+                      }`
+                    : `Uses ISRIC SoilGrids (${data.soil ? texName(data.soil.textureClass, t) : "global soil profile"}) and NASA SRTM elevation (${n(data.terrain?.data.elevationMean ?? 0, 0)} m).`}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-line bg-bg/70 p-4">
+                <p className="font-mono text-[11px] font-bold uppercase text-ink-2">
+                  {lang === "tr" ? "Bölgede Sıklıkla Ekilen Ürünlerle Uyum" : "Alignment with Regional Crops"}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-ink">
+                  {commonRegionalCrops.length > 0
+                    ? lang === "tr"
+                      ? `${masterProvince.province.kimlik_ve_cografya.il_adi} ilinde sıklıkla ekilen ${commonRegionalCrops.slice(0, 4).map((c) => c.name).join(", ")} ürünleri ve 2025/2026 TMO–borsa alım fiyatları temel alınarak klasik ve bilimsel rotalar ayrı ayrı çıkarıldı.`
+                      : `Aligned with commonly grown crops in ${masterProvince.province.kimlik_ve_cografya.il_adi} (${commonRegionalCrops.slice(0, 4).map((c) => c.name).join(", ")}) and 2025/2026 reference market prices.`
+                    : lang === "tr"
+                      ? "Bu koordinat Türkiye 81 il veri seti dışında olduğu için bölgesel ürün tablosu yerine yalnızca küresel uydu iklim, toprak ve rakım verileriyle hesaplandı."
+                      : "Outside the 81-province Turkey dataset; computed from global satellite climate, soil and elevation data."}
+                </p>
+              </div>
+
+              <div className="flex flex-col justify-between rounded-xl border border-line bg-bg/70 p-4">
+                <div>
+                  <p className="font-mono text-[11px] font-bold uppercase text-ink-2">
+                    {lang === "tr" ? "Daha Fazla Teknik Kanıt İster misiniz?" : "Need Deeper Technical Proof?"}
+                  </p>
+                  <p className="mt-1.5 text-[13px] text-ink-2">
+                    {lang === "tr"
+                      ? "P10–P90 belirsizlik grafikleri, kuraklık riski simülasyonu, canlı FAO-56 formülleri ve 11 uydu sensör kartını görmek için Detaylı Moda geçebilirsiniz."
+                      : "Switch to Detailed Mode to inspect P10–P90 charts, drought simulations, live FAO-56 equations and all 11 sensor cards."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => changeUiMode("detailed")}
+                  className="btn btn-primary btn-sm mt-3 self-start"
+                >
+                  {lang === "tr" ? "Detaylı (Teknik) Moda Geç →" : "Switch to Detailed Mode →"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {uiMode === "detailed" && (
+        <>
       {/* ── ROW 3: 3-Column Bento Grid (Ürün Önerileri | 3 Yıllık Rotasyon | Verim & Kârlılık) ── */}
       <section
         id="urun-onerileri"
@@ -1926,6 +2477,8 @@ export function FieldWorkspace() {
           </div>
         )}
       </section>
+        </>
+      )}
 
       <p className="sr-only" aria-live="polite">
         {announce}

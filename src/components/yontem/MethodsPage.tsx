@@ -13,9 +13,13 @@ import { IMAGES, IMAGE_LIST, IMAGES_RETRIEVED } from "@/lib/ui/images";
 import { useFieldData } from "@/components/data/FieldData";
 import { ImageCredit } from "@/components/ui/ImageCredit";
 import { useL } from "@/components/plan/planKit";
+import { Mod16ValidationCard } from "@/components/yontem/Mod16ValidationCard";
+import { TarsimValidationCard } from "@/components/yontem/TarsimValidationCard";
 
 const SECTIONS: { id: string; key: DictKey }[] = [
   { id: "veri", key: "m.data" },
+  { id: "mod16", key: "y.val.mod16" },
+  { id: "tarsim", key: "y.val.tarsim" },
   { id: "harita", key: "y.tiles" },
   { id: "formuller", key: "m.formulas" },
   { id: "varsayimlar", key: "y.assumptions" },
@@ -55,7 +59,7 @@ export function MethodsPage() {
   }, []);
   const assumptions: AssumptionItem[] | null = d.analysis.result?.assumptions ?? last?.assumptions ?? null;
   const formulas: DictKey[] = ["m.f.et0", "m.f.wb", "m.f.soil", "m.f.irr", "m.f.yield", "m.f.replay", "m.f.trend", "m.f.opt"];
-  const dataItems: DictKey[] = ["y.d.power", "y.d.srtm", "y.d.soilgrids", "y.d.modis", "y.d.era5", "y.d.gibs", "y.d.eox", "y.d.osm"];
+  const dataItems: DictKey[] = ["y.d.power", "y.d.srtm", "y.d.soilgrids", "y.d.modis", "y.d.mod16", "y.d.tarsim", "y.d.era5", "y.d.gibs", "y.d.eox", "y.d.osm"];
   const limits: DictKey[] = ["m.limit.1", "m.limit.2", "m.limit.3", "m.limit.4", "m.limit.5", "m.limit.6", "y.limit.7", "y.limit.8"];
 
   return (
@@ -108,6 +112,14 @@ export function MethodsPage() {
                 ))}
               </ul>
             )}
+          </Sec>
+
+          <Sec id="mod16" title={t("y.val.mod16")}>
+            <Mod16ValidationCard />
+          </Sec>
+
+          <Sec id="tarsim" title={t("y.val.tarsim")}>
+            <TarsimValidationCard />
           </Sec>
 
           <Sec id="harita" title={t("y.tiles")}>

@@ -11,8 +11,7 @@
  */
 import type { CropId } from "../types";
 import type { EngineSetup, ReplayWindow } from "./rotation";
-import { slotIndices } from "./rotation";
-import type { SequenceSchedule } from "../crops/calendar";
+import { sowEpochDay, type SequenceSchedule } from "../crops/calendar";
 import { newFluxes, simulateBare, simulateSeason, uniformState, type CropParams } from "./waterBalance";
 import { CROP_IDS } from "../crops/database";
 
@@ -20,6 +19,28 @@ const LEVELS = 10; // 11 sample points
 
 // Crop-piece vector layout
 const C_ETC = 0, C_ETA = 1, C_IRR = 2, C_LIM = 3, C_FROST = 4, C_HEAT = 5, C_W = 6, C_LEN = 7;
+
+interface ChainPlan {
+  order: number[];
+  pred: number[];
+}
+const chainPlanCache = new WeakMap<readonly ReplayWindow[], ChainPlan>();
+
+function getChainPlan(windows: readonly ReplayWindow[]): ChainPlan {
+  let plan = chainPlanCache.get(windows);
+  if (plan) return plan;
+  const byAy = new Map<number, number>();
+  for (let i = 0; i < windows.length; i++) byAy.set(windows[i].firstAy, i);
+  const order = windows.map((_, i) => i).sort((a, b) => windows[a].firstAy - windows[b].firstAy);
+  const pred = new Array<number>(windows.length);
+  for (let i = 0; i < windows.length; i++) {
+    const p = byAy.get(windows[i].firstAy - 3);
+    pred[i] = p === undefined ? -1 : p;
+  }
+  plan = { order, pred };
+  chainPlanCache.set(windows, plan);
+  return plan;
+}
 
 export interface ScreenYear {
   cropId: CropId;
@@ -37,6 +58,9 @@ export class Screener {
   private cropCache = new Map<number, Map<number, Float64Array>>();
   private bareCache = new Map<number, number>();
   private cropIndex: Record<CropId, number>;
+  private buf = new Float64Array(C_LEN);
+  private lastBudget = NaN;
+  private lastBudgetMap: Map<number, Float64Array> | null = null;
   pieceSimulations = 0;
 
   constructor(private setup: EngineSetup) {
@@ -47,14 +71,22 @@ export class Screener {
     return this.setup.ctx.tawCol;
   }
 
-  private cropPieceAt(cropId: CropId, sowIdx: number, stages: readonly number[], budget: number, mode: number, level: number): Float64Array {
-    const len = stages[0] + stages[1] + stages[2] + stages[3];
-    const effectiveBudget = mode === 1 ? 0 : budget;
+  private budgetMap(effectiveBudget: number): Map<number, Float64Array> {
+    if (effectiveBudget === this.lastBudget && this.lastBudgetMap) return this.lastBudgetMap;
     let byBudget = this.cropCache.get(effectiveBudget);
     if (!byBudget) {
       byBudget = new Map<number, Float64Array>();
       this.cropCache.set(effectiveBudget, byBudget);
     }
+    this.lastBudget = effectiveBudget;
+    this.lastBudgetMap = byBudget;
+    return byBudget;
+  }
+
+  private cropPieceAt(cropId: CropId, sowIdx: number, stages: readonly number[], budget: number, mode: number, level: number): Float64Array {
+    const len = stages[0] + stages[1] + stages[2] + stages[3];
+    const effectiveBudget = mode === 1 ? 0 : budget;
+    const byBudget = this.budgetMap(effectiveBudget);
     const key = ((((this.cropIndex[cropId] * 16384 + sowIdx) * 1024 + len) * 2 + mode) * 16) + level;
     let v = byBudget.get(key);
     if (v) return v;
@@ -110,21 +142,22 @@ export class Screener {
    */
   screenWindow(schedule: SequenceSchedule, win: ReplayWindow, w0: number, budget: number, mode: 0 | 1, startCursor?: number): ScreenWindow {
     const clim = this.setup.ctx.clim;
-    const buf = new Float64Array(C_LEN);
+    const buf = this.buf;
+    const effBudget = mode === 1 ? 0 : budget;
     let w = w0;
     let cursor = startCursor !== undefined ? Math.max(win.startIdx, startCursor) : win.startIdx;
-    const years: (ScreenYear | null)[] = [];
+    const years: (ScreenYear | null)[] = new Array(3);
     for (let k = 0; k < 3; k++) {
       const slot = schedule.slots[k];
-      if (!slot) { years.push(null); continue; }
-      let { sowIdx } = slotIndices(clim, win, slot);
+      if (!slot) { years[k] = null; continue; }
+      let sowIdx = sowEpochDay(slot, win.firstAy) - clim.startDay;
       if (sowIdx < cursor) sowIdx = cursor;
       w = this.bare(cursor, sowIdx, w);
-      this.crop(slot.cropId, sowIdx, slot.stages, mode === 1 ? 0 : budget, mode, w, buf);
-      years.push({
+      this.crop(slot.cropId, sowIdx, slot.stages, effBudget, mode, w, buf);
+      years[k] = {
         cropId: slot.cropId, etc: buf[C_ETC], eta: buf[C_ETA], irrigation: buf[C_IRR],
         shortfall: buf[C_LIM], frostDays: buf[C_FROST], heatDays: buf[C_HEAT],
-      });
+      };
       w = buf[C_W];
       cursor = sowIdx + slot.stages[0] + slot.stages[1] + slot.stages[2] + slot.stages[3];
     }
@@ -139,14 +172,14 @@ export class Screener {
    */
   screenChain(schedule: SequenceSchedule, windows: readonly ReplayWindow[], usable: readonly boolean[], w0: readonly number[], budget: number, mode: 0 | 1): (ScreenWindow | null)[] {
     const out: (ScreenWindow | null)[] = new Array(windows.length).fill(null);
-    const byAy = new Map<number, number>();
-    windows.forEach((w, i) => byAy.set(w.firstAy, i));
-    const order = windows.map((_, i) => i).sort((a, b) => windows[a].firstAy - windows[b].firstAy);
-    for (const i of order) {
+    const { order, pred: predIdx } = getChainPlan(windows);
+    const cap = this.colCapacity();
+    for (let oi = 0; oi < order.length; oi++) {
+      const i = order[oi];
       if (!usable[i]) continue;
       const win = windows[i];
-      const pi = byAy.get(win.firstAy - 3);
-      const pred = pi === undefined ? null : out[pi];
+      const pi = predIdx[i];
+      const pred = pi < 0 ? null : out[pi];
       if (pred && pred.endIdx >= win.startIdx && pred.endIdx - win.startIdx < 200) {
         out[i] = this.screenWindow(schedule, win, pred.wEnd, budget, mode, pred.endIdx);
         continue;
@@ -155,7 +188,7 @@ export class Screener {
       for (let it = 1; it < 6; it++) {
         const cur = win.startIdx + Math.max(0, r.endIdx - win.coreEndIdx);
         const n = this.screenWindow(schedule, win, r.wEnd, budget, mode, cur);
-        const done = Math.abs(n.wEnd - r.wEnd) * this.colCapacity() < 0.5;
+        const done = Math.abs(n.wEnd - r.wEnd) * cap < 0.5;
         r = n;
         if (done) break;
       }

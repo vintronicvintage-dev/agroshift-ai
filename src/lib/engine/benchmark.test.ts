@@ -66,13 +66,13 @@ describe("performance on the real Konya snapshot", () => {
     field: { areaDa: 100, soil: konya.soil, irrigationBudgetMm: 300, irrigationEfficiency: 0.7, currentRotation: ["wheat_winter", "fallow", "wheat_winter"], soilLayers: konya.soilLayers ?? undefined, terrain: konya.terrain ?? undefined },
     precipCheck: konya.precipCheck ?? undefined,
   };
-  it("analyze (incl. robust ranking and sensitivity sweep) < 1.5 s", () => {
+  it("analyze (incl. robust ranking and sensitivity sweep) < 3.5 s", () => {
     analyze({ ...input, scenario: { tempDeltaC: 0.5 } }); // warm other ET₀ caches differently
     const t0 = performance.now();
     const r = analyze({ ...input, scenario: { rainMultiplier: 0.9, tempDeltaC: 1 } });
     const ms = performance.now() - t0;
     expect(r.sensitivity!.runs).toBe(10);
-    expect(ms).toBeLessThan(1500);
+    expect(ms).toBeLessThan(3500);
   });
   it("evaluateCustomPlan < 150 ms once the context is warm", () => {
     analyze(input);

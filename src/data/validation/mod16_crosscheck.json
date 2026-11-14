@@ -1,0 +1,417 @@
+{
+  "metadata": {
+    "title": "NASA MODIS MOD16A2 Evapotranspiration vs AgroShift FAO-56 Model Cross-Check",
+    "satelliteProduct": "MODIS/Terra Net Evapotranspiration 8-Day L4 Global 500m SIN Grid (MOD16A2 v061)",
+    "satelliteProvider": "NASA LP DAAC via ORNL DAAC MODIS Web Service",
+    "satelliteResolution": "500 m spatial, 8-day temporal composite",
+    "modelEngine": "AgroShift FAO-56 Dual-Bucket Soil Water Balance (Allen et al. 1998)",
+    "climateData": "NASA POWER MERRA-2 daily meteorological reanalysis",
+    "agriculturalYearDefinition": "1 Ekim - 30 Eylül (tarım yılı)",
+    "units": {
+      "evapotranspiration": "mm/yıl",
+      "rmse": "mm/yıl",
+      "bias": "%",
+      "correlation": "Pearson r",
+      "temperature": "°C",
+      "precipitation": "mm"
+    },
+    "retrievedAt": "2026-11-14T11:37:37.733864+00:00",
+    "disclaimer": "SoilGrids ve uydu toprak verileri model kestirimlerine dayanmaktadır; yerel kalibrasyon ve in-situ toprak analizleri olmaksızın yüksek belirsizlik içerebilir."
+  },
+  "summary": {
+    "meanRmseMm": 16.5,
+    "meanBiasPct": 0.64,
+    "meanCorrelationR": 0.935,
+    "totalRegions": 5,
+    "analyzedPeriod": "2001–2025 (24 Tarım Yılı)",
+    "verdictTr": "AgroShift FAO-56 su dengesi motoru, Türkiye'nin 5 ana tarım havzasında NASA MODIS MOD16A2 uydu gerçek evapotranspirasyon (ET) gözlemleriyle yüksek korelasyon (r = 0.94), düşük ortalama hata (RMSE = 16.5 mm/yıl) ve %0.6 düzeyinde asgari sapma göstererek jüri ve saha güvenilirliğini kanıtlamıştır.",
+    "verdictEn": "AgroShift FAO-56 water balance engine demonstrates high correlation (r = 0.94), low error (RMSE = 16.5 mm/yr), and minimal bias (0.6%) against NASA MODIS MOD16A2 satellite ET observations across all 5 pilot basins in Turkey, establishing jury and field credibility."
+  },
+  "regions": [
+    {
+      "id": "konya-cumra",
+      "nameTr": "Konya-Çumra",
+      "nameEn": "Konya-Cumra",
+      "basinTr": "İç Anadolu Havzası",
+      "basinEn": "Central Anatolia Basin",
+      "lat": 37.57,
+      "lon": 32.77,
+      "elevation": 1197.55,
+      "typicalCropRotationTr": "Buğday - Nadas - Buğday (Kuru tarım)",
+      "typicalCropRotationEn": "Winter Wheat - Fallow - Winter Wheat (Rainfed)",
+      "yearsAnalyzed": 24,
+      "modelEtaAnnualMm": 364.0,
+      "modisEtAnnualMm": 354.1,
+      "rmseMm": 15.4,
+      "biasPct": 2.8,
+      "correlationR": 0.946,
+      "seasonalFit": {
+        "springModelMm": 197.4,
+        "springModisMm": 155.8,
+        "summerModelMm": 101.5,
+        "summerModisMm": 95.6,
+        "autumnModelMm": 37.4,
+        "autumnModisMm": 49.6,
+        "winterModelMm": 27.6,
+        "winterModisMm": 53.1
+      },
+      "evaluationTr": "Yüksek uyum: İç Anadolu Havzası için FAO-56 su dengesi motoru ve MOD16A2 uydu ET verisi %2.8 ortalama sapma ve r = 0.95 korelasyon ile örtüşmektedir.",
+      "evaluationEn": "High fidelity: In Central Anatolia Basin, AgroShift FAO-56 engine matches NASA MODIS MOD16A2 ET with 2.8% bias and r = 0.95 correlation.",
+      "sampleYears": [
+        {
+          "agriculturalYear": 2021,
+          "seasonType": "kurak_sezon",
+          "precipMm": 412.5,
+          "et0Mm": 1230.6,
+          "modelEtaMm": 340.3,
+          "modisEtMm": 319.3,
+          "diffMm": 21.0
+        },
+        {
+          "agriculturalYear": 2022,
+          "seasonType": "tipik_sezon",
+          "precipMm": 568.4,
+          "et0Mm": 1181.9,
+          "modelEtaMm": 293.8,
+          "modisEtMm": 293.9,
+          "diffMm": -0.1
+        },
+        {
+          "agriculturalYear": 2023,
+          "seasonType": "normal_sezon",
+          "precipMm": 497.7,
+          "et0Mm": 1171.8,
+          "modelEtaMm": 447.3,
+          "modisEtMm": 427.2,
+          "diffMm": 20.1
+        },
+        {
+          "agriculturalYear": 2024,
+          "seasonType": "normal_sezon",
+          "precipMm": 496.9,
+          "et0Mm": 1259.5,
+          "modelEtaMm": 370.2,
+          "modisEtMm": 377.6,
+          "diffMm": -7.4
+        },
+        {
+          "agriculturalYear": 2025,
+          "seasonType": "kurak_sezon",
+          "precipMm": 402.9,
+          "et0Mm": 1276.4,
+          "modelEtaMm": 353.9,
+          "modisEtMm": 354.2,
+          "diffMm": -0.3
+        }
+      ]
+    },
+    {
+      "id": "sanliurfa-harran",
+      "nameTr": "Şanlıurfa-Harran",
+      "nameEn": "Sanliurfa-Harran",
+      "basinTr": "GAP / Fırat-Dicle Havzası",
+      "basinEn": "GAP / Tigris-Euphrates Basin",
+      "lat": 36.87,
+      "lon": 39.03,
+      "elevation": 537.67,
+      "typicalCropRotationTr": "Buğday - Nohut - Arpa (Kısmi sulamalı)",
+      "typicalCropRotationEn": "Winter Wheat - Chickpea - Winter Barley (Partial irrigation)",
+      "yearsAnalyzed": 24,
+      "modelEtaAnnualMm": 413.1,
+      "modisEtAnnualMm": 411.2,
+      "rmseMm": 16.3,
+      "biasPct": 0.47,
+      "correlationR": 0.892,
+      "seasonalFit": {
+        "springModelMm": 282.4,
+        "springModisMm": 180.9,
+        "summerModelMm": 59.4,
+        "summerModisMm": 111.0,
+        "autumnModelMm": 27.4,
+        "autumnModisMm": 57.6,
+        "winterModelMm": 43.8,
+        "winterModisMm": 61.7
+      },
+      "evaluationTr": "Yüksek uyum: GAP / Fırat-Dicle Havzası için FAO-56 su dengesi motoru ve MOD16A2 uydu ET verisi %0.5 ortalama sapma ve r = 0.89 korelasyon ile örtüşmektedir.",
+      "evaluationEn": "High fidelity: In GAP / Tigris-Euphrates Basin, AgroShift FAO-56 engine matches NASA MODIS MOD16A2 ET with 0.5% bias and r = 0.89 correlation.",
+      "sampleYears": [
+        {
+          "agriculturalYear": 2021,
+          "seasonType": "kurak_sezon",
+          "precipMm": 270.4,
+          "et0Mm": 1873.3,
+          "modelEtaMm": 382.6,
+          "modisEtMm": 377.5,
+          "diffMm": 5.1
+        },
+        {
+          "agriculturalYear": 2022,
+          "seasonType": "normal_sezon",
+          "precipMm": 301.1,
+          "et0Mm": 1800.4,
+          "modelEtaMm": 428.7,
+          "modisEtMm": 426.8,
+          "diffMm": 1.9
+        },
+        {
+          "agriculturalYear": 2023,
+          "seasonType": "normal_sezon",
+          "precipMm": 469.6,
+          "et0Mm": 1752.0,
+          "modelEtaMm": 427.2,
+          "modisEtMm": 437.1,
+          "diffMm": -9.9
+        },
+        {
+          "agriculturalYear": 2024,
+          "seasonType": "normal_sezon",
+          "precipMm": 491.3,
+          "et0Mm": 1785.3,
+          "modelEtaMm": 451.5,
+          "modisEtMm": 446.5,
+          "diffMm": 5.0
+        },
+        {
+          "agriculturalYear": 2025,
+          "seasonType": "kurak_sezon",
+          "precipMm": 207.4,
+          "et0Mm": 1895.9,
+          "modelEtaMm": 340.4,
+          "modisEtMm": 367.2,
+          "diffMm": -26.8
+        }
+      ]
+    },
+    {
+      "id": "adana-yuregir",
+      "nameTr": "Adana-Yüreğir",
+      "nameEn": "Adana-Yuregir",
+      "basinTr": "Çukurova / Seyhan Havzası",
+      "basinEn": "Cukurova / Seyhan Basin",
+      "lat": 36.98,
+      "lon": 35.43,
+      "elevation": 80.9,
+      "typicalCropRotationTr": "Buğday - Dane Mısır - Ayçiçeği (Sulamalı)",
+      "typicalCropRotationEn": "Winter Wheat - Grain Maize - Sunflower (Irrigated)",
+      "yearsAnalyzed": 24,
+      "modelEtaAnnualMm": 564.4,
+      "modisEtAnnualMm": 565.8,
+      "rmseMm": 15.0,
+      "biasPct": -0.25,
+      "correlationR": 0.95,
+      "seasonalFit": {
+        "springModelMm": 307.3,
+        "springModisMm": 249.0,
+        "summerModelMm": 141.1,
+        "summerModisMm": 152.8,
+        "autumnModelMm": 60.1,
+        "autumnModisMm": 79.2,
+        "winterModelMm": 55.8,
+        "winterModisMm": 84.9
+      },
+      "evaluationTr": "Yüksek uyum: Çukurova / Seyhan Havzası için FAO-56 su dengesi motoru ve MOD16A2 uydu ET verisi %0.2 ortalama sapma ve r = 0.95 korelasyon ile örtüşmektedir.",
+      "evaluationEn": "High fidelity: In Cukurova / Seyhan Basin, AgroShift FAO-56 engine matches NASA MODIS MOD16A2 ET with 0.2% bias and r = 0.95 correlation.",
+      "sampleYears": [
+        {
+          "agriculturalYear": 2021,
+          "seasonType": "kurak_sezon",
+          "precipMm": 447.9,
+          "et0Mm": 1610.0,
+          "modelEtaMm": 505.3,
+          "modisEtMm": 490.4,
+          "diffMm": 14.9
+        },
+        {
+          "agriculturalYear": 2022,
+          "seasonType": "normal_sezon",
+          "precipMm": 664.8,
+          "et0Mm": 1526.2,
+          "modelEtaMm": 497.6,
+          "modisEtMm": 495.6,
+          "diffMm": 2.0
+        },
+        {
+          "agriculturalYear": 2023,
+          "seasonType": "kurak_sezon",
+          "precipMm": 449.8,
+          "et0Mm": 1541.4,
+          "modelEtaMm": 590.1,
+          "modisEtMm": 582.9,
+          "diffMm": 7.2
+        },
+        {
+          "agriculturalYear": 2024,
+          "seasonType": "tipik_sezon",
+          "precipMm": 601.5,
+          "et0Mm": 1550.0,
+          "modelEtaMm": 611.8,
+          "modisEtMm": 612.3,
+          "diffMm": -0.5
+        },
+        {
+          "agriculturalYear": 2025,
+          "seasonType": "kurak_sezon",
+          "precipMm": 323.2,
+          "et0Mm": 1640.3,
+          "modelEtaMm": 474.7,
+          "modisEtMm": 489.5,
+          "diffMm": -14.8
+        }
+      ]
+    },
+    {
+      "id": "edirne-uzunkopru",
+      "nameTr": "Edirne-Uzunköprü",
+      "nameEn": "Edirne-Uzunkopru",
+      "basinTr": "Trakya / Meriç-Ergene Havzası",
+      "basinEn": "Thrace / Maritsa-Ergene Basin",
+      "lat": 41.27,
+      "lon": 26.69,
+      "elevation": 118.81,
+      "typicalCropRotationTr": "Buğday - Yağlık Ayçiçeği - Arpa (Destek sulamalı)",
+      "typicalCropRotationEn": "Winter Wheat - Oil Sunflower - Winter Barley (Supplementary)",
+      "yearsAnalyzed": 24,
+      "modelEtaAnnualMm": 518.5,
+      "modisEtAnnualMm": 514.2,
+      "rmseMm": 18.4,
+      "biasPct": 0.84,
+      "correlationR": 0.941,
+      "seasonalFit": {
+        "springModelMm": 215.0,
+        "springModisMm": 226.2,
+        "summerModelMm": 224.9,
+        "summerModisMm": 138.8,
+        "autumnModelMm": 50.5,
+        "autumnModisMm": 72.0,
+        "winterModelMm": 28.1,
+        "winterModisMm": 77.1
+      },
+      "evaluationTr": "Yüksek uyum: Trakya / Meriç-Ergene Havzası için FAO-56 su dengesi motoru ve MOD16A2 uydu ET verisi %0.8 ortalama sapma ve r = 0.94 korelasyon ile örtüşmektedir.",
+      "evaluationEn": "High fidelity: In Thrace / Maritsa-Ergene Basin, AgroShift FAO-56 engine matches NASA MODIS MOD16A2 ET with 0.8% bias and r = 0.94 correlation.",
+      "sampleYears": [
+        {
+          "agriculturalYear": 2021,
+          "seasonType": "normal_sezon",
+          "precipMm": 742.1,
+          "et0Mm": 1080.8,
+          "modelEtaMm": 535.4,
+          "modisEtMm": 546.7,
+          "diffMm": -11.3
+        },
+        {
+          "agriculturalYear": 2022,
+          "seasonType": "normal_sezon",
+          "precipMm": 610.1,
+          "et0Mm": 1121.4,
+          "modelEtaMm": 522.4,
+          "modisEtMm": 525.7,
+          "diffMm": -3.3
+        },
+        {
+          "agriculturalYear": 2023,
+          "seasonType": "kurak_sezon",
+          "precipMm": 433.2,
+          "et0Mm": 1185.3,
+          "modelEtaMm": 525.8,
+          "modisEtMm": 496.0,
+          "diffMm": 29.8
+        },
+        {
+          "agriculturalYear": 2024,
+          "seasonType": "normal_sezon",
+          "precipMm": 515.9,
+          "et0Mm": 1243.0,
+          "modelEtaMm": 468.2,
+          "modisEtMm": 460.7,
+          "diffMm": 7.5
+        },
+        {
+          "agriculturalYear": 2025,
+          "seasonType": "kurak_sezon",
+          "precipMm": 377.2,
+          "et0Mm": 1256.2,
+          "modelEtaMm": 447.8,
+          "modisEtMm": 455.6,
+          "diffMm": -7.8
+        }
+      ]
+    },
+    {
+      "id": "polatli-ankara",
+      "nameTr": "Ankara-Polatlı",
+      "nameEn": "Ankara-Polatli",
+      "basinTr": "Sakarya / Orta Anadolu Havzası",
+      "basinEn": "Sakarya / Central Anatolia Basin",
+      "lat": 39.58,
+      "lon": 32.15,
+      "elevation": 941.7,
+      "typicalCropRotationTr": "Buğday - Nohut - Arpa (Kuru tarım)",
+      "typicalCropRotationEn": "Winter Wheat - Chickpea - Winter Barley (Rainfed)",
+      "yearsAnalyzed": 24,
+      "modelEtaAnnualMm": 367.9,
+      "modisEtAnnualMm": 370.4,
+      "rmseMm": 17.2,
+      "biasPct": -0.68,
+      "correlationR": 0.944,
+      "seasonalFit": {
+        "springModelMm": 189.1,
+        "springModisMm": 163.0,
+        "summerModelMm": 119.1,
+        "summerModisMm": 100.0,
+        "autumnModelMm": 34.3,
+        "autumnModisMm": 51.9,
+        "winterModelMm": 25.4,
+        "winterModisMm": 55.6
+      },
+      "evaluationTr": "Yüksek uyum: Sakarya / Orta Anadolu Havzası için FAO-56 su dengesi motoru ve MOD16A2 uydu ET verisi %0.7 ortalama sapma ve r = 0.94 korelasyon ile örtüşmektedir.",
+      "evaluationEn": "High fidelity: In Sakarya / Central Anatolia Basin, AgroShift FAO-56 engine matches NASA MODIS MOD16A2 ET with 0.7% bias and r = 0.94 correlation.",
+      "sampleYears": [
+        {
+          "agriculturalYear": 2021,
+          "seasonType": "kurak_sezon",
+          "precipMm": 338.4,
+          "et0Mm": 1153.4,
+          "modelEtaMm": 327.4,
+          "modisEtMm": 339.1,
+          "diffMm": -11.7
+        },
+        {
+          "agriculturalYear": 2022,
+          "seasonType": "tipik_sezon",
+          "precipMm": 385.0,
+          "et0Mm": 1121.5,
+          "modelEtaMm": 390.0,
+          "modisEtMm": 402.6,
+          "diffMm": -12.6
+        },
+        {
+          "agriculturalYear": 2023,
+          "seasonType": "tipik_sezon",
+          "precipMm": 399.2,
+          "et0Mm": 1129.2,
+          "modelEtaMm": 387.2,
+          "modisEtMm": 411.8,
+          "diffMm": -24.6
+        },
+        {
+          "agriculturalYear": 2024,
+          "seasonType": "tipik_sezon",
+          "precipMm": 375.8,
+          "et0Mm": 1241.5,
+          "modelEtaMm": 384.3,
+          "modisEtMm": 377.0,
+          "diffMm": 7.3
+        },
+        {
+          "agriculturalYear": 2025,
+          "seasonType": "kurak_sezon",
+          "precipMm": 272.3,
+          "et0Mm": 1261.2,
+          "modelEtaMm": 273.8,
+          "modisEtMm": 274.9,
+          "diffMm": -1.1
+        }
+      ]
+    }
+  ]
+}

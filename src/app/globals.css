@@ -1,0 +1,960 @@
+@import "tailwindcss";
+
+/*
+ * AgroShift tokens: a field notebook that is also an instrument.
+ * Dark first (charcoal with a green cast); light is warm notebook paper. Sections sit on the paper
+ * and are separated by hairline rules, not boxed; only media (maps, photos), dialogs and the open
+ * plan get a frame. Colour carries meaning only: sprout green = the one primary action and the
+ * "best" mark; water blue, soil amber and alert red appear only where they mean water, soil or
+ * worse. Chart series keep Okabe–Ito (colour-blind safe). Three faces: a text serif for titles and
+ * the verdict, a grotesque for everything you read or tap, a mono for measured readouts.
+ *
+ * Spacing: 4 px base, steps 4 8 12 16 24 32 48. Type: 1.25 modular scale on 16 px
+ * (13, 16, 20, 25, 31, 39).
+ */
+:root {
+  --text-step--1: 0.8125rem;
+  --text-step-0: 1rem;
+  --text-step-1: 1.25rem;
+  --text-step-2: 1.5625rem;
+  --text-step-3: 1.953rem;
+  --text-step-4: 2.441rem;
+}
+
+:root,
+:root[data-theme="dark"] {
+  --paper: #0d1310;
+  --rail: #0a0f0c;
+  --panel: #141c17;
+  --panel-2: #1b2520;
+  --ink: #e6ede4;
+  --ink-2: #a3b2a7;
+  --rule: #243029;
+  --rule-strong: #34443b;
+  --sheen: rgb(255 255 255 / 0.035);
+  --accent: #c8f25a;
+  --accent-edge: #c8f25a;
+  --on-accent: #0f1707;
+  --accent-ink: #c8f25a;
+  --accent-soft: rgb(200 242 90 / 0.11);
+  --focus: #c8f25a;
+  --sky: #7cc0ea;
+  --sky-soft: #15303d;
+  --loam: #e2ae73;
+  --warn: #382c13;
+  --warn-ink: #f3dca6;
+  --bad: #ff8f78;
+  --bad-soft: rgb(255 143 120 / 0.12);
+  --c-precip: #56b4e9;
+  --c-et0: #f08a4b;
+  --c-frost: #8fcff5;
+  --c-hot: #f08a4b;
+  --c-green: #3cc79c;
+  --c-muted: #5d6b63;
+  --band-ink: #15201a;
+  --scrim: rgb(4 8 6 / 0.62);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --paper: #f3f1e9;
+  --rail: #ebe8de;
+  --panel: #fbfaf5;
+  --panel-2: #e9e6db;
+  --ink: #1a211b;
+  --ink-2: #4c5449;
+  --rule: #d9d5c7;
+  --rule-strong: #bdb7a4;
+  --sheen: rgb(255 255 255 / 0.8);
+  --accent: #c8f25a;
+  --accent-edge: #8db326;
+  --on-accent: #142008;
+  --accent-ink: #456100;
+  --accent-soft: rgb(141 179 38 / 0.14);
+  --focus: #456100;
+  --sky: #1f5f8b;
+  --sky-soft: #d9e7f0;
+  --loam: #7a4a21;
+  --warn: #f4e5c2;
+  --warn-ink: #573905;
+  --bad: #a3301a;
+  --bad-soft: rgb(163 48 26 / 0.09);
+  --c-precip: #0072b2;
+  --c-et0: #ad4500;
+  --c-frost: #3a8fc4;
+  --c-hot: #ad4500;
+  --c-green: #007a59;
+  --c-muted: #9aa69d;
+  --band-ink: #15201a;
+  --scrim: rgb(10 18 14 / 0.45);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-rail: var(--rail);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-loam: var(--loam);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  /* the display face: page titles, card titles, the verdict. Never numbers or labels. */
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  font-size: 16px;
+  background: var(--paper);
+}
+@media (min-width: 1600px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Component classes live in a layer so Tailwind utilities on the same element win. */
+@layer components {
+.prose-serif {
+  font-family: var(--font-sans);
+  line-height: 1.65;
+}
+
+/* Measured readouts: the instrument voice (mono, tabular); the unit always sits beside the number */
+.num-hero {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--text-step-3);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.num-mid {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--text-step-1);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.readout {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.unit {
+  font-family: var(--font-sans);
+  font-size: var(--text-step--1);
+  color: var(--ink-2);
+  letter-spacing: 0;
+}
+
+/* A section: content on the paper, opened by a hairline and a serif title. No box. */
+.sec {
+  min-width: 0;
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+}
+.sec-title {
+  font-family: var(--font-display);
+  font-weight: 560;
+  font-size: var(--text-step-1);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.lbl {
+  font-size: var(--text-step--1);
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+/* A number you can click to see where it came from */
+.traced {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--ink-2);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  color: inherit;
+  font-family: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.traced:hover {
+  text-decoration-color: var(--accent-ink);
+}
+
+/* A frame, only for what needs one (maps, dialogs, the open plan). One elevation: a rule. */
+.card {
+  position: relative;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-weight: 560;
+  font-size: var(--text-step-1);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* Inputs */
+.field-input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 140ms ease;
+}
+.field-input::placeholder {
+  color: var(--ink-2);
+  opacity: 0.85;
+}
+.field-input:hover:not(:disabled) {
+  border-color: var(--ink-2);
+}
+.field-input:focus-visible {
+  outline-offset: 0;
+  border-color: var(--focus);
+}
+.field-input[aria-invalid="true"] {
+  border-color: var(--bad);
+}
+.field-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+select.field-input {
+  appearance: auto;
+}
+
+input[type="range"] {
+  accent-color: var(--accent-edge);
+  width: 100%;
+}
+input[type="checkbox"] {
+  accent-color: var(--accent-edge);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--panel-2);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--ink-2);
+}
+.btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent-edge);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  border-color: var(--accent-edge);
+  filter: brightness(1.06);
+}
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+.btn-quiet:hover:not(:disabled) {
+  background: var(--panel-2);
+  border-color: transparent;
+  color: var(--ink);
+}
+
+/* Fallow hatch, used in strip calendar and legends */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, var(--loam) 0 1.5px, transparent 1.5px 6px);
+  opacity: 0.55;
+}
+
+/* Native dialog */
+dialog.trace {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: 16px;
+  padding: 0;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+}
+dialog.trace::backdrop {
+  background: var(--scrim);
+}
+
+details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary .chev {
+  display: inline-block;
+  transition: transform 160ms ease;
+}
+details[open] > summary .chev {
+  transform: rotate(90deg);
+}
+
+}
+
+/* Leaflet theming */
+.leaflet-container {
+  font: inherit;
+  background: #0d1d29;
+}
+:root[data-theme="light"] .leaflet-container {
+  background: #132838;
+}
+.leaflet-tooltip.pilot-map-label {
+  background: rgb(13 19 16 / 0.85);
+  color: #e6ede4;
+  border: 1px solid rgb(230 159 0 / 0.55);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+.leaflet-tooltip.pilot-map-label::before {
+  border-top-color: rgb(230 159 0 / 0.55);
+}
+:root[data-theme="dark"] .leaflet-tile-pane .osm-base {
+  filter: brightness(0.96) contrast(1.04);
+}
+.leaflet-tile-pane .sat-base {
+  filter: contrast(1.04) saturate(1.05);
+}
+:root[data-theme="dark"] .leaflet-tile-pane .sat-base {
+  filter: brightness(1) contrast(1.05) saturate(1.05);
+}
+.leaflet-control-attribution {
+  font-size: 0.68rem;
+}
+:root[data-theme="dark"] .leaflet-control-attribution,
+:root[data-theme="dark"] .leaflet-bar a {
+  background: rgb(13 19 16 / 0.82) !important;
+  color: var(--ink-2) !important;
+  border-color: var(--rule) !important;
+}
+:root[data-theme="dark"] .leaflet-control-attribution a {
+  color: var(--ink) !important;
+}
+
+@layer components {
+/* ── motion and touch ─────────────────────────────────────────────────── */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* height of the top bar from md, of the bottom tab bar on phones */
+  --stepbar-h: 4rem;
+  --rail-w: 15.5rem;
+}
+.btn,
+.choice,
+.seg > label,
+.tap,
+.nav-item {
+  touch-action: manipulation;
+}
+
+.btn {
+  min-height: 2.25rem;
+  transition: transform 140ms var(--ease-out), border-color 140ms ease, background-color 140ms ease, filter 140ms ease;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-lg {
+  padding: 0.75rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  min-height: 3rem;
+}
+@media (pointer: coarse) {
+  .btn,
+  .field-input,
+  .tap,
+  input[type="range"] {
+    min-height: 44px;
+  }
+}
+
+/* Visually hidden native radio inside a styled label: arrow keys and screen readers keep working */
+.choice {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  border: 1px solid var(--rule-strong);
+  background: var(--panel-2);
+  border-radius: 12px;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms var(--ease-out);
+}
+.choice:hover {
+  border-color: var(--ink-2);
+}
+.choice:active {
+  transform: scale(0.985);
+}
+.choice > input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.choice:has(> input:checked) {
+  border-color: var(--ink);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.choice:has(> input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.choice .tick {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-2);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.choice:has(> input:checked) .tick {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--panel);
+}
+
+/* Segmented control (scenario, irrigation level) built from radios */
+.seg {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+}
+.seg > label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.5rem 0.9rem;
+  min-height: 2.75rem;
+  border-radius: 9px;
+  cursor: pointer;
+  line-height: 1.2;
+  color: var(--ink-2);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.seg > label:hover {
+  color: var(--ink);
+}
+.seg > label > input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.seg > label:has(> input:checked) {
+  background: var(--ink);
+  color: var(--paper);
+}
+.seg > label:has(> input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.seg-sm > label {
+  min-height: 2.25rem;
+  padding: 0.3rem 0.7rem;
+}
+@media (pointer: coarse) {
+  .seg-sm > label {
+    min-height: 44px;
+  }
+}
+
+/* ── dashboard shell ──────────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100dvh;
+}
+@media (min-width: 768px) {
+  .shell {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .shell {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  }
+}
+.rail {
+  display: none;
+}
+@media (min-width: 768px) {
+  .rail {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    background: var(--rail);
+    border-right: 1px solid var(--rule);
+    overflow-y: auto;
+  }
+}
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  border-radius: 11px;
+  color: var(--ink-2);
+  font-size: 0.93rem;
+  font-weight: 500;
+  transition: background-color 150ms ease, color 150ms ease;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+.nav-item[aria-current="page"] {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--ink);
+  font-weight: 650;
+}
+.nav-item[aria-current="page"] > svg {
+  color: var(--accent-ink);
+}
+.nav-item[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.nav-item[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--ink-2);
+}
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+  .nav-item .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  min-height: var(--stepbar-h);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+html:has(.topbar) {
+  scroll-padding-top: calc(var(--stepbar-h) + 0.75rem);
+}
+
+.bottomnav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  background: color-mix(in srgb, var(--rail) 94%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottomnav a,
+.bottomnav span[aria-disabled] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--stepbar-h);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  border-radius: 12px;
+}
+.bottomnav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 650;
+}
+.bottomnav a[aria-current="page"] .bn-icon {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  color: var(--accent-ink);
+}
+.bottomnav .bn-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  transition: background-color 150ms ease;
+}
+@media (min-width: 768px) {
+  .bottomnav {
+    display: none;
+  }
+}
+@media (max-width: 767.98px) {
+  body:has(.bottomnav) {
+    padding-bottom: calc(var(--stepbar-h) + env(safe-area-inset-bottom));
+  }
+  html:has(.bottomnav) {
+    scroll-padding-bottom: calc(var(--stepbar-h) + 5rem);
+  }
+}
+
+/* Popover menu in the top bar */
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 950;
+  min-width: 15rem;
+  background: var(--panel);
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.45);
+  padding: 0.4rem;
+  transform-origin: top right;
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+@starting-style {
+  .menu {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+
+/* Thin guest-mode strip */
+.guest-strip {
+  background: var(--warn);
+  color: var(--warn-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--warn-ink) 18%, transparent);
+}
+
+/* ── getting-started strip ─────────────────────────────────────────────── */
+/* html[data-gs] is set before first paint (boot script), so the strip never flashes. */
+.gs-compact {
+  display: none;
+}
+html[data-gs~="done"] .gs-full {
+  display: none;
+}
+html[data-gs~="done"] .gs-compact {
+  display: flex;
+}
+html[data-gs~="dismissed"] .gs-full,
+html[data-gs~="dismissed"] .gs-compact {
+  display: none;
+}
+.gs-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 140ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gs-card:hover {
+    background: var(--panel-2);
+  }
+}
+.gs-card:active {
+  transform: scale(0.985);
+}
+.gs-check {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule-strong);
+  color: transparent;
+  transition: background-color 200ms var(--ease-out), border-color 200ms ease, color 200ms ease, transform 220ms var(--ease-out);
+}
+.gs-card[data-done="true"] .gs-check {
+  background: var(--accent);
+  border-color: var(--accent-edge);
+  color: var(--on-accent);
+}
+
+/* Bento grid */
+.bento {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .bento {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .bento {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Step and detail entrances: short, ease-out, opacity and transform only */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.enter {
+  animation: rise 200ms var(--ease-out) both;
+}
+
+/* One-line contextual hints; hidden once dismissed (html[data-hints-seen] is set before paint) */
+html[data-hints-seen~="tarlam"] [data-hint="tarlam"],
+html[data-hints-seen~="oneriler"] [data-hint="oneriler"],
+html[data-hints-seen~="kanit"] [data-hint="kanit"] {
+  display: none;
+}
+
+/* Welcome overlay, opened on request ("Watch the intro"). */
+.intro {
+  display: none;
+}
+html[data-intro="open"] .intro {
+  display: grid;
+}
+html[data-intro="open"]:has(.intro) {
+  overflow: hidden;
+}
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.intro-art [data-from] {
+  transition: opacity 220ms ease, transform 220ms var(--ease-out);
+}
+.intro-art[data-slide="0"] [data-from="1"],
+.intro-art[data-slide="0"] [data-from="2"],
+.intro-art[data-slide="1"] [data-from="2"] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.intro-art .orbit {
+  stroke-dasharray: 4 7;
+  animation: orbit-drift 1.2s var(--ease-out) both;
+}
+@keyframes orbit-drift {
+  from {
+    stroke-dashoffset: 60;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+.intro-slide {
+  animation: rise 220ms var(--ease-out) both;
+}
+
+/* Auth brand panel: a real Landsat scene, always dark like the scene itself, in both themes.
+   A faint uniform tone ties the photo to the charcoal-green UI; text lives in one glass card. */
+.auth-brand {
+  background: #0a0f0c;
+  color: #e6ede4;
+}
+.auth-tone {
+  background: rgb(7 11 9 / 0.12);
+}
+/* A solid caption plate, no blur: 0.86 keeps AA against pure white behind it (>10:1 for #e6ede4) */
+.auth-glass {
+  background: rgb(9 14 11 / 0.86);
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+/* Photo credit chip: legible on any image, never a link target (the Methods page has the links) */
+.img-credit {
+  background: rgb(7 11 9 / 0.66);
+  color: #e6ede4;
+  backdrop-filter: blur(6px);
+}
+
+/* Photo thumbnails in the getting-started cards */
+.gs-thumb {
+  position: relative;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.gs-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+  transition: box-shadow 200ms var(--ease-out);
+}
+.gs-card[data-done="true"] .gs-thumb::after {
+  box-shadow: inset 0 0 0 2px var(--accent-edge);
+}
+
+/* Comparison rows */
+.cmp-row {
+  transition: background-color 140ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cmp-row:hover {
+    background: var(--panel-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+/* Stale-result shimmer: the one bit of non-user motion, while a recalculation runs */
+@keyframes recalc {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.recalc {
+  animation: recalc 1.1s ease-in-out infinite;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #141a15 !important;
+  }
+  .rail,
+  .topbar,
+  .bottomnav,
+  .guest-strip,
+  .print-hide {
+    display: none !important;
+  }
+  .shell {
+    display: block !important;
+  }
+  .card,
+  .sec,
+  article {
+    background: #ffffff !important;
+    border-color: #cbd5cb !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
+}

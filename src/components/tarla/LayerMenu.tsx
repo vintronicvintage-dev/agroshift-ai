@@ -91,8 +91,8 @@ export function LayerMenu({ base, overlays, cells, onChange, onClose, dates, set
     return s ? (lang === "tr" ? s.titleTr : s.titleEn) : id;
   };
   const toggle = (o: OverlayId) => onChange({ overlays: overlays.includes(o) ? overlays.filter((x) => x !== o) : [...overlays, o] });
-  const bases: BaseId[] = ["s2", "hls-s30", "hls-l30", "relief"];
-  const ovs: OverlayId[] = ["labels", "roads", "ndvi", "smap", "imerg"];
+  const bases: BaseId[] = ["esri", "street", "topo", "s2", "hls-s30", "hls-l30", "relief"];
+  const ovs: OverlayId[] = ["labels", "roads", "ndvi", "smap", "imerg", "srtm"];
   const timed = [base === "hls-s30" || base === "hls-l30" ? BASE_SOURCE[base] : null, ...overlays.map((o) => OVERLAY_SOURCE[o])].filter((id): id is string => !!id && !!tileSourceById(id)?.timeEnabled);
 
   useEffect(() => {

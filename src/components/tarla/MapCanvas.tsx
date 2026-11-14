@@ -5,24 +5,28 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import type * as Leaf from "leaflet";
 import type { LonLat } from "@/lib/data/fieldTypes";
 import { tileSourceById } from "@/lib/data/tiles";
-import { circleRing, cornersRing, distanceM, ringAreaM2, ringPerimeterM, type Ring } from "@/lib/ui/geo";
+import { circleRing, cornersRing, describeRing, distanceM, ringAreaM2, ringPerimeterM, type Ring } from "@/lib/ui/geo";
 
 export type DrawMode = "none" | "polygon" | "rectangle" | "circle" | "pin" | "edit";
-export type BaseId = "s2" | "hls-s30" | "hls-l30" | "relief";
-export type OverlayId = "labels" | "roads" | "ndvi" | "smap" | "imerg";
+export type BaseId = "esri" | "street" | "topo" | "s2" | "hls-s30" | "hls-l30" | "relief";
+export type OverlayId = "labels" | "roads" | "ndvi" | "smap" | "imerg" | "srtm";
 
 export const BASE_SOURCE: Record<BaseId, string> = {
+  esri: "esri-world-imagery",
+  street: "carto-voyager",
+  topo: "opentopomap",
   s2: "eox-s2cloudless-2017",
   "hls-s30": "gibs-hls-s30",
   "hls-l30": "gibs-hls-l30",
   relief: "gibs-aster-relief",
 };
 export const OVERLAY_SOURCE: Record<OverlayId, string> = {
-  labels: "gibs-osm-labels",
-  roads: "eox-streets",
+  labels: "carto-voyager-labels",
+  roads: "esri-world-transportation",
   ndvi: "gibs-modis-ndvi-8day",
   smap: "gibs-smap-l4-surface-sm",
   imerg: "gibs-imerg-precip",
+  srtm: "gibs-srtm-color",
 };
 
 export interface MapHandle {
@@ -31,7 +35,10 @@ export interface MapHandle {
   undoVertex: () => boolean;
   cancel: () => void;
   flyTo: (p: LonLat, zoom?: number) => void;
-  fitRing: (r: Ring) => void;
+  fitRing: (r: Ring, maxZoom?: number) => void;
+  fitTurkey: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
   center: () => LonLat | null;
 }
 
@@ -53,6 +60,8 @@ interface Props {
   ref?: Ref<MapHandle>;
   label: string;
   ring: Ring | null;
+  fieldName?: string;
+  fieldAreaLabel?: string;
   saved: { id: string; ring: Ring; name: string }[];
   mode: DrawMode;
   base: BaseId;
@@ -70,7 +79,12 @@ interface Props {
 }
 
 const TURKEY: [number, number] = [38.9, 35.2];
-const ACCENT = "#d4ff3a";
+const TURKEY_BOUNDS: [[number, number], [number, number]] = [
+  [35.8, 25.6],
+  [42.15, 44.85],
+];
+const ACCENT_STROKE = "#86efac";
+const ACCENT_FILL = "#22c55e";
 
 export default function MapCanvas(props: Props) {
   const el = useRef<HTMLDivElement>(null);
@@ -101,9 +115,19 @@ export default function MapCanvas(props: Props) {
       if (cancelled || !el.current) return;
       const Lf = mod.default ?? mod;
       L.current = Lf;
-      const m = Lf.map(el.current, { center: TURKEY, zoom: 6, minZoom: 4, maxZoom: 18, zoomControl: false, worldCopyJump: true, keyboardPanDelta: 60 });
-      Lf.control.zoom({ position: "bottomright" }).addTo(m);
-      Lf.control.scale({ position: "bottomleft", metric: true, imperial: false, maxWidth: 140 }).addTo(m);
+      const m = Lf.map(el.current, {
+        center: TURKEY,
+        zoom: 6,
+        minZoom: 4,
+        maxZoom: 20,
+        zoomSnap: 0.5,
+        zoomDelta: 1,
+        zoomControl: false,
+        worldCopyJump: true,
+        keyboardPanDelta: 60,
+      });
+      Lf.control.zoom({ position: "topright" }).addTo(m);
+      Lf.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 140 }).addTo(m);
       m.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
       m.attributionControl.setPosition("bottomright");
       layers.current.saved = Lf.layerGroup().addTo(m);
@@ -114,7 +138,7 @@ export default function MapCanvas(props: Props) {
       map.current = m;
       const report = () => {
         const c = m.getCenter();
-        p.current.onView({ zoom: m.getZoom(), center: { lat: c.lat, lon: c.lng } });
+        p.current.onView({ zoom: Math.round(m.getZoom() * 10) / 10, center: { lat: c.lat, lon: c.lng } });
       };
       m.on("moveend zoomend", report);
       m.on("click", (e: Leaf.LeafletMouseEvent) => onMapClick({ lat: e.latlng.lat, lon: e.latlng.lng }));
@@ -127,8 +151,6 @@ export default function MapCanvas(props: Props) {
         if (p.current.mode === "polygon") finishPolygon();
       });
       el.current.addEventListener("keydown", onKey);
-      // Leaflet measures its container once; re-measure whenever the box changes (first layout, CSS and
-      // fonts settling, panel/sheet changes, window resize, returning to the route) so tiles cover it.
       let frame = 0;
       const remeasure = () => {
         cancelAnimationFrame(frame);
@@ -189,7 +211,10 @@ export default function MapCanvas(props: Props) {
     const live = liveRing();
     const ll = (q: LonLat) => [q.lat, q.lon] as [number, number];
     if (live && live.ring.length >= 2) {
-      const shape = live.ring.length >= 3 ? Lf.polygon(live.ring.map(ll), { color: ACCENT, weight: 2, dashArray: "6 5", fillColor: ACCENT, fillOpacity: 0.12, interactive: false }) : Lf.polyline(live.ring.map(ll), { color: ACCENT, weight: 2, dashArray: "6 5", interactive: false });
+      const shape =
+        live.ring.length >= 3
+          ? Lf.polygon(live.ring.map(ll), { color: ACCENT_STROKE, weight: 2.5, dashArray: "6 5", fillColor: ACCENT_FILL, fillOpacity: 0.22, interactive: false })
+          : Lf.polyline(live.ring.map(ll), { color: ACCENT_STROKE, weight: 2.5, dashArray: "6 5", interactive: false });
       shape.addTo(g);
     }
     pts.forEach((q, i) => {
@@ -242,7 +267,6 @@ export default function MapCanvas(props: Props) {
 
   function finishPolygon() {
     const pts = draft.current.pts;
-    // a double-click adds the same point twice: drop near-duplicates
     const clean = pts.filter((q, i) => i === 0 || distanceM(q, pts[i - 1]) > 0.5);
     if (clean.length < 3) {
       p.current.onProblem("few");
@@ -287,16 +311,24 @@ export default function MapCanvas(props: Props) {
       return true;
     },
     cancel: resetDraft,
-    flyTo: (q, zoom = 14) => {
+    flyTo: (q, zoom = 16) => {
       map.current?.invalidateSize({ pan: false });
-      map.current?.flyTo([q.lat, q.lon], zoom, { duration: reduced() ? 0 : 0.8 });
+      map.current?.flyTo([q.lat, q.lon], zoom, { duration: reduced() ? 0 : 0.75 });
     },
-    fitRing: (r) => {
+    fitRing: (r, maxZoom = 17) => {
       const Lf = L.current;
       if (!Lf || !map.current || r.length < 2) return;
       map.current.invalidateSize({ pan: false });
-      map.current.fitBounds(Lf.latLngBounds(r.map((q) => [q.lat, q.lon] as [number, number])), { padding: [80, 80], maxZoom: 15, animate: !reduced() });
+      map.current.fitBounds(Lf.latLngBounds(r.map((q) => [q.lat, q.lon] as [number, number])), { padding: [56, 56], maxZoom, animate: !reduced() });
     },
+    fitTurkey: () => {
+      const Lf = L.current;
+      if (!Lf || !map.current) return;
+      map.current.invalidateSize({ pan: false });
+      map.current.fitBounds(Lf.latLngBounds(TURKEY_BOUNDS), { padding: [24, 24], maxZoom: 7, animate: !reduced() });
+    },
+    zoomIn: () => map.current?.zoomIn(1),
+    zoomOut: () => map.current?.zoomOut(1),
     center: () => {
       const c = map.current?.getCenter();
       return c ? { lat: c.lat, lon: c.lng } : null;
@@ -322,16 +354,27 @@ export default function MapCanvas(props: Props) {
     if (!Lf || !m) return;
     for (const l of layers.current.base) l.remove();
     const mk = (id: string, opts: Leaf.TileLayerOptions = {}) => {
-      const s = tileSourceById(id)!;
+      const s = tileSourceById(id) ?? tileSourceById("esri-world-imagery")!;
       const url = s.urlTemplate.replace("{time}", props.dates[id] ?? s.defaultDate ?? "");
-      const tl = Lf.tileLayer(url, { maxNativeZoom: s.maxNativeZoom, maxZoom: 18, attribution: s.attributionHtml, crossOrigin: true, ...opts });
+      const tl = Lf.tileLayer(url, {
+        maxNativeZoom: s.maxNativeZoom,
+        maxZoom: 20,
+        attribution: s.attributionHtml,
+        crossOrigin: true,
+        ...opts,
+      });
       tl.on("tileerror", () => p.current.onTileError(id));
       return tl;
     };
     const list: Leaf.TileLayer[] = [];
-    // the Sentinel-2 mosaic always sits underneath, so swath gaps of HLS show real ground, not black
-    list.push(mk(BASE_SOURCE.s2, { opacity: props.base === "s2" || props.base === "relief" ? 1 : 0.55 }));
-    if (props.base !== "s2") list.push(mk(BASE_SOURCE[props.base]));
+    const baseKey: BaseId = BASE_SOURCE[props.base] ? props.base : "esri";
+    if (baseKey === "hls-s30" || baseKey === "hls-l30") {
+      // Underlay high-res Esri imagery so swath gaps of daily HLS show real ground
+      list.push(mk(BASE_SOURCE.esri, { opacity: 0.7 }));
+      list.push(mk(BASE_SOURCE[baseKey]));
+    } else {
+      list.push(mk(BASE_SOURCE[baseKey]));
+    }
     for (const l of list) {
       l.addTo(m);
       l.bringToBack();
@@ -352,11 +395,20 @@ export default function MapCanvas(props: Props) {
     }
     props.overlays.forEach((o, i) => {
       const id = OVERLAY_SOURCE[o];
-      const s = tileSourceById(id)!;
+      if (!id) return;
+      const s = tileSourceById(id);
+      if (!s) return;
       const url = s.urlTemplate.replace("{time}", props.dates[id] ?? s.defaultDate ?? "");
-      const analytic = o === "ndvi" || o === "smap" || o === "imerg";
-      // GIBS 15 m labels answer HTTP 500 below zoom 8 (verified): show them from 8 on
-      const tl = Lf.tileLayer(url, { maxNativeZoom: s.maxNativeZoom, maxZoom: 18, minZoom: o === "labels" ? 8 : 0, attribution: s.attributionHtml, crossOrigin: true, opacity: analytic ? 0.7 : 1, zIndex: analytic ? 10 + i : 30 + i });
+      const analytic = o === "ndvi" || o === "smap" || o === "imerg" || o === "srtm";
+      const tl = Lf.tileLayer(url, {
+        maxNativeZoom: s.maxNativeZoom,
+        maxZoom: 20,
+        minZoom: 0,
+        attribution: s.attributionHtml,
+        crossOrigin: true,
+        opacity: analytic ? 0.68 : 1,
+        zIndex: analytic ? 10 + i : 30 + i,
+      });
       tl.on("tileerror", () => p.current.onTileError(id));
       tl.addTo(m);
       cur.set(o, tl);
@@ -364,7 +416,7 @@ export default function MapCanvas(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.overlays.join(","), dateKey, ready]);
 
-  // ── active field: outline + outside mask ─────────────────────────────
+  // ── active field: outline + agricultural sub-grid + label badge ──────
   const ringKey = props.ring ? props.ring.map((q) => `${q.lat},${q.lon}`).join(";") : "";
   useEffect(() => {
     const Lf = L.current;
@@ -380,10 +432,49 @@ export default function MapCanvas(props: Props) {
       [-85, 180],
       [-85, -180],
     ];
-    Lf.polygon([world, ll], { stroke: false, fillColor: "#0b0e0c", fillOpacity: 0.35, interactive: false }).addTo(g);
-    Lf.polygon(ll, { color: "#0b0e0c", weight: 4.5, opacity: 0.55, fill: false, interactive: false }).addTo(g);
-    Lf.polygon(ll, { color: ACCENT, weight: 2, fill: false, interactive: false }).addTo(g);
-  }, [ringKey, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Subtle outside vignette so the active parcel pops against satellite imagery
+    Lf.polygon([world, ll], { stroke: false, fillColor: "#07140b", fillOpacity: 0.24, interactive: false }).addTo(g);
+    // Lush emerald field fill + double border
+    Lf.polygon(ll, { color: "#0b2412", weight: 5, opacity: 0.65, fillColor: ACCENT_FILL, fillOpacity: 0.26, interactive: false }).addTo(g);
+    Lf.polygon(ll, { color: ACCENT_STROKE, weight: 2.5, fill: false, interactive: false }).addTo(g);
+
+    // Subtle internal management-zone grid lines inside the bounding box of the ring
+    const lats = r.map((q) => q.lat);
+    const lons = r.map((q) => q.lon);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+    if (r.length === 4) {
+      for (const f of [0.333, 0.667]) {
+        const latA = r[0].lat + (r[3].lat - r[0].lat) * f;
+        const lonA = r[0].lon + (r[3].lon - r[0].lon) * f;
+        const latB = r[1].lat + (r[2].lat - r[1].lat) * f;
+        const lonB = r[1].lon + (r[2].lon - r[1].lon) * f;
+        Lf.polyline([[latA, lonA], [latB, lonB]], { color: "#bbf7d0", weight: 1, opacity: 0.45, dashArray: "4 4", interactive: false }).addTo(g);
+
+        const latC = r[0].lat + (r[1].lat - r[0].lat) * f;
+        const lonC = r[0].lon + (r[1].lon - r[0].lon) * f;
+        const latD = r[3].lat + (r[2].lat - r[3].lat) * f;
+        const lonD = r[3].lon + (r[2].lon - r[3].lon) * f;
+        Lf.polyline([[latC, lonC], [latD, lonD]], { color: "#bbf7d0", weight: 1, opacity: 0.45, dashArray: "4 4", interactive: false }).addTo(g);
+      }
+    } else if (maxLat - minLat > 0.0005 && maxLon - minLon > 0.0005) {
+      const midLat = (minLat + maxLat) / 2;
+      const midLon = (minLon + maxLon) / 2;
+      Lf.polyline([[midLat, minLon], [midLat, maxLon]], { color: "#bbf7d0", weight: 1, opacity: 0.35, dashArray: "4 4", interactive: false }).addTo(g);
+      Lf.polyline([[minLat, midLon], [maxLat, midLon]], { color: "#bbf7d0", weight: 1, opacity: 0.35, dashArray: "4 4", interactive: false }).addTo(g);
+    }
+
+    // Center badge showing field name and area
+    const geo = describeRing(r);
+    const title = props.fieldName || "Arazi-1";
+    const sub = props.fieldAreaLabel || `${Math.round(geo.areaDa)} dekar`;
+    const badgeHtml = `<div class="parcel-badge"><span class="parcel-badge-title">${escapeHtml(title)}</span><span class="parcel-badge-sub">${escapeHtml(sub)}</span></div>`;
+    Lf.marker([geo.centroid.lat, geo.centroid.lon], {
+      icon: Lf.divIcon({ className: "parcel-badge-wrap", html: badgeHtml, iconSize: [148, 44], iconAnchor: [74, 22] }),
+      interactive: false,
+      keyboard: false,
+    }).addTo(g);
+  }, [ringKey, props.fieldName, props.fieldAreaLabel, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── edit handles ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -395,7 +486,7 @@ export default function MapCanvas(props: Props) {
     if (props.mode !== "edit" || !r) return;
     const icon = (cls: string, s: number) => Lf.divIcon({ className: "", html: `<div class="vtx ${cls}"></div>`, iconSize: [s, s], iconAnchor: [s / 2, s / 2] });
     const working = r.map((q) => ({ ...q }));
-    const shape = Lf.polygon(working.map((q) => [q.lat, q.lon] as [number, number]), { color: ACCENT, weight: 2, dashArray: "4 4", fill: false, interactive: false }).addTo(g);
+    const shape = Lf.polygon(working.map((q) => [q.lat, q.lon] as [number, number]), { color: ACCENT_STROKE, weight: 2, dashArray: "4 4", fill: false, interactive: false }).addTo(g);
     const redraw = () => shape.setLatLngs(working.map((q) => [q.lat, q.lon] as [number, number]));
     working.forEach((q, i) => {
       const mk = Lf.marker([q.lat, q.lon], { draggable: true, icon: icon("", 18), title: `${i + 1}`, keyboard: true });
@@ -412,7 +503,6 @@ export default function MapCanvas(props: Props) {
       });
       mk.addTo(g);
     });
-    // mid-edge handles insert a vertex
     working.forEach((q, i) => {
       const nx = working[(i + 1) % working.length];
       const mid = { lat: (q.lat + nx.lat) / 2, lon: (q.lon + nx.lon) / 2 };
@@ -436,7 +526,7 @@ export default function MapCanvas(props: Props) {
     for (const s of props.saved) {
       const pl = Lf.polygon(
         s.ring.map((q) => [q.lat, q.lon] as [number, number]),
-        { color: "#eef2ec", weight: 1.5, dashArray: "5 5", fillOpacity: 0.04, fillColor: "#eef2ec" },
+        { color: "#eef2ec", weight: 1.5, dashArray: "5 5", fillOpacity: 0.08, fillColor: "#22c55e" },
       );
       pl.bindTooltip(s.name, { className: "area-label", direction: "center" });
       pl.on("click", (e) => {
@@ -456,13 +546,17 @@ export default function MapCanvas(props: Props) {
     if (!Lf || !g) return;
     g.clearLayers();
     for (const c of props.cells ?? []) {
-      const r = Lf.rectangle(c.bounds, { color: "#5cc8ff", weight: 1.5, dashArray: c.dash, fill: false, interactive: false });
+      const r = Lf.rectangle(c.bounds, { color: "#38bdf8", weight: 1.5, dashArray: c.dash, fill: false, interactive: false });
       r.bindTooltip(c.label, { permanent: true, direction: "top", className: "cell-label", offset: [0, -2] });
       r.addTo(g);
     }
   }, [cellsKey, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={el} className="absolute inset-0" role="application" aria-label={props.label} tabIndex={0} />;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function reduced() {

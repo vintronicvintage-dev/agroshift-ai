@@ -43,7 +43,50 @@ const gibs = (layer: string, tms: string, ext: "jpg" | "png", timed: boolean) =>
   `${GIBS}/${layer}/default/${timed ? "{time}/" : ""}${tms}/{z}/{y}/{x}.${ext}`;
 
 export const TILE_SOURCES: TileSource[] = [
-  // ---------- base imagery ----------
+  // ---------- high-resolution base imagery & maps (Turkey deep zoom up to z19/z20) ----------
+  {
+    id: "esri-world-imagery",
+    kind: "base",
+    titleTr: "Yüksek Çözünürlüklü Uydu (Esri / Maxar ~0,3 m)",
+    titleEn: "High-Resolution Satellite (Esri / Maxar ~0.3 m)",
+    urlTemplate: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    tileMatrixSet: "GoogleMapsCompatible_Level18",
+    maxNativeZoom: 18,
+    format: "jpg",
+    timeEnabled: false,
+    attributionHtml:
+      'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics, USDA FSA, USGS, Aerogrid, IGN, IGP, and the GIS User Community',
+    licenceNote:
+      "Esri Master License Agreement (free for non-commercial / academic / evaluation & public web mapping with attribution). Verified native z18 (~0.3–0.6 m pixels) across all 5 Turkey pilot sites; scales cleanly to z20.",
+    notes: "Over rural Turkey z18 serves full sub-meter Maxar imagery (12–28 KB JPEG); z19 returns a 2521 B placeholder, so maxNativeZoom is locked to 18 and Leaflet scales sharply up to z20.",
+  },
+  {
+    id: "carto-voyager",
+    kind: "base",
+    titleTr: "Türkiye Detaylı Yol ve Yerleşim Haritası (OSM Retina)",
+    titleEn: "Turkey Detailed Street & Settlement Map (OSM Retina)",
+    urlTemplate: "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+    tileMatrixSet: "GoogleMapsCompatible_Level19",
+    maxNativeZoom: 19,
+    format: "png",
+    timeEnabled: false,
+    attributionHtml: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
+    licenceNote: "Data ODbL 1.0 (OpenStreetMap), tiles CC BY 4.0 CARTO. Native Retina (@2x) tiles up to zoom 19 across all 81 provinces and villages of Turkey.",
+  },
+  {
+    id: "opentopomap",
+    kind: "base",
+    titleTr: "Türkiye Topografik ve Eşyükselti Haritası (SRTM Kontur)",
+    titleEn: "Turkey Topographic & Contour Map (SRTM Contours)",
+    urlTemplate: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+    tileMatrixSet: "GoogleMapsCompatible_Level17",
+    maxNativeZoom: 17,
+    format: "png",
+    timeEnabled: false,
+    attributionHtml: `Map data: ${OSM_ATTR}, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`,
+    licenceNote: "CC-BY-SA 3.0 OpenTopoMap (derived from OpenStreetMap and NASA SRTM contour lines). Native up to zoom 17.",
+  },
+  // ---------- scientific & historical base imagery ----------
   {
     id: "eox-s2cloudless-2017",
     kind: "base",
@@ -298,6 +341,32 @@ export const TILE_SOURCES: TileSource[] = [
     notes: "Image layer only; numeric IMERG needs Earthdata credentials and is not used.",
   },
   // ---------- overlays ----------
+  {
+    id: "carto-voyager-labels",
+    kind: "overlay",
+    titleTr: "Türkiye İl, İlçe, Köy ve Ova Adları (OSM Retina, z19)",
+    titleEn: "Turkey Province, District & Village Labels (OSM Retina, z19)",
+    urlTemplate: "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png",
+    tileMatrixSet: "GoogleMapsCompatible_Level19",
+    maxNativeZoom: 19,
+    format: "png",
+    timeEnabled: false,
+    attributionHtml: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
+    licenceNote: "OpenStreetMap ODbL 1.0, CARTO CC BY 4.0. Crisp @2x transparent PNG labels from zoom 4 to zoom 19.",
+  },
+  {
+    id: "esri-world-transportation",
+    kind: "overlay",
+    titleTr: "Türkiye Karayolu ve Tarla Bağlantı Yolları (Esri/OSM, z19)",
+    titleEn: "Turkey Roads & Rural Access Network (Esri/OSM, z19)",
+    urlTemplate: "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+    tileMatrixSet: "GoogleMapsCompatible_Level19",
+    maxNativeZoom: 19,
+    format: "png",
+    timeEnabled: false,
+    attributionHtml: 'Roads &copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, OpenStreetMap contributors',
+    licenceNote: "Esri Reference Overlay; verified up to z19 over rural Turkey.",
+  },
   {
     id: "gibs-osm-labels",
     kind: "overlay",

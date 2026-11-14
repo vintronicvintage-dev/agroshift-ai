@@ -152,5 +152,47 @@
     "verified": false,
     "verified_on": "2026-11-14",
     "notes": "UNVERIFIED live point query: GES DISC OPeNDAP timed out / requires Earthdata token; documented as not_validated in snapshots, while ERA5 cross-check is active."
+  },
+  {
+    "id": "esri-world-imagery",
+    "title": "ArcGIS World Imagery MapServer (Maxar / Earthstar Geographics)",
+    "authors_or_org": "Esri, Maxar, Earthstar Geographics, USDA FSA, USGS, GIS User Community",
+    "date": "2026",
+    "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+    "doi_or_arxiv": "",
+    "version": "REST MapServer XYZ/WMTS",
+    "license": "Esri Master License Agreement (attribution required)",
+    "used_for": "High-resolution sub-meter (~0.3 m) Turkey satellite/aerial base map up to native zoom 18 (scaled to zoom 20)",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Verified HTTP 200 (12-28 KB JPEG tiles at z18) across Konya Cumra, Ankara Polatli, Sanliurfa Harran, Manisa Salihli, and Corum Alaca."
+  },
+  {
+    "id": "carto-voyager",
+    "title": "CARTO Voyager & Voyager Labels Retina (@2x) Basemap Tiles",
+    "authors_or_org": "CARTO / OpenStreetMap contributors",
+    "date": "2026",
+    "url": "https://carto.com/attributions",
+    "doi_or_arxiv": "",
+    "version": "rastertiles/voyager @2x",
+    "license": "ODbL 1.0 (OpenStreetMap) / CC BY 4.0 (CARTO)",
+    "used_for": "High-DPI (@2x) Turkey street/settlement base map and transparent province/district/village label overlay up to native zoom 19",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Implemented in src/lib/data/tiles.ts"
+  },
+  {
+    "id": "opentopomap",
+    "title": "OpenTopoMap Global Topographic & Contour Tiles",
+    "authors_or_org": "OpenTopoMap / OpenStreetMap contributors / NASA SRTM",
+    "date": "2026",
+    "url": "https://opentopomap.org",
+    "doi_or_arxiv": "",
+    "version": "v1 XYZ",
+    "license": "CC BY-SA 3.0",
+    "used_for": "Turkey topographic contour and elevation relief map up to native zoom 17",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Implemented in src/lib/data/tiles.ts"
   }
 ]

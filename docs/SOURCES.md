@@ -12,6 +12,9 @@ Bu belge, AgroShift AI içerisinde kullanılan tüm dış veri kaynaklarını, b
 | `soilgrids-v2` | [SoilGrids v2.0](https://www.isric.org/explore/soilgrids) | ISRIC (Poggio vd. 2021) | 250 m, 6 katman (0–200 cm) | CC BY 4.0 | Katmanlı toprak dokusu, SOC, pH, KDK, azot, hacim ağırlığı, çakıl ve su tutma (`wv0033`/`wv1500`). **Doğrulandı**. |
 | `era5-openmeteo` | [ERA5 / ERA5-Land Historical API](https://open-meteo.com/en/docs/historical-weather-api) | ECMWF C3S / Open-Meteo | 0.25° (~28 km) | CC BY 4.0 | 25 tam yıl boyunca NASA POWER yağışının bağımsız çapraz kontrolü. **Doğrulandı**. |
 | `gpm-imerg` | [GPM IMERG Final V07B (`GPM_3IMERGM`)](https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGM_07/summary) | NASA GES DISC | 0.1° (~10 km), aylık | US Public Domain | Aylık yağış çapraz kontrolü (`EARTHDATA_TOKEN` ile OPeNDAP). **UNVERIFIED (canlı OPeNDAP erişimi zaman aşımına uğradığı için kopyalarda `not_validated` olarak işaretlidir; harita katmanı GIBS üzerinden aktiftir).** |
+| `esri-world-imagery` | [ArcGIS World Imagery MapServer](https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer) | Esri / Maxar / Earthstar Geographics | ~0,3 m (Zoom 18 doğal, Zoom 20 ölçekli) | Esri Master License (Atıflı) | Türkiye genelinde yüksek çözünürlüklü parsel/tarla uydu altlığı ve `World_Transportation` köy/karayolu ağı. **Doğrulandı** (5 Türkiye pilot bölgesinde HTTP 200). |
+| `carto-voyager` | [CARTO Voyager & Labels Retina (@2x)](https://carto.com/attributions) | CARTO / OpenStreetMap | Zoom 19 doğal (@2x Retina) | ODbL 1.0 / CC BY 4.0 | Türkiye 81 il, ilçe, köy, mahalle ve ova etiketleri ile detaylı yol/yerleşim altlığı. **Doğrulandı**. |
+| `opentopomap` | [OpenTopoMap](https://opentopomap.org) | OpenTopoMap / OSM / NASA SRTM | Zoom 17 doğal | CC BY-SA 3.0 | Türkiye eşyükselti eğrileri ve topografik kabartma haritası. **Doğrulandı**. |
 
 ## 2. Agronomik, Hidrolojik ve İstatistiksel Literatür
 

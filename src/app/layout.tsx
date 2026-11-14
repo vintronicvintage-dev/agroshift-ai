@@ -15,6 +15,7 @@ const instrument = Instrument_Sans({ variable: "--font-instrument", subsets: ["l
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://agroshift.app"),
   title: "AgroShift: tarlana uygun ekim nöbeti",
   description: "Tarlanı uydu görüntüsü üzerinde çiz, NASA verisiyle arazini tanı ve üç yıllık ekim nöbetini su, kazanç, toprak ve riskle karşılaştır. Karar senin.",
 };

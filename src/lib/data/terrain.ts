@@ -130,13 +130,37 @@ interface OtdResp {
   results?: { elevation: number | null }[];
 }
 
-let gate: Promise<void> = Promise.resolve();
-/** Serialises requests to the public instance: at most one per 1.1 s per process. */
-function politeSlot(): Promise<void> {
-  const mine = gate.then(() => new Promise<void>((r) => setTimeout(r, 1100)));
-  gate = mine;
-  return mine;
+export const MAX_POLITE_QUEUE_DEPTH = 15;
+
+/**
+ * Bounded serial rate-limiter: enforces at least `intervalMs` between executions and rejects
+ * immediately when more than `maxDepth` tasks are waiting in the queue.
+ */
+export function createPoliteQueue(intervalMs = 1100, maxDepth = MAX_POLITE_QUEUE_DEPTH) {
+  let chain: Promise<unknown> = Promise.resolve();
+  let lastAt = 0;
+  let queued = 0;
+  return function politeSlot<T>(fn: () => Promise<T>): Promise<T> {
+    if (queued >= maxDepth) {
+      return Promise.reject(new Error(`Rate limit queue full (${maxDepth} pending); try again shortly`));
+    }
+    queued++;
+    const run = chain.then(async () => {
+      try {
+        const wait = lastAt + intervalMs - Date.now();
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        lastAt = Date.now();
+        return await fn();
+      } finally {
+        queued--;
+      }
+    });
+    chain = run.catch(() => undefined);
+    return run;
+  };
 }
+
+const politeQueue = createPoliteQueue(1100, MAX_POLITE_QUEUE_DEPTH);
 
 export function elevationUrl(points: LonLat[]): string {
   const loc = points.map((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join("|");
@@ -145,10 +169,11 @@ export function elevationUrl(points: LonLat[]): string {
 
 export async function fetchElevations(points: LonLat[]): Promise<(number | null)[]> {
   if (points.length > 100) throw new Error("OpenTopoData accepts at most 100 locations per request");
-  await politeSlot();
-  const r = await fetchJson<OtdResp>(elevationUrl(points), { timeoutMs: 30_000, retries: 2, backoffMs: 2500 });
-  if (r.status !== "OK" || !r.results || r.results.length !== points.length) throw new Error(`OpenTopoData: ${r.error ?? "unexpected response"}`);
-  return r.results.map((x) => (typeof x.elevation === "number" ? x.elevation : null));
+  return politeQueue(async () => {
+    const r = await fetchJson<OtdResp>(elevationUrl(points), { timeoutMs: 30_000, retries: 2, backoffMs: 2500 });
+    if (r.status !== "OK" || !r.results || r.results.length !== points.length) throw new Error(`OpenTopoData: ${r.error ?? "unexpected response"}`);
+    return r.results.map((x) => (typeof x.elevation === "number" ? x.elevation : null));
+  });
 }
 
 function source(grid: TerrainGrid, retrievedAt: string, kind: string): SourceMeta {

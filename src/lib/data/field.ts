@@ -1,6 +1,6 @@
 // Server-side orchestration for POST /api/field: geometry + terrain + soil layers + precipitation cross-check,
 // each part isolated so that one failing upstream never fails the whole response.
-import { cacheGet, cacheSet } from "./cache";
+import { cacheGet, cacheKey, cacheSet, singleflight } from "./cache";
 import type { FieldResponse, LonLat, PrecipCrossCheck, SoilLayer, TerrainInfo } from "./fieldTypes";
 import { describePoint, describeRing, GeometryError, parsePolygon, type Ring } from "./geometry";
 import { errMsg } from "./http";
@@ -93,11 +93,13 @@ export async function getFieldParts(input: FieldInput, parts: readonly FieldPart
   // terrain depends on the exact shape: cache key = centroid + area bucket + shape hash
   const terrainP = async (): Promise<TerrainInfo> => {
     const extra = `${bucket}_${input.ring ? shapeHash(input.ring) : "pt"}`;
-    const hit = await cacheGet<TerrainInfo>("terrain", lat, lon, Date.now(), extra);
-    if (hit) return hit;
-    const t = await fetchTerrain(input.ring ? { ring: input.ring } : { point: input.point! });
-    await cacheSet("terrain", lat, lon, t, extra);
-    return t;
+    return singleflight(cacheKey("terrain", lat, lon, extra), async () => {
+      const hit = await cacheGet<TerrainInfo>("terrain", lat, lon, Date.now(), extra);
+      if (hit) return hit;
+      const t = await fetchTerrain(input.ring ? { ring: input.ring } : { point: input.point! });
+      await cacheSet("terrain", lat, lon, t, extra);
+      return t;
+    });
   };
 
   // soil layers: 250 m product, keyed by the rounded centroid (bundled snapshot first)
@@ -106,22 +108,26 @@ export async function getFieldParts(input: FieldInput, parts: readonly FieldPart
     if (snap?.soilLayers && snap.soil.origin !== "default") {
       return { soil: snap.soil, layers: snap.soilLayers, wrb: snap.wrb ?? null, notes: ["Soil layers from the bundled pilot snapshot."] };
     }
-    const hit = await cacheGet<SoilBundle>("soilbundle", lat, lon);
-    if (hit) return hit;
-    const b = await fetchSoilBundle(lat, lon, { timeoutMs: 15_000, retries: 1, budgetMs: 40_000 });
-    if (b.layers && b.soil.origin === "soilgrids") await cacheSet("soilbundle", lat, lon, b);
-    return b;
+    return singleflight(cacheKey("soilbundle", lat, lon), async () => {
+      const hit = await cacheGet<SoilBundle>("soilbundle", lat, lon);
+      if (hit) return hit;
+      const b = await fetchSoilBundle(lat, lon, { timeoutMs: 15_000, retries: 1, budgetMs: 40_000 });
+      if (b.layers && b.soil.origin === "soilgrids") await cacheSet("soilbundle", lat, lon, b);
+      return b;
+    });
   };
 
   const precipP = async (): Promise<PrecipCrossCheck | null> => {
     const snap = await findSnapshotAt(lat, lon);
     if (snap?.precipCheck) return snap.precipCheck;
-    const hit = await cacheGet<PrecipCrossCheck>("precipcheck", lat, lon);
-    if (hit) return hit;
-    const climate = await getClimate({ lat, lon });
-    const pc = await fetchPrecipCrossCheck(climate, lat, lon);
-    if (pc) await cacheSet("precipcheck", lat, lon, pc);
-    return pc;
+    return singleflight(cacheKey("precipcheck", lat, lon), async () => {
+      const hit = await cacheGet<PrecipCrossCheck>("precipcheck", lat, lon);
+      if (hit) return hit;
+      const climate = await getClimate({ lat, lon });
+      const pc = await fetchPrecipCrossCheck(climate, lat, lon);
+      if (pc) await cacheSet("precipcheck", lat, lon, pc);
+      return pc;
+    });
   };
 
   const skip = Promise.resolve(undefined);

@@ -33,11 +33,28 @@ export async function cacheGet<T>(kind: string, lat: number, lon: number, now = 
   }
 }
 
+let tmpSeq = 0;
+const inflight = new Map<string, Promise<unknown>>();
+
+/**
+ * Coalesce concurrent async work for the same key into a single in-flight Promise.
+ * Once the Promise settles (resolves or rejects), the key is removed from the map.
+ */
+export function singleflight<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const existing = inflight.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const p = fn().finally(() => {
+    inflight.delete(key);
+  });
+  inflight.set(key, p);
+  return p;
+}
+
 export async function cacheSet<T>(kind: string, lat: number, lon: number, data: T, extra = ""): Promise<void> {
   try {
     await fs.mkdir(cacheDir(), { recursive: true });
     const file = path.join(cacheDir(), cacheKey(kind, lat, lon, extra));
-    const tmp = `${file}.${process.pid}.tmp`;
+    const tmp = `${file}.${process.pid}.${++tmpSeq}.tmp`;
     await fs.writeFile(tmp, JSON.stringify({ savedAt: Date.now(), data } satisfies Entry<T>));
     await fs.rename(tmp, file);
   } catch {

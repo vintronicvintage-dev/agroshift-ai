@@ -5,11 +5,12 @@
  * no autocomplete (the UI only searches on submit), Türkiye only, at most 5 results.
  * Results carry the ODbL attribution the UI must show.
  */
+import { createPoliteQueue } from "@/lib/data/terrain";
+
 const UA = "AgroShift/3.0 (NASA Space Apps Challenge 2026 prototype; crop-rotation decision support)";
 const CACHE = new Map<string, { at: number; body: GeoResult[] }>();
 const TTL = 24 * 3600_000;
-let chain: Promise<unknown> = Promise.resolve();
-let lastAt = 0;
+const slot = createPoliteQueue(1100, 15);
 
 export interface GeoResult {
   name: string;
@@ -18,17 +19,6 @@ export interface GeoResult {
   lon: number;
   kind: string;
   bbox: [number, number, number, number] | null;
-}
-
-function slot<T>(fn: () => Promise<T>): Promise<T> {
-  const run = chain.then(async () => {
-    const wait = lastAt + 1100 - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastAt = Date.now();
-    return fn();
-  });
-  chain = run.catch(() => undefined);
-  return run;
 }
 
 export async function GET(request: Request): Promise<Response> {

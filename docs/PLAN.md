@@ -74,13 +74,13 @@
 - Modify: `agroshift/src/lib/data/terrain.ts`
 - Test: `agroshift/src/lib/data/field.test.ts`
 
-- [ ] **Step 1: Başarısız güvenlik ve eşzamanlılık testlerini yaz (`field.test.ts`)**
+- [x] **Step 1: Başarısız güvenlik ve eşzamanlılık testlerini yaz (`field.test.ts`)**
   - Test 1: >256 köşeli poligonun `GeometryError` / `ValidationError` ile reddedilmesi.
   - Test 2: Aynı koordinat için eşzamanlı `cacheSet` ve `withCache` (Singleflight) çağrılarının yarış durumu yaratmadan tek bir upstream çağrısını paylaşması.
   - Test 3: `terrain` / `geocode` hız sınırlayıcı kuyruğunun maksimum derinliği aştığında bekletmeden hata fırlatması.
-- [ ] **Step 2: Testleri çalıştır ve RED durumunu kanıtla**
-- [ ] **Step 3: `cache.ts`, `geometry.ts`, `field/route.ts`, `geocode/route.ts` ve `terrain.ts` implementasyonunu tamamla**
-- [ ] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
+- [x] **Step 2: Testleri çalıştır ve RED durumunu kanıtla**
+- [x] **Step 3: `cache.ts`, `geometry.ts`, `field/route.ts`, `geocode/route.ts` ve `terrain.ts` implementasyonunu tamamla**
+- [x] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
 
 ---
 

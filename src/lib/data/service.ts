@@ -1,5 +1,5 @@
 // Server-side orchestration: bundled snapshot -> disk cache -> live upstream. Used by the /api routes.
-import { cacheGet, cacheSet, roundCoord } from "./cache";
+import { cacheGet, cacheKey, cacheSet, roundCoord, singleflight } from "./cache";
 import type { ClimateSeries, NdviSeries, SoilProfile } from "@/lib/types";
 import { fetchModisNdvi } from "./modis";
 import { fetchPowerClimate } from "./power";
@@ -31,31 +31,37 @@ export function parseLatLon(params: URLSearchParams): LatLon {
 export async function getClimate({ lat, lon }: LatLon): Promise<ClimateSeries> {
   const snap = await findSnapshotAt(lat, lon);
   if (snap?.climate) return snap.climate;
-  const cached = await cacheGet<ClimateSeries>("climate", lat, lon);
-  if (cached) return cached;
-  const data = await fetchPowerClimate(roundCoord(lat), roundCoord(lon));
-  await cacheSet("climate", lat, lon, data);
-  return data;
+  return singleflight(cacheKey("climate", lat, lon), async () => {
+    const cached = await cacheGet<ClimateSeries>("climate", lat, lon);
+    if (cached) return cached;
+    const data = await fetchPowerClimate(roundCoord(lat), roundCoord(lon));
+    await cacheSet("climate", lat, lon, data);
+    return data;
+  });
 }
 
 export async function getSoil({ lat, lon }: LatLon): Promise<SoilProfile> {
   const snap = await findSnapshotAt(lat, lon);
   if (snap && snap.soil.origin !== "default") return snap.soil;
-  const cached = await cacheGet<SoilProfile>("soil", lat, lon);
-  if (cached) return cached;
-  const data = await fetchSoilGrids(roundCoord(lat), roundCoord(lon));
-  if (data.origin === "soilgrids") await cacheSet("soil", lat, lon, data); // never cache fallbacks
-  return data;
+  return singleflight(cacheKey("soil", lat, lon), async () => {
+    const cached = await cacheGet<SoilProfile>("soil", lat, lon);
+    if (cached) return cached;
+    const data = await fetchSoilGrids(roundCoord(lat), roundCoord(lon));
+    if (data.origin === "soilgrids") await cacheSet("soil", lat, lon, data); // never cache fallbacks
+    return data;
+  });
 }
 
 export async function getNdvi({ lat, lon }: LatLon): Promise<NdviSeries> {
   const snap = await findSnapshotAt(lat, lon);
   if (snap && snap.ndvi.points.length) return snap.ndvi;
-  const cached = await cacheGet<NdviSeries>("ndvi", lat, lon);
-  if (cached) return cached;
-  const start = new Date();
-  start.setUTCFullYear(start.getUTCFullYear() - 5);
-  const data = await fetchModisNdvi(roundCoord(lat), roundCoord(lon), { startDate: start.toISOString().slice(0, 10), concurrency: 4 });
-  await cacheSet("ndvi", lat, lon, data);
-  return data;
+  return singleflight(cacheKey("ndvi", lat, lon), async () => {
+    const cached = await cacheGet<NdviSeries>("ndvi", lat, lon);
+    if (cached) return cached;
+    const start = new Date();
+    start.setUTCFullYear(start.getUTCFullYear() - 5);
+    const data = await fetchModisNdvi(roundCoord(lat), roundCoord(lon), { startDate: start.toISOString().slice(0, 10), concurrency: 4 });
+    await cacheSet("ndvi", lat, lon, data);
+    return data;
+  });
 }

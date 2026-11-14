@@ -16,8 +16,10 @@ import {
 import { buildPrecipCrossCheck } from "./precip";
 import { layersToProfile, sgToLayers } from "./soillayers";
 import { compactSnapshot, expandSnapshot } from "./snapshots";
-import { gradientAt, polygonGrid, pointGrid, terrainStats } from "./terrain";
+import { createPoliteQueue, gradientAt, polygonGrid, pointGrid, terrainStats } from "./terrain";
 import { liveDefaultDate, resolveTileUrl, TILE_SOURCES } from "./tiles";
+import { cacheGet, cacheSet, singleflight } from "./cache";
+import { POST as postField } from "@/app/api/field/route";
 
 function square(lat: number, lon: number, sideM: number): Ring {
   const k = metresPerDegree(lat);
@@ -217,5 +219,58 @@ describe("tile registry", () => {
     }
     const terra = TILE_SOURCES.find((t) => t.id === "gibs-modis-terra-truecolor")!;
     expect(liveDefaultDate(terra, new Date("2026-11-14T10:00:00Z"))).toBe("2026-11-13");
+  });
+});
+
+describe("server concurrency, atomic cache & DoS guards", () => {
+  it("singleflight coalesces concurrent calls for the same key and cleans up after settle", async () => {
+    let calls = 0;
+    const loader = async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 15));
+      return { ok: calls };
+    };
+    const [a, b, c] = await Promise.all([
+      singleflight("sf_key_1", loader),
+      singleflight("sf_key_1", loader),
+      singleflight("sf_key_1", loader),
+    ]);
+    expect(calls).toBe(1);
+    expect(a).toEqual({ ok: 1 });
+    expect(b).toEqual({ ok: 1 });
+    expect(c).toEqual({ ok: 1 });
+    // After settling, a subsequent call runs fresh
+    const d = await singleflight("sf_key_1", loader);
+    expect(calls).toBe(2);
+    expect(d).toEqual({ ok: 2 });
+  });
+
+  it("concurrent cacheSet writes on the same key do not collide or corrupt JSON", async () => {
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) => cacheSet("test_atomic", 37.55, 32.75, { seq: i, payload: "x".repeat(200) }, "conc")),
+    );
+    const got = await cacheGet<{ seq: number; payload: string }>("test_atomic", 37.55, 32.75, Date.now(), "conc");
+    expect(got).not.toBeNull();
+    expect(typeof got?.seq).toBe("number");
+    expect(got?.payload.length).toBe(200);
+  });
+
+  it("createPoliteQueue rejects immediately when queue depth exceeds maxDepth", async () => {
+    const slot = createPoliteQueue(30, 2);
+    const p1 = slot(async () => "a");
+    const p2 = slot(async () => "b");
+    await expect(slot(async () => "c")).rejects.toThrow(/queue full/i);
+    await expect(Promise.all([p1, p2])).resolves.toEqual(["a", "b"]);
+  });
+
+  it("POST /api/field rejects oversized JSON payloads (> 64 KB) with HTTP 400", async () => {
+    const bigBody = JSON.stringify({ lat: 37.57, lon: 32.77, pad: "A".repeat(70_000) });
+    const req = new Request("http://localhost/api/field?parts=terrain", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: bigBody,
+    });
+    const res = await postField(req);
+    expect(res.status).toBe(400);
   });
 });

@@ -7,7 +7,7 @@ export type Theme = "light" | "dark";
 const listeners = new Set<() => void>();
 
 function current(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
 export function setTheme(t: Theme) {
@@ -20,7 +20,7 @@ export function setTheme(t: Theme) {
   listeners.forEach((l) => l());
 }
 
-/** Server and hydration render "dark"; the real value arrives right after hydration. */
+/** Server and hydration render "light"; the real value arrives right after hydration. */
 export function useTheme(): Theme {
   return useSyncExternalStore(
     (cb) => {
@@ -28,6 +28,6 @@ export function useTheme(): Theme {
       return () => listeners.delete(cb);
     },
     current,
-    () => "dark",
+    () => "light",
   );
 }

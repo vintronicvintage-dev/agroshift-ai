@@ -60,7 +60,15 @@ export type IconName =
   | "copy"
   | "grip"
   | "eye"
-  | "eyeOff";
+  | "eyeOff"
+  | "dashboard"
+  | "chart"
+  | "shield"
+  | "leaf"
+  | "globe"
+  | "sliders"
+  | "expand"
+  | "collapse";
 
 const P: Record<IconName, ReactNode> = {
   // a parcel seen from above with furrows
@@ -360,6 +368,55 @@ const P: Record<IconName, ReactNode> = {
     </>
   ),
   grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" strokeWidth={2.6} />,
+  dashboard: (
+    <>
+      <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13" y="3.5" width="7.5" height="5" rx="1.5" />
+      <rect x="13" y="11" width="7.5" height="9.5" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7.5" height="7" rx="1.5" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4 19.5h16" />
+      <rect x="5.5" y="11" width="3" height="8.5" rx="0.5" />
+      <rect x="10.5" y="7.5" width="3" height="12" rx="0.5" />
+      <rect x="15.5" y="4.5" width="3" height="15" rx="0.5" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3.5 19 6.5v5.2c0 4.5-3 7.7-7 9.3-4-1.6-7-4.8-7-9.3V6.5Z" />
+      <path d="m9 12.2 2 2.1 4.2-4.3" />
+    </>
+  ),
+  leaf: (
+    <>
+      <path d="M19.5 4.5c-7.5 0-13 4.2-13.5 11.5 7.3-.5 11.5-6 13.5-11.5Z" />
+      <path d="M6 16c-1.2 1.5-2 3.2-2 4.5M6 16l7.5-5.5" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.6 9h16.8M3.6 15h16.8M12 3.5a13 13 0 0 1 0 17M12 3.5a13 13 0 0 0 0 17" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M4 7h9M17 7h3M15 5v4M4 12h3M11 12h9M9 10v4M4 17h11M19 17h1M17 15v4" />
+    </>
+  ),
+  expand: (
+    <>
+      <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
+    </>
+  ),
+  collapse: (
+    <>
+      <path d="M4 14h6v6M20 10h-6V4M10 14l-6 6M14 10l6-6" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 20, className, title }: { name: IconName; size?: number; className?: string; title?: string }) {

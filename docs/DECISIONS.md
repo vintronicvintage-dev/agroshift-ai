@@ -35,3 +35,17 @@ Bu belge, AgroShift AI'ın mühendislik derinleştirme sürecinde alınan kritik
 ## ADR-005: Motor-Arayüz Terminoloji Birliği
 - **Bağlam:** `src/components/plan/planKit.tsx` içindeki `TR_FIX` düzenli ifadeleri, motorun ürettiği Türkçe metinlerdeki "rotasyon" ve "brüt marj" ifadelerini çalışma zamanında yamalıyordu; `DISCLAIMER` içinde ise çoğul/resmî ("danışın") hitap kalmıştı.
 - **Karar:** Motorun kendi açıklama ve anlatı modülleri (`explain.ts`, `narrate.ts`, `index.ts`) doğrudan v3 terminolojisini ("ekim nöbeti", "kazanç (brüt)", "bugünkü sıran", "danış") üretecek şekilde güncellenir; `planKit.tsx` içindeki `useL()` geriye dönük uyumluluk için korunur.
+
+## ADR-006: Türkiye Derin Yakınlaştırma (`maxZoom: 20`) ve Çoklu Yüksek Çözünürlüklü Harita Katmanları
+- **Bağlam:** EOX Sentinel-2 Cloudless katmanı (`maxNativeZoom: 14`, ~10 m/piksel) tek başına parsel sınırı çizimi (`zoom 16–20`) için bulanık kalıyordu. Ayrıca kırsal Anadolu'da Esri World Imagery sunucusu `z=18` (~0,3 m Maxar görüntüsü) seviyesine kadar gerçek yüksek çözünürlüklü JPEG karosu döndürürken, `z=19` seviyesinde 2.521 baytlık gri "Map data not yet available" yer tutucu karosu döndürmektedir.
+- **Karar:**
+  - `src/lib/data/tiles.ts` içinde `esri-world-imagery` (`https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`, `maxNativeZoom: 18`), `carto-voyager` (`@2x` Retina sokak/köy haritası, `maxNativeZoom: 19`), `opentopomap` (`maxNativeZoom: 17`), `carto-voyager-labels` (`@2x` Retina şeffaf yerleşim etiketleri) ve `esri-world-transportation` (`maxNativeZoom: 19` köy/tarla yol ağı) tanımlandı.
+  - `MapCanvas.tsx` üzerinde harita `maxZoom: 20` olarak ayarlandı; böylece `z=18` (~0,3 m) yerel uydu karoları `z=19` ve `z=20` (~0,12 m/piksel ekran ölçeği) seviyelerine gri karo oluşmadan keskin biçimde ölçeklenir.
+  - `src/lib/data/turkeyRegions.ts` içine 81 il ve 16 büyük tarım havzası/ovası eklendi; `SearchBox.tsx` hem yerel 81 il/16 ova atlasını anında arar hem de Nominatim (`countrycodes=tr`) ile köy/mahalle bazında sonuç getirir.
+
+## ADR-007: Anadolu Tarımsal Komuta Merkezi ("Anatolian Agronomic Command Center") Arayüz Mimarisi
+- **Bağlam:** Kullanıcının referans tasarım görseli (`media_1794652347798_4af8cf5a.jpg`) doğrultusunda `/impeccable` ve `/design-taste-frontend` ilkeleriyle tüm platformun gün ışığı odaklı sıcak fildişi zemin (`#f3f6ef`), derin orman yeşili sol navigasyon sütunu (`#14361d` → `#1d4928`), beyaz Bento kartlar (`#ffffff`) ve gerçek zamanlı bilimsel grafiklerle yeniden tasarlanması talep edildi.
+- **Karar:**
+  - `AppShell.tsx` kalıcı sol orman yeşili komuta menüsü + üst hızlı pilot/senaryo kontrol çubuğu + mobil alt bar/çekmece olarak yeniden inşa edildi.
+  - `FieldWorkspace.tsx` üzerinde Tanıtım Hero Alanı, 5 KPI Özet Kartı, Asimetrik Harita (`NASA Uydu Katmanları` yüzer kontrol paneli + `HD Uydu z20` seçici) + `Mevcut Durum Özeti`, 3 Sütunlu Bento (`Akıllı Ürün Önerileri`, `Üç Yıllık Ürün Rotasyon Planı`, çift eksenli `Verim ve Kârlılık Analizi` SVG grafiği), 2 Sütunlu Alt Bölüm (`Risk Simülasyonları` tablosu/yatay çubuk grafiği + `Açıklanabilir Karar Dayanağı XAI`) ve genişletilebilir 11 detaylı bilimsel sensör kartı (`FieldPanel`) %100 gerçek motor/uydu verisiyle birleştirildi.
+

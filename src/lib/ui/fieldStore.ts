@@ -97,9 +97,20 @@ export const DEFAULT_INPUTS: PlanInputs = {
 
 export const DEFAULT_SCENARIO: ScenarioState = { preset: "typical", rainMultiplier: 1, tempDeltaC: 0, priceMultiplier: 1 };
 
+const INITIAL_PILOT_RING = rectangleRing({ lat: PILOTS[0].lat, lon: PILOTS[0].lon }, 400, 300);
+const INITIAL_FIELD: ActiveField = {
+  id: "pilot-konya-cumra",
+  name: PILOTS[0].nameTr,
+  kind: "rectangle",
+  ring: INITIAL_PILOT_RING,
+  areaDa: describeRing(INITIAL_PILOT_RING).areaDa,
+  pilotId: PILOTS[0].id,
+  createdAt: "2026-11-14T00:00:00.000Z",
+};
+
 const DEFAULT: StoreState = {
   v: 3,
-  field: null,
+  field: INITIAL_FIELD,
   saved: [],
   inputs: DEFAULT_INPUTS,
   precip: { mode: "none" },

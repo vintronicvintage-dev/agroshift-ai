@@ -33,9 +33,9 @@ export type LogoProps = {
 };
 
 const TONES: Record<LogoTone, { mark: string; word: string }> = {
-  auto: { mark: "var(--accent-ink, #d4ff3a)", word: "var(--ink, #eef2ec)" },
-  light: { mark: "#d4ff3a", word: "#eef2ec" },
-  dark: { mark: "#3d5a00", word: "#101612" },
+  auto: { mark: "var(--accent-ink, #2e7d32)", word: "var(--ink, #112216)" },
+  light: { mark: "#69d17b", word: "#f4f8f4" },
+  dark: { mark: "#2e7d32", word: "#112216" },
   mono: { mark: "currentColor", word: "currentColor" },
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchMasterProvince } from "./turkiyeAgroMaster";
+import { getClassicRegionalSequence, matchMasterProvince } from "./turkiyeAgroMaster";
 
 describe("matchMasterProvince — Turkey vs global coordinate guard", () => {
   it("matches known Turkish agricultural basins with isInTurkey = true", () => {
@@ -26,5 +26,11 @@ describe("matchMasterProvince — Turkey vs global coordinate guard", () => {
 
     const japan = matchMasterProvince(35.68, 139.76);
     expect(japan.isInTurkey).toBe(false);
+  });
+
+  it("returns classic 3-year regional sequence only inside Turkey", () => {
+    const konyaClassic = getClassicRegionalSequence(37.5714, 32.7836);
+    expect(konyaClassic).toHaveLength(3);
+    expect(getClassicRegionalSequence(41.878, -93.097)).toBeNull();
   });
 });

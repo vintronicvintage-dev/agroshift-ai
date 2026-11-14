@@ -10,7 +10,7 @@ import { tileSourceById } from "@/lib/data/tiles";
 import { metersPerPixel } from "@/lib/data/turkeyRegions";
 import { PILOTS } from "@/lib/data/pilots";
 import { climateEvidence, CROP_IDS, CROPS } from "@/lib/engine";
-import { CROP_ID_TO_MASTER, evaluateMasterPlan, MASTER_TO_CROP_ID, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
+import { CROP_ID_TO_MASTER, evaluateMasterPlan, getClassicRegionalSequence, MASTER_TO_CROP_ID, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
 import type { CropId, PlanResult, RotationSequence } from "@/lib/types";
 import {
   getStore,
@@ -85,6 +85,7 @@ export function FieldWorkspace() {
   const [nasaPanelOpen, setNasaPanelOpen] = useState(true);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [selectedAltIdx, setSelectedAltIdx] = useState<0 | 1 | 2>(0);
+  const [selectedPlanOverride, setSelectedPlanOverride] = useState<string | null>(null);
   const [uiMode, setUiMode] = useState<"simple" | "detailed">("simple");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tileErr, setTileErr] = useState<string | null>(null);
@@ -370,7 +371,15 @@ export function FieldWorkspace() {
   }, [climate]);
 
   const res = data.analysis.result;
-  const best = res?.alternatives[selectedAltIdx] ?? res?.alternatives[0] ?? res?.current ?? null;
+  const best =
+    (selectedPlanOverride
+      ? res?.alternatives.find((a) => a.id === selectedPlanOverride) ??
+        res?.userPlans.find((u) => u.id === selectedPlanOverride)
+      : null) ??
+    res?.alternatives[selectedAltIdx] ??
+    res?.alternatives[0] ??
+    res?.current ??
+    null;
   const currentPlan = res?.current ?? null;
 
   const scrollToEvidence = useCallback(() => {
@@ -596,46 +605,74 @@ export function FieldWorkspace() {
       const isLegume = (c: CropId) => fam(c) === "fabaceae";
       const isCereal = (c: CropId) => fam(c) === "poaceae";
       const isFallow = (c: CropId) => c === "fallow";
+      const yrStat = (idx: number) => {
+        const y = plan.years[idx];
+        const kgDa = y?.yieldTHa?.p50 !== undefined ? Math.round(y.yieldTHa.p50 * 100) : null;
+        const irr = y?.irrigationNetMm?.p50 !== undefined ? Math.round(y.irrigationNetMm.p50) : 0;
+        const margin = y?.grossMarginTLPerDa?.p50 !== undefined ? Math.round(y.grossMarginTLPerDa.p50) : null;
+        if (lang === "tr") {
+          const parts: string[] = [];
+          if (kgDa !== null) parts.push(`~${n(kgDa, 0)} kg/da verim`);
+          parts.push(irr > 0 ? `${n(irr, 0)} mm sulama` : "kuru tarım");
+          if (margin !== null) parts.push(`${n(margin, 0)} ₺/da`);
+          return parts.join(", ");
+        }
+        const parts: string[] = [];
+        if (kgDa !== null) parts.push(`~${n(kgDa, 0)} kg/da`);
+        parts.push(irr > 0 ? `${n(irr, 0)} mm irr.` : "rainfed");
+        if (margin !== null) parts.push(`${n(margin, 0)} TL/da`);
+        return parts.join(", ");
+      };
+      const nContrib = plan.soilHealth.nContributionKgHa;
+      const nNoteTr =
+        nContrib && nContrib.high > 0
+          ? ` (biyolojik azot katkısı: ${n(nContrib.low / 10, 1)}–${n(nContrib.high / 10, 1)} kg/da)`
+          : "";
       const steps: string[] = [];
 
       for (let i = 0; i < 3; i++) {
         const cur = plan.crops[i];
-        const next = plan.crops[(i + 1) % 3];
         const curName = names[i];
         const nextName = names[(i + 1) % 3];
+        const stat = yrStat(i);
         if (i === 0) {
           steps.push(
             lang === "tr"
-              ? `1. Yıl (${curName}): Topraktaki mevcut nem ve besin rezervini değerlendirerek döngüyü başlatır${isCereal(cur) ? " ve kış-ilkbahar yağışlarından yüksek verim alır" : isLegume(cur) ? " ve toprağa doğal azot kazandırır" : ""}.`
-              : `Year 1 (${curName}): Starts the cycle using current soil moisture${isCereal(cur) ? " and winter-spring rainfall" : isLegume(cur) ? " while fixing atmospheric nitrogen" : ""}.`,
+              ? `1. Yıl (${curName} · ${stat}): Mevcut toprak nemiyle döngüyü başlatır${isCereal(cur) ? " ve kış-ilkbahar yağışını verime çevirir" : isLegume(cur) ? " ve toprağa doğal azot bağlar" : ""}.`
+              : `Year 1 (${curName} · ${stat}): Starts the cycle using current soil moisture${isCereal(cur) ? " and winter-spring rainfall" : isLegume(cur) ? " while fixing atmospheric nitrogen" : ""}.`,
           );
         } else if (i === 1) {
           const prev = plan.crops[0];
           let reasonTr = `${names[0]} sonrası farklı kök derinliğiyle toprak yorgunluğunu ve hastalık döngüsünü kırar.`;
           if (isFallow(cur)) reasonTr = `${names[0]} hasadı sonrası toprağı dinlendirir, yağış suyunu kökte biriktirir.`;
-          else if (isLegume(cur)) reasonTr = `${names[0]} sonrası baklagil olarak toprağa doğal azot bağlar; 3. yıldaki ${nextName} için gübre ihtiyacını düşürür.`;
-          else if (fam(cur) !== fam(prev)) reasonTr = `${names[0]} ile farklı bitki familyasında olduğu için aynı zararlı/hastalık baskısını keser ve ${nextName} öncesi toprağı dengeler.`;
+          else if (isLegume(cur)) reasonTr = `${names[0]} sonrası baklagil olarak doğal azot bağlar; 3. yıldaki ${nextName} için gübre ihtiyacını azaltır.`;
+          else if (fam(cur) !== fam(prev)) reasonTr = `${names[0]} ile farklı bitki familyasında olduğu için zararlı/hastalık döngüsünü keser ve ${nextName} öncesi toprağı dengeler.`;
           steps.push(
             lang === "tr"
-              ? `2. Yıl (${curName}): ${reasonTr}`
-              : `Year 2 (${curName}): Breaks pest/disease cycles after ${names[0]}${isLegume(cur) ? " and fixes nitrogen ahead of Year 3" : ""}.`,
+              ? `2. Yıl (${curName} · ${stat}): ${reasonTr}`
+              : `Year 2 (${curName} · ${stat}): Breaks pest/disease cycles after ${names[0]}${isLegume(cur) ? " and fixes nitrogen ahead of Year 3" : ""}.`,
           );
         } else {
           const prev = plan.crops[1];
-          let reasonTr = `${names[1]} ile hazırlanan toprak yapısını ekonomik getiriye çevirip döngüyü tamamlar.`;
-          if (isLegume(prev) && isCereal(cur)) reasonTr = `2. yıldaki ${names[1]} ürününün bıraktığı doğal azot kredisinden doğrudan yararlanarak düşük gübre maliyetiyle yüksek verim verir.`;
-          else if (isFallow(prev)) reasonTr = `2. yıldaki nadasın biriktirdiği nem rezerviyle kuraklık riskini düşürerek döngüyü kapatır.`;
-          else if (fam(cur) !== fam(prev)) reasonTr = `${names[1]} sonrası farklı familya ile münavebeyi tamamlar ve 1. yıldaki ${names[0]} ekimine temiz tarla bırakır.`;
+          let reasonTr = `${names[1]} ile hazırlanan toprak yapısını ekonomik getiriye çevirip döngüyü tamamlar${nNoteTr}.`;
+          if (isLegume(prev) && isCereal(cur)) reasonTr = `2. yıldaki ${names[1]} ürününün bıraktığı azot kredisinden yararlanarak döngüyü yüksek verimle tamamlar${nNoteTr}.`;
+          else if (isFallow(prev)) reasonTr = `2. yıldaki nadasın biriktirdiği nem rezerviyle kuraklık riskini düşürerek döngüyü kapatır${nNoteTr}.`;
+          else if (fam(cur) !== fam(prev)) reasonTr = `${names[1]} sonrası farklı familyayla münavebeyi tamamlar ve 1. yıldaki ${names[0]} ekimine temiz tarla bırakır${nNoteTr}.`;
           steps.push(
             lang === "tr"
-              ? `3. Yıl (${curName}): ${reasonTr}`
-              : `Year 3 (${curName}): Capitalizes on Year 2 (${names[1]}) soil legacy and prepares a clean seedbed for ${names[0]}.`,
+              ? `3. Yıl (${curName} · ${stat}): ${reasonTr}`
+              : `Year 3 (${curName} · ${stat}): Capitalizes on Year 2 (${names[1]}) soil legacy and prepares a clean seedbed for ${names[0]}.`,
           );
         }
       }
       return steps;
     },
-    [L, lang],
+    [L, lang, n],
+  );
+
+  const classicSeq = useMemo(
+    () => (centroid ? getClassicRegionalSequence(centroid.lat, centroid.lon) : null),
+    [centroid],
   );
 
   const threeRouteCards = useMemo(() => {
@@ -644,15 +681,23 @@ export function FieldWorkspace() {
     const classicCropSet = new Set(commonRegionalCrops.map((c) => c.cropId).filter(Boolean));
     const bestPlan = alts[0];
 
-    // Pick classic-crop-aligned plan among alternatives (preferring one distinct from bestPlan if available)
-    let classicPlan = alts[1] ?? alts[0];
-    if (classicCropSet.size > 0) {
-      let bestOverlap = -1;
-      for (const candidate of alts) {
-        const overlap = candidate.crops.filter((c) => classicCropSet.has(c)).length;
-        if (overlap > bestOverlap || (overlap === bestOverlap && candidate.id !== bestPlan.id && classicPlan.id === bestPlan.id)) {
-          bestOverlap = overlap;
-          classicPlan = candidate;
+    // Prefer the real engine-evaluated classic regional rotation (from res.userPlans or alternatives)
+    const classicId = classicSeq ? classicSeq.join(">") : null;
+    let classicPlan: PlanResult | undefined = classicId
+      ? res.userPlans.find((u) => u.crops.join(">") === classicId) ??
+        alts.find((a) => a.crops.join(">") === classicId)
+      : undefined;
+
+    if (!classicPlan) {
+      classicPlan = alts[1] ?? alts[0];
+      if (classicCropSet.size > 0) {
+        let bestOverlap = -1;
+        for (const candidate of alts) {
+          const overlap = candidate.crops.filter((c) => classicCropSet.has(c)).length;
+          if (overlap > bestOverlap || (overlap === bestOverlap && candidate.id !== bestPlan.id && classicPlan.id === bestPlan.id)) {
+            bestOverlap = overlap;
+            classicPlan = candidate;
+          }
         }
       }
     }
@@ -686,10 +731,10 @@ export function FieldWorkspace() {
         altIdx: Math.max(0, alts.findIndex((a) => a.id === classicPlan.id)) as 0 | 1 | 2,
         badgeTr: "Klasik Ekilenler Arasından En Mantıklı Rota",
         badgeEn: "Most Sensible Route Among Classic Crops",
-        subtitleTr: masterProvince.isInTurkey && classicCropSet.size > 0
-          ? `${masterProvince.province.kimlik_ve_cografya.il_adi} bölgesinde yaygın ürünlere en uyumlu münavebe`
+        subtitleTr: masterProvince.isInTurkey
+          ? `${masterProvince.province.kimlik_ve_cografya.il_adi} ilinin klasik bölge münavebesinin bu parseldeki gerçek motor hesabı`
           : "Bölge iklimine alışık klasik tarım ürünleriyle en dengeli seçenek",
-        subtitleEn: "Best-balanced sequence aligned with classic regional crops",
+        subtitleEn: "Real engine evaluation of the region's classic rotation on this parcel",
         plan: classicPlan,
       },
       {
@@ -721,7 +766,7 @@ export function FieldWorkspace() {
         sequenceReasons: explainSequenceOrder(e.plan),
       };
     });
-  }, [res, commonRegionalCrops, masterProvince, currentPlan, explainSequenceOrder]);
+  }, [res, commonRegionalCrops, classicSeq, masterProvince, currentPlan, explainSequenceOrder]);
 
   const waterSavingsInfo = useMemo(() => {
     if (!best || !currentPlan) return null;
@@ -1393,6 +1438,50 @@ export function FieldWorkspace() {
                   </div>
                 </div>
               )}
+
+              {/* Veri Kaynağı Şeffaflığı: Canlı Uydu vs. Yedek/Önbellek */}
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-[#dcfce7] pt-2.5 text-[10.5px]">
+                <span className="font-semibold text-ink-2">
+                  {lang === "tr" ? "Veri Kaynağı:" : "Provenance:"}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${
+                    data.snapshot?.snap.climate
+                      ? "bg-[#fef3c7] text-[#92400e]"
+                      : "bg-[#e0f2fe] text-[#0369a1]"
+                  }`}
+                >
+                  {data.snapshot?.snap.climate
+                    ? lang === "tr" ? "İklim: Pilot Snapshot" : "Climate: Snapshot"
+                    : lang === "tr" ? "İklim: Canlı NASA POWER" : "Climate: Live NASA POWER"}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${
+                    data.soil?.origin === "soilgrids"
+                      ? "bg-[#e6f4ea] text-[#166534]"
+                      : data.soil?.origin === "user"
+                        ? "bg-[#e0f2fe] text-[#0369a1]"
+                        : "bg-[#fee2e2] text-[#991b1b]"
+                  }`}
+                >
+                  {data.soil?.origin === "soilgrids"
+                    ? lang === "tr" ? "Toprak: Canlı SoilGrids 250m" : "Soil: Live SoilGrids"
+                    : data.soil?.origin === "user"
+                      ? lang === "tr" ? "Toprak: Kullanıcı Tahlili" : "Soil: User Lab"
+                      : lang === "tr" ? "Toprak: Varsayılan Yedek" : "Soil: Fallback"}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${
+                    data.terrain?.basis === "polygon"
+                      ? "bg-[#e6f4ea] text-[#166534]"
+                      : "bg-[#fef3c7] text-[#92400e]"
+                  }`}
+                >
+                  {data.terrain?.basis === "polygon"
+                    ? lang === "tr" ? "Eğim: Canlı SRTM" : "Slope: Live SRTM"
+                    : lang === "tr" ? "Eğim: Bölge Noktası" : "Slope: Regional"}
+                </span>
+              </div>
             </div>
 
             {uiMode === "detailed" && (
@@ -1640,7 +1729,7 @@ export function FieldWorkspace() {
           {threeRouteCards.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               {threeRouteCards.map((card) => {
-                const isSelected = selectedAltIdx === card.altIdx;
+                const isSelected = best ? best.id === card.plan.id : selectedAltIdx === card.altIdx;
                 return (
                   <article
                     key={card.roleId}
@@ -1724,7 +1813,10 @@ export function FieldWorkspace() {
 
                     <button
                       type="button"
-                      onClick={() => setSelectedAltIdx(card.altIdx)}
+                      onClick={() => {
+                        setSelectedAltIdx(card.altIdx);
+                        setSelectedPlanOverride(card.plan.id);
+                      }}
                       className={`btn btn-sm mt-3 w-full justify-center ${
                         isSelected ? "btn-primary" : ""
                       }`}

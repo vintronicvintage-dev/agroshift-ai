@@ -296,6 +296,20 @@ export function getMasterProvinceByPlaka(plaka: string): MasterProvinceRecord | 
   return rawMaster.iller_detayli_81[key] ?? null;
 }
 
+/**
+ * Returns the province's classic/balanced 3-year rotation mapped to engine CropId[],
+ * or null when the coordinate is outside Turkey.
+ */
+export function getClassicRegionalSequence(lat: number, lon: number): RotationSequence | null {
+  const matched = matchMasterProvince(lat, lon);
+  if (!matched.isInTurkey) return null;
+  const pkg = matched.province.il_urun_verim_su_ve_rotasyon_matrisi?.onerilen_3_yillik_rotasyon_paketleri?.Dengeli_Gelir;
+  if (!pkg || !Array.isArray(pkg.rotasyon_3_yil) || pkg.rotasyon_3_yil.length !== 3) return null;
+  const mapped = pkg.rotasyon_3_yil.map((code) => MASTER_TO_CROP_ID[code]);
+  if (mapped.some((c) => !c)) return null;
+  return mapped as RotationSequence;
+}
+
 export interface MasterYearlyEval {
   year: 1 | 2 | 3;
   cropId: CropId;

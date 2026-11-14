@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import type { AnalysisInput, ClimateSeries, NdviSeries, PrecipAdjustment, SoilProfile, TerrainInfo } from "@/lib/types";
 import type { FieldResponse } from "@/lib/data/fieldTypes";
 import { loadSnapshot, loadSnapshotIndex, matchSnapshotId, type Snapshot, type SnapshotIndexEntry } from "@/lib/data/snapshots";
+import { getClassicRegionalSequence } from "@/lib/data/turkiyeAgroMaster";
 import { usdaTextureClass } from "@/lib/engine";
 import { annualPrecipStats } from "@/lib/ui/calibration";
 import { useAnalysis, type AnalysisState } from "@/lib/ui/useAnalysis";
@@ -314,8 +315,17 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
   const areaDa = inp.areaOverrideDa ?? f?.areaDa ?? null;
   const econ = useMemo(() => econToInput(store.econ), [store.econ]);
   const terrainData = terrain?.basis === "polygon" ? terrain.data : (snap?.terrain ?? undefined);
+  const classicSeq = useMemo(
+    () => (centroid ? getClassicRegionalSequence(centroid.lat, centroid.lon) : null),
+    [centroid],
+  );
   const request = useMemo<AnalysisRequest | null>(() => {
     if (!f || !soil || !areaDa || areaDa <= 0) return null;
+    const extraPlans = [...store.extraPlans];
+    if (classicSeq) {
+      const classicId = classicSeq.join(">");
+      if (!extraPlans.some((p) => p.join(">") === classicId)) extraPlans.push(classicSeq);
+    }
     return {
       field: {
         areaDa,
@@ -332,11 +342,11 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
       },
       scenario: { rainMultiplier: sc.rainMultiplier, tempDeltaC: sc.tempDeltaC, priceMultiplier: sc.priceMultiplier },
       economics: econ,
-      options: store.extraPlans.length ? { extraPlans: store.extraPlans } : undefined,
+      options: extraPlans.length ? { extraPlans } : undefined,
       ...(precipCheck ? { precipCheck: precipCheck as AnalysisInput["precipCheck"] } : {}),
       precipAdjustment,
     };
-  }, [f, soil, areaDa, terrainData, inp, sc, econ, store.extraPlans, soilLayers, store.soil, precipCheck, precipAdjustment]);
+  }, [f, soil, areaDa, terrainData, inp, sc, econ, store.extraPlans, classicSeq, soilLayers, store.soil, precipCheck, precipAdjustment]);
 
   const analysis = useAnalysis(climate, siteKey, request);
   const engineInput = useMemo(() => (climate && request ? { ...request, climate } : null), [climate, request]);

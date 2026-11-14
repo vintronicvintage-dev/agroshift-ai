@@ -1,5 +1,6 @@
 // Disk cache for /api/* responses. Coordinates rounded to a 0.05° grid, 7-day TTL.
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -10,7 +11,10 @@ export function roundCoord(v: number): number {
 }
 
 function cacheDir(): string {
-  return process.env.AGROSHIFT_CACHE_DIR || path.join(process.cwd(), ".cache");
+  if (process.env.AGROSHIFT_CACHE_DIR) return process.env.AGROSHIFT_CACHE_DIR;
+  // Vercel Serverless Functions have a read-only project root; use the writable /tmp volume.
+  if (process.env.VERCEL === "1") return path.join(os.tmpdir(), "agroshift-cache");
+  return path.join(process.cwd(), ".cache");
 }
 
 export function cacheKey(kind: string, lat: number, lon: number, extra = ""): string {

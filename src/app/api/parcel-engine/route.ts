@@ -228,6 +228,12 @@ export async function POST(req: NextRequest) {
       secilen_urunler: cropsList,
     };
 
+    // Vercel Node.js Serverless Functions do not bundle Python; use the TypeScript master dataset directly.
+    if (process.env.VERCEL === "1") {
+      const fallbackResult = await runTypeScriptMasterFallback(body, cropsList);
+      return NextResponse.json(fallbackResult, { status: 200 });
+    }
+
     const projectRoot = process.cwd();
     const engineScriptPath = path.join(projectRoot, "engine", "turkey_parcel_engine.py");
     const args = [engineScriptPath, "--json-input", JSON.stringify(normalizedPayload)];

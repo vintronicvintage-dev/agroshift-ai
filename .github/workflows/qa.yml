@@ -18,6 +18,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Install Playwright types for Next.js typecheck
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1
       - run: npm run build
   browser:
     runs-on: ubuntu-latest

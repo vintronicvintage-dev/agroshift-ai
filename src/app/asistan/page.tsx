@@ -45,7 +45,7 @@ export default function AssistantPage() {
         ? "Şu anda aktif bir tarla seçili değil veya analiz henüz tamamlanmadı. Doğrulanmamış verilerden öneri üretemem; önce bir parsel seçin veya Konya–Çumra örneğini açın."
         : "No active parcel is selected or analysis has not finished yet. I cannot provide recommendations without verified model outputs.";
       links = [{ href: "/tarlalarim", label: tr ? "Tarla Seç" : "Select Field" }];
-    } else if (q.includes("bütçe") || q.includes("aş") || q.includes("su") || q.includes("budget") || q.includes("water")) {
+    } else if (q.includes("bütçe") || q.includes("aşıyor") || q.includes("aşım") || q.includes("su") || q.includes("budget") || q.includes("water")) {
       const curDef = Math.round(current?.water.unmetDeficitMmPerYr?.p50 ?? 0);
       const bestDef = Math.round(best?.water.unmetDeficitMmPerYr?.p50 ?? 0);
       const curCrops = current?.crops.map((c) => (tr ? CROPS[c].name.tr : CROPS[c].name.en)).join(" → ");

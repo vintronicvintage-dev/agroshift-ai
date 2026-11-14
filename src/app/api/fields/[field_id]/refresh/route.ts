@@ -26,8 +26,28 @@ export async function POST(
 
   try {
     const text = await req.text();
+    if (text.length > 64 * 1024) {
+      return NextResponse.json({ error: "Payload too large (max 64 KB)" }, { status: 413 });
+    }
     if (text.trim()) {
-      body = JSON.parse(text);
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json({ error: "JSON body must be an object" }, { status: 400 });
+      }
+      body = parsed as typeof body;
+      if (body.sources !== undefined && (!Array.isArray(body.sources) || body.sources.some((s) => typeof s !== "string"))) {
+        return NextResponse.json({ error: "sources must be an array of strings" }, { status: 400 });
+      }
+      if (body.labSoilOverride !== undefined) {
+        const s = body.labSoilOverride;
+        const nums = [s.sandPct, s.siltPct, s.clayPct, s.phH2o, s.socGKg];
+        if (nums.some((v) => typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
+          return NextResponse.json({ error: "labSoilOverride values must be finite non-negative numbers" }, { status: 400 });
+        }
+        if (s.phH2o > 14) {
+          return NextResponse.json({ error: "labSoilOverride.phH2o must be between 0 and 14" }, { status: 400 });
+        }
+      }
     }
   } catch {
     return NextResponse.json({ error: "Invalid JSON body in POST /refresh" }, { status: 400 });

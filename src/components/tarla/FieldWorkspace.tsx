@@ -568,7 +568,7 @@ export function FieldWorkspace() {
             )}
 
             {/* Top Overlay inside Map: 81-Province SearchBox + Locate + Advanced Layer Settings */}
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-[1000] flex flex-wrap items-start justify-between gap-2">
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-[1020] flex flex-wrap items-start justify-between gap-2">
               <div className="pointer-events-auto flex w-full max-w-[28rem] items-start gap-1.5">
                 <SearchBox
                   onPlace={(p, bbox, zoom) => {
@@ -596,7 +596,7 @@ export function FieldWorkspace() {
             </div>
 
             {/* Floating "NASA Uydu Katmanları" Checklist on Left of Map matching the user's reference mockup */}
-            <div className="pointer-events-auto absolute left-3 top-[4.25rem] z-[1000] max-w-[240px]">
+            <div className="pointer-events-auto absolute left-3 top-[4.25rem] z-[990] max-w-[240px]">
               <div className="overflow-hidden rounded-2xl border border-white/20 bg-[#102816]/90 text-white shadow-xl backdrop-blur-md">
                 <div className="flex items-center justify-between border-b border-white/15 px-3.5 py-2.5">
                   <span className="text-[13px] font-semibold text-white">

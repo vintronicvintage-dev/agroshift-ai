@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { PILOTS } from "@/lib/data/pilots";
 import { CROPS } from "@/lib/engine";
 import { describeRing, ringFromGeoJSON, ringToGeoJSON } from "@/lib/ui/geo";
-import { makeField, pilotField, setField, setStore, useStore } from "@/lib/ui/fieldStore";
+import { makeField, pilotField, saveField, setField, setStore, useStore } from "@/lib/ui/fieldStore";
 
 const MapCanvas = dynamic(() => import("@/components/tarla/MapCanvas"), {
   ssr: false,
@@ -112,10 +112,21 @@ export default function MyFieldsPage() {
                   : tr ? "Yeni Parsel Çiz" : "Draw New Parcel"}
               </button>
               {field && (
-                <button type="button" onClick={handleExportGeoJson} className="btn">
-                  <Download className="size-4" />
-                  GeoJSON
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => saveField()}
+                    className="btn"
+                  >
+                    {store.saved.some((sv) => sv.id === field.id)
+                      ? tr ? "Kayıtlı Tarla ✓" : "Saved ✓"
+                      : tr ? "Tarlayı Kaydet" : "Save Parcel"}
+                  </button>
+                  <button type="button" onClick={handleExportGeoJson} className="btn">
+                    <Download className="size-4" />
+                    GeoJSON
+                  </button>
+                </>
               )}
             </div>
           }
@@ -157,7 +168,7 @@ export default function MyFieldsPage() {
                   : "Draw a polygon directly on the map or select a reference pilot parcel."
               }
             >
-              <div className="h-[440px] overflow-hidden rounded-xl border border-line">
+              <div className="relative h-[440px] overflow-hidden rounded-xl border border-line">
                 <MapCanvas
                   label={tr ? "Tarlalarım Haritası" : "My Fields Map"}
                   ring={field?.ring ?? null}
@@ -187,7 +198,10 @@ export default function MyFieldsPage() {
                   onPin={() => {}}
                   onLive={() => {}}
                   onView={() => {}}
-                  onPickSaved={() => {}}
+                  onPickSaved={(id) => {
+                    const found = store.saved.find((sv) => sv.id === id);
+                    if (found) setField(found);
+                  }}
                   onTileError={() => {}}
                   onProblem={() => {}}
                 />

@@ -314,7 +314,7 @@ function ScenarioQuickSelector() {
 }
 
 function Account() {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const u = useAuthUser();
   if (u.status === "signed-in") {
     return (

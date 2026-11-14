@@ -243,6 +243,12 @@ export interface AnalysisInput {
     robust?: boolean;
     /** Engine v2: one-at-a-time ±20 % rank-stability sweep on the shortlist (default true). */
     sensitivity?: boolean;
+    /**
+     * Engine v2: most fallow years a RECOMMENDED plan may have (hard rule for recommendations only;
+     * custom/current plans are still evaluated, with a warning). Default: 1 where the engine's water
+     * balance shows that a dryland fallow stores water (rainfed / low budget), otherwise 0.
+     */
+    maxFallowYears?: number;
   };
   /** Engine v2: independent rainfall cross-check (e.g. ERA5-Land). Reported, never applied by itself. */
   precipCheck?: PrecipCrossCheck;
@@ -289,7 +295,7 @@ export interface PlanNarrative {
 export type WarningCode =
   | "ph_low" | "ph_high" | "break_short" | "legume_after_legume" | "cereal_after_cereal"
   | "sclerotinia_host" | "fusarium_maize_residue" | "verticillium" | "rainfed_irrigated_crop"
-  | "erosion_high" | "salinity_unknown";
+  | "erosion_high" | "salinity_unknown" | "fallow_heavy";
 
 export interface PlanWarning {
   code: WarningCode;
@@ -605,10 +611,21 @@ export interface PlanResult {
   confidence?: PlanConfidence;
   warnings?: PlanWarning[];
   narrative?: PlanNarrative;
+  /** Engine v2: water productivity (indicator): output value per m³ of water received and extra water per output. */
+  waterProductivity?: WaterProductivity;
   /** Pareto knee (compromise) plan among the exactly replayed plans. */
   knee?: boolean;
   /** Engine v2: is the recommendation stable when the other rainfall source is used? (null = no alternative source) */
   rainSource?: RainSourceCheck | null;
+}
+
+export interface WaterProductivity {
+  /** Gross revenue per m³ of water received (rain + gross irrigation), TL/m³, over windows. */
+  revenueTLPerM3: Dist;
+  /** Rain-only water deficit per 1000 TL of gross revenue, m³/da per 1000 TL/da. */
+  deficitM3Per1000TL: Dist;
+  /** Water received per year (rain + gross irrigation), mm = m³/da. */
+  waterInMmPerYr: Dist;
 }
 
 export interface RainSourceCheck {
@@ -788,6 +805,16 @@ export interface AnalysisResult {
    * Engine v2: spread of annual precipitation across the available sources and what the chosen
    * adjustment implies. `sensitive` = the top-3 recommendation changes when the other source is used.
    */
+  /** Engine v2: land-use intensity rule applied to the recommendations. */
+  landUse?: {
+    maxFallowYears: number;
+    source: "option" | "water_balance";
+    fallowJustified: boolean;
+    /** Mean extra plant-available water at sowing of wheat after fallow vs after barley (rainfed, same windows), mm. */
+    fallowStorageGainMm: number | null;
+    excludedPlans: number;
+    reason: LocalizedText;
+  };
   precipUncertainty?: {
     sources: { id: "power" | "reference" | "chosen"; label: LocalizedText; annualMm: number }[];
     rangeMm: [number, number];

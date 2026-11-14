@@ -110,7 +110,7 @@ describe("units, fallow years and monotonicity of economics", () => {
     expect(m(1, 1)).toBeGreaterThan(m(0.8, 1));
     expect(m(1, 5)).toBeLessThan(m(1, 1));
     expect(m(1, 1)).toBeLessThan(m(1, 0));
-  });
+  }, 20000); // 5 full analyses; avoid the 5 s default under parallel test load
   it("field total uses the area in decares (3-year sum × da)", () => {
     const p = run({});
     const perDa = p.economics.grossMarginTLPerDaPerYr!;

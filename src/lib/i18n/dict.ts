@@ -1,3 +1,7 @@
+import { v3en, v3tr, type V3Key } from "./v3";
+import { v3planEn, v3planTr, type V3PlanKey } from "./v3plan";
+import { v3docEn, v3docTr, type V3DocKey } from "./v3doc";
+
 /**
  * UI dictionary. Turkish is the default language; English must have exactly the same keys
  * (enforced by the type). Placeholders use {name}. Engine-generated text (explanations,
@@ -631,7 +635,7 @@ export const tr = {
 
   // auth
   "auth.signIn.title": "Giriş yap",
-  "auth.signIn.lead": "Tarlanın panosuna e-posta adresinle gir.",
+  "auth.signIn.lead": "Hesabınla gir; araç girişsiz de çalışır.",
   "auth.signUp.title": "Hesap oluştur",
   "auth.signUp.lead": "Ad, e-posta ve parola yeter. Onay bağlantısı e-postana gelir.",
   "auth.reset.title": "Parolanı sıfırla",
@@ -692,7 +696,7 @@ export const tr = {
   "auth.err.network": "Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
   "auth.err.unknown": "Beklenmeyen bir hata oldu. Biraz sonra tekrar dene.",
   "auth.guest.title": "Giriş altyapısı bağlı değil",
-  "auth.guest.body": "Bu kurulumda giriş servisi (Supabase) bağlı değil, bu yüzden giriş ve kayıt çalışmıyor. Pano misafir olarak açık; tüm araçlar kullanılabilir.",
+  "auth.guest.body": "Giriş şimdilik gerekmiyor, aracı doğrudan kullanabilirsin.",
   "auth.brand.1": "Üç yıllık ekim sırasını NASA verisiyle karşılaştırır.",
   "auth.brand.2": "Her sayının kaynağı ve formülü bir dokunuşta açılır.",
   "auth.brand.3": "Karar senin ve yerel uzmanının.",
@@ -702,9 +706,10 @@ export const tr = {
   "img.harran.caption": "Harran Ovası ve Atatürk Barajı, Şanlıurfa. Landsat 7, 24 Ağustos 2002.",
 };
 
-export type DictKey = keyof typeof tr;
+type LegacyKey = keyof typeof tr;
+export type DictKey = LegacyKey | V3Key | V3PlanKey | V3DocKey;
 
-export const en: Record<DictKey, string> = {
+export const en: Record<LegacyKey, string> = {
   "app.name": "AgroShift",
   "app.tagline": "Three-year crop rotation comparison with NASA data",
   "nav.tool": "Tool",
@@ -1367,7 +1372,7 @@ export const en: Record<DictKey, string> = {
   "auth.err.network": "Could not reach the server. Check your connection and try again.",
   "auth.err.unknown": "Something unexpected went wrong. Try again in a moment.",
   "auth.guest.title": "Sign-in is not connected",
-  "auth.guest.body": "This installation has no sign-in service (Supabase) connected, so sign-in and sign-up do not work. The dashboard is open as a guest with every tool available.",
+  "auth.guest.body": "You do not need to sign in for now; you can use the tool directly.",
   "auth.brand.1": "Compares three-year crop rotations with NASA data.",
   "auth.brand.2": "Every number opens its source and formula in one tap.",
   "auth.brand.3": "The decision is yours and your local expert's.",
@@ -1377,5 +1382,5 @@ export const en: Record<DictKey, string> = {
   "img.harran.caption": "Harran Plain and Atatürk Reservoir, Şanlıurfa. Landsat 7, 24 August 2002.",
 };
 
-export const DICTS = { tr, en } as const;
-export type Lang = keyof typeof DICTS;
+export const DICTS: Record<"tr" | "en", Record<DictKey, string>> = { tr: { ...tr, ...v3tr, ...v3planTr, ...v3docTr }, en: { ...en, ...v3en, ...v3planEn, ...v3docEn } };
+export type Lang = "tr" | "en";

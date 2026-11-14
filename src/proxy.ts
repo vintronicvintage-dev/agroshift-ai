@@ -1,12 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_CONFIG } from "@/lib/auth/config";
-import { isAuthPage, isProtectedPath, safeNext } from "@/lib/auth/redirect";
+import { isAuthPage, safeNext } from "@/lib/auth/redirect";
 
 /**
- * Refreshes the Supabase session cookie on every page request and guards the dashboard.
- * Without auth configuration (guest mode) it does nothing. /api/*, /yontem and static files
- * are outside the matcher or not protected; /auth/* route handlers manage cookies themselves.
+ * Refreshes the session cookie on page requests. The tool itself is open to everyone (no login
+ * wall): nothing is guarded. A signed-in visitor who opens a sign-in page is sent back to the app.
+ * Without auth configuration it does nothing.
  */
 export async function proxy(request: NextRequest) {
   const cfg = AUTH_CONFIG;
@@ -36,19 +36,10 @@ export async function proxy(request: NextRequest) {
     signedIn = false;
   }
 
-  const { pathname, search } = request.nextUrl;
-  const redirect = (to: string) => {
-    const r = NextResponse.redirect(new URL(to, request.nextUrl.origin));
+  if (signedIn && isAuthPage(request.nextUrl.pathname)) {
+    const r = NextResponse.redirect(new URL(safeNext(request.nextUrl.searchParams.get("next")), request.nextUrl.origin));
     response.cookies.getAll().forEach((c) => r.cookies.set(c));
     return r;
-  };
-
-  if (!signedIn && isProtectedPath(pathname)) {
-    const next = safeNext(`${pathname}${search}`);
-    return redirect(next === "/" ? "/giris" : `/giris?next=${encodeURIComponent(next)}`);
-  }
-  if (signedIn && isAuthPage(pathname)) {
-    return redirect(safeNext(request.nextUrl.searchParams.get("next")));
   }
   return response;
 }

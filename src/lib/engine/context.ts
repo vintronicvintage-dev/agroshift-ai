@@ -9,15 +9,15 @@ import type {
   PlanWindow, PriorityWeights, RotationSequence, SoilHydraulics, BuilderMessage, PlanWarning, PreCropEffectInfo,
 } from "../types";
 import { CROPS, CROP_IDS, CROP_CONSTANTS, asm } from "../crops/database";
-import { climateZone, harvestMonthDay, sowMonthDay } from "../crops/calendar";
+import { climateZone, harvestMonthDay, sowMonthDay, scheduleSequence } from "../crops/calendar";
 import { preCropEffect, previousCrops, N_NEED_KG_HA } from "../crops/preCrop";
 import { trLocative } from "./units";
 import { prepareClimate, type PreparedClimate } from "./climate";
 import { soilHydraulics } from "./soil";
-import { createSetup, replayWindows, type ReplayWindow, type EngineSetup } from "./rotation";
+import { createSetup, replayWindows, simulatePlanChain, type ReplayWindow, type EngineSetup } from "./rotation";
 import { cropSuitability, type CropSuitability } from "./suitability";
 import {
-  buildEvalContext, evaluateExactRaw, planMetrics, summarizeRaw, waterResult, yearResults, RISK_WEIGHTS,
+  buildEvalContext, evaluateExactRaw, planMetrics, summarizeRaw, waterResult, yearResults, RISK_WEIGHTS, waterProductivity, deficitPerValue,
   type EvalContext, type PlanMetrics, type RawWindow,
 } from "./evaluation";
 import { makeRecord, normalizePriorities, scorePlans, type PlanRecord } from "./optimizer";
@@ -52,6 +52,41 @@ export interface AnalysisContext {
   /** Exactly evaluated items of the last `analyze` (composite normalisation for custom plans). */
   scoreItems: { r: PlanRecord; m: PlanMetrics }[] | null;
   current: { rec: PlanRecord; plan: PlanResult } | null;
+  landUse: { maxFallowYears: number; source: "option" | "water_balance"; fallowJustified: boolean; fallowStorageGainMm: number | null; reason: LocalizedText };
+}
+
+/** A fallow year counts as agronomically justified when it stores ≥ this much extra water for the next wheat (assumption). */
+export const FALLOW_GAIN_MIN_MM = asm(25, "Assumption: a fallow year is justified (classic dryland cereal–fallow) when the engine's rainfed water balance stores ≥ 25 mm more plant-available water at the next wheat sowing than after barley");
+/** Above this net irrigation budget a fallow year is not needed for water storage (assumption). */
+export const FALLOW_MAX_BUDGET_MM = asm(100, "Assumption: with a net irrigation budget ≥ 100 mm/yr water storage by fallow is not needed");
+
+function landUseRule(input: AnalysisInput, setup: EngineSetup, windows: ReplayWindow[], zone: ClimateZone, budgetNet: number, w0: number[]): AnalysisContext["landUse"] {
+  let gain: number | null = null;
+  if (windows.length) {
+    const aw = (seq: RotationSequence) => {
+      const out = simulatePlanChain(setup, scheduleSequence(seq, zone), windows, 0, w0);
+      const v = out.filter((o): o is NonNullable<typeof o> => !!o && !!o.years[2].season).map((o) => o.years[2].season!.awAtSow);
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    };
+    const f = aw(["wheat_winter", "fallow", "wheat_winter"]), b = aw(["wheat_winter", "barley_winter", "wheat_winter"]);
+    gain = f !== null && b !== null ? Math.round((f - b) * 10) / 10 : null;
+  }
+  const justified = gain !== null && gain >= FALLOW_GAIN_MIN_MM.value && budgetNet < FALLOW_MAX_BUDGET_MM.value;
+  const opt = input.options?.maxFallowYears;
+  if (opt !== undefined && Number.isFinite(opt)) {
+    const m = Math.max(0, Math.min(3, Math.round(opt)));
+    return { maxFallowYears: m, source: "option", fallowJustified: justified, fallowStorageGainMm: gain,
+      reason: { tr: `Önerilerde en çok ${m} nadas yılı (kullanıcı ayarı).`, en: `At most ${m} fallow year(s) in recommendations (user setting).` } };
+  }
+  const m = justified ? 1 : 0;
+  const g = gain === null ? "–" : String(Math.round(gain));
+  return {
+    maxFallowYears: m, source: "water_balance", fallowJustified: justified, fallowStorageGainMm: gain,
+    reason: justified
+      ? { tr: `Kuru tarımda nadas, sonraki buğdaya ${g} mm daha fazla su bırakıyor; önerilerde en çok 1 nadas yılı.`, en: `In dryland farming a fallow year leaves ${g} mm more water for the next wheat; at most 1 fallow year in recommendations.` }
+      : { tr: budgetNet >= FALLOW_MAX_BUDGET_MM.value ? "Sulama suyu varken nadas su biriktirmek için gerekmiyor; önerilerde nadas yok." : `Nadas burada sonraki ürüne anlamlı su bırakmıyor (${g} mm); önerilerde nadas yok.`,
+          en: budgetNet >= FALLOW_MAX_BUDGET_MM.value ? "With irrigation water available fallow is not needed to store water; no fallow in recommendations." : `Fallow does not store meaningful water for the next crop here (${g} mm); no fallow in recommendations.` },
+  };
 }
 
 export function finiteOr(v: number | undefined | null, dflt: number, lo: number, hi: number): number {
@@ -79,7 +114,7 @@ function atElevation(series: ClimateSeries, elevation: number): ClimateSeries {
 function inputKey(input: AnalysisInput): string {
   const { climate: _c, options, ...rest } = input;
   void _c;
-  return JSON.stringify({ ...rest, extra: options?.extraPlans ?? [] , sl: options?.shortlistSize ?? null });
+  return JSON.stringify({ ...rest, extra: options?.extraPlans ?? [], sl: options?.shortlistSize ?? null, mf: options?.maxFallowYears ?? null });
 }
 
 /** Build (or reuse) the plan-independent context of an analysis input. */
@@ -175,6 +210,7 @@ function buildContext(input: AnalysisInput): AnalysisContext {
     erosivity: erosivityR(scen), candidates, excluded: new Set(field.excludedCrops ?? []),
     conf: { dataCompleteness: comp, completenessReasons: reasons, rainfall: rain, rainfallReason: rainReason },
     scoreItems: null, current: null,
+    landUse: landUseRule(input, setup, windows, zone, budgetNet, ev.w0),
   };
 }
 
@@ -251,7 +287,12 @@ export function buildPlan(ctx: AnalysisContext, r: PlanRecord, kind: PlanResult[
     nitrogen: nitrogenBalance(r.crops, years),
     cover: soilCover(r.schedule),
     erosion,
-    warnings: planWarnings(r.crops, ctx.soil, ctx.irrigationBudgetMm, erosion),
+    warnings: planWarnings(r.crops, ctx.soil, ctx.irrigationBudgetMm, erosion, ctx.landUse.maxFallowYears),
+    waterProductivity: ws.length ? {
+      revenueTLPerM3: dist(ws.map(waterProductivity))!,
+      deficitM3Per1000TL: dist(ws.map(deficitPerValue))!,
+      waterInMmPerYr: dist(ws.map((w) => w.waterIn))!,
+    } : undefined,
     trade: null, robust: null, stability: null,
   };
   if (opts.detail !== false) plan.monthlyDemand = monthlyDemand(ctx, r);

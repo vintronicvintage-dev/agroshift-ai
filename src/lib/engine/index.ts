@@ -41,7 +41,7 @@ import { meanAnnualPrecip } from "./climate";
 import { narratePlan, tradeSummary } from "./narrate";
 import {
   getContext, buildPlan, v2Explanation, recordFor, evaluateRecordExact, scoreAgainst, constraintMessages,
-  LAPSE_RATE_C_PER_M, type AnalysisContext, type CustomPlanResult,
+  LAPSE_RATE_C_PER_M, FALLOW_GAIN_MIN_MM, FALLOW_MAX_BUDGET_MM, type AnalysisContext, type CustomPlanResult,
 } from "./context";
 
 export { CROPS, CROP_IDS, CROP_CONSTANTS } from "../crops/database";
@@ -88,7 +88,7 @@ export const METHOD_SOURCES: AnalysisResult["methodSources"] = [
 ];
 
 const PERF_NOTE = (screened: number, replayed: number, windows: number): LocalizedText => ({
-  tr: `Tüm uygun ${screened} dizi, tekrar eden döngü olarak her pencerede önbellekli parça modeliyle tarandı (sınırlarda toprak nemi tek değere indirgenir, 11 düzeyde enterpolasyon); en iyi adaylar, Pareto adayları ve mevcut rotasyon olmak üzere ${replayed} plan ${windows} pencerede gün gün tam olarak yeniden oynatıldı (3. yılın bıraktığı su sonraki döngünün 1. yılına geçer). Gösterilen sayılar tam oynatmadandır.`,
+  tr: `Tüm uygun ${screened} dizi, tekrar eden döngü olarak her pencerede önbellekli parça modeliyle tarandı (sınırlarda toprak nemi tek değere indirgenir, 11 düzeyde enterpolasyon); en iyi adaylar, Pareto adayları ve mevcut ekim nöbeti olmak üzere ${replayed} plan ${windows} pencerede gün gün tam olarak yeniden oynatıldı (3. yılın bıraktığı su sonraki döngünün 1. yılına geçer). Gösterilen sayılar tam oynatmadandır.`,
   en: `All ${screened} feasible sequences were screened as repeating cycles over every window with a cached piece model (soil moisture collapsed to one value at piece boundaries, 11-level interpolation); ${replayed} plans (best candidates, Pareto candidates and the current rotation) were then replayed exactly day by day over ${windows} windows (water left by year 3 carries into year 1 of the next cycle). All numbers shown come from the exact replay.`,
 });
 
@@ -111,7 +111,7 @@ export function analyze(input: AnalysisInput): AnalysisResult {
   const opt = optimize({
     ev: ctx.ev, zone: ctx.zone, suitability: ctx.suitability, candidates: ctx.candidates, excluded: field.excludedCrops ?? [],
     current: field.currentRotation, extraPlans: input.options?.extraPlans ?? [], priorities: ctx.priorities, slopePct: ctx.slope.pct,
-    shortlistSize: input.options?.shortlistSize ?? DEFAULT_SHORTLIST,
+    shortlistSize: input.options?.shortlistSize ?? DEFAULT_SHORTLIST, maxFallowYears: ctx.landUse.maxFallowYears,
   });
   for (const r of opt.exactSet) if (r.exact?.raws) seedRaws(ctx.ev, r, r.exact.raws);
   ctx.scoreItems = opt.exactSet.filter((r) => r.exact?.metrics).map((r) => ({ r, m: r.exact!.metrics! }));
@@ -276,6 +276,7 @@ export function analyze(input: AnalysisInput): AnalysisResult {
       },
     } : null,
     precipitation: ctx.precip,
+    landUse: { ...ctx.landUse, excludedPlans: opt.landUseExcluded },
     terrain: field.terrain || ctx.slope.pct !== null ? {
       slopePct: ctx.slope.pct, elevationMean: field.terrain?.elevationMean ?? null, gridElevation: ctx.gridElevation, lapseDeltaC: ctx.lapseDeltaC, siteElevation: ctx.siteElevation,
     } : null,
@@ -409,6 +410,9 @@ function collectAssumptions(ctx: AnalysisContext): AssumptionItem[] {
   gen("singleCrop", "Yılda tek ana ürün", "One main crop per year", "no double cropping", "Simplification");
   gen("bareTew", "Çıplak toprak buharlaşma katmanı", "Bare-soil evaporation layer", "TEW = TAW of the 0.15 m layer", "Simplification of FAO-56 Eq. 73 (ignores drying below wilting point)");
   gen("preCrop", "Önceki ürün etkisi tablosu", "Previous-crop effect table", "legume→cereal ×1.10, broadleaf/fallow→cereal ×1.05, cereal→same cereal ×0.90, other cereal ×0.95, legume→legume ×0.90, Sclerotinia hosts ×0.95; N credit = legume N contribution / fallow 10–30 kg N/ha", "Direction after Angus et al. 2015, Kirkegaard et al. 2008, Ryan et al. 2008; percentages are assumptions");
+  gen("landUse", "Nadas sınırı (önerilerde)", "Fallow limit (recommendations)", `${ctx.landUse.maxFallowYears} fallow year(s) max; storage gain ${ctx.landUse.fallowStorageGainMm ?? "–"} mm`,
+    ctx.landUse.source === "option" ? "User option maxFallowYears" : `${FALLOW_GAIN_MIN_MM.source}; ${FALLOW_MAX_BUDGET_MM.source}`);
+  gen("waterObjective", "Su hedefi", "Water objective", "1/3 rain-only deficit + 1/3 revenue per m³ of water received + 1/3 deficit per 1000 TL of output", "AgroShift method (engine v2.1): production-normalised so idle land is not rewarded");
   gen("cycle", "Tekrar eden döngü", "Repeating cycle", "year 3 state feeds year 1 of the next cycle; first window of each phase from the periodic steady state", "AgroShift method (engine v2)");
   gen("yieldModel", "Verim modeli", "Yield model", "Ym = rainfed ceiling + (irrigated − ceiling)·irrigation intensity; cereals capped at 20·(ETa − 110) kg/ha", "FAO-33/66 Ky; French & Schultz 1984; ceilings are assumptions");
   gen("erosion.C", "Erozyon C katsayıları", "Erosion C factors", JSON.stringify(C_FACTORS.value), C_FACTORS.source);

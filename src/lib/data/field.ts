@@ -10,6 +10,28 @@ import { findSnapshotAt } from "./snapshots";
 import { fetchSoilBundle, type SoilBundle } from "./soillayers";
 import { fetchTerrain } from "./terrain";
 
+/** Independently computed parts of a field response. */
+export type FieldPart = "terrain" | "soil" | "precip";
+export const FIELD_PARTS: readonly FieldPart[] = ["terrain", "soil", "precip"];
+
+/**
+ * `?parts=terrain,soil` style selector. Missing or empty = every part (the original behaviour).
+ * Throws ValidationError for an unknown part name.
+ */
+export function parseParts(raw: string | null | undefined): FieldPart[] {
+  if (raw === null || raw === undefined || raw.trim() === "") return [...FIELD_PARTS];
+  const out: FieldPart[] = [];
+  for (const p of raw.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)) {
+    if (!(FIELD_PARTS as readonly string[]).includes(p)) throw new ValidationError(`Unknown part "${p}"; use terrain, soil, precip`);
+    if (!out.includes(p as FieldPart)) out.push(p as FieldPart);
+  }
+  return out.length ? out : [...FIELD_PARTS];
+}
+
+/** Response for a subset of parts: keys of parts that were not requested are absent; `parts` lists what was computed. */
+export type FieldPartsResponse = Pick<FieldResponse, "geometry" | "notes"> &
+  Partial<Pick<FieldResponse, "terrain" | "soilLayers" | "soil" | "wrb" | "precipCheck">> & { parts: FieldPart[] };
+
 export interface FieldInput {
   ring?: Ring;
   point?: LonLat;
@@ -55,6 +77,14 @@ function shapeHash(ring: Ring): string {
 }
 
 export async function getField(input: FieldInput): Promise<FieldResponse> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { parts, ...rest } = await getFieldParts(input, FIELD_PARTS);
+  return rest as FieldResponse;
+}
+
+/** Same as getField, computing only the requested parts (each still cached and error-isolated). */
+export async function getFieldParts(input: FieldInput, parts: readonly FieldPart[]): Promise<FieldPartsResponse> {
+  const want = (p: FieldPart) => parts.includes(p);
   const geometry = input.ring ? describeRing(input.ring) : describePoint(input.point!);
   const { lat, lon } = geometry.centroid;
   const notes: string[] = [];
@@ -94,32 +124,46 @@ export async function getField(input: FieldInput): Promise<FieldResponse> {
     return pc;
   };
 
-  const [t, s, p] = await Promise.allSettled([terrainP(), soilP(), precipP()]);
+  const skip = Promise.resolve(undefined);
+  const [t, s, p] = await Promise.allSettled([want("terrain") ? terrainP() : skip, want("soil") ? soilP() : skip, want("precip") ? precipP() : skip]);
+  const out: FieldPartsResponse = { geometry, notes, parts: FIELD_PARTS.filter(want) };
 
-  let terrain: TerrainInfo | null = null;
-  if (t.status === "fulfilled") terrain = t.value;
-  else notes.push(`Terrain unavailable (SRTM via OpenTopoData): ${errMsg(t.reason)}`);
+  if (want("terrain")) {
+    let terrain: TerrainInfo | null = null;
+    if (t.status === "fulfilled") terrain = t.value ?? null;
+    else notes.push(`Terrain unavailable (SRTM via OpenTopoData): ${errMsg(t.reason)}`);
+    out.terrain = terrain;
+  }
 
-  let soilLayers: SoilLayer[] | null = null;
+  if (want("soil")) {
+    let soilLayers: SoilLayer[] | null = null;
   let wrb: string | undefined;
   let soil: SoilBundle["soil"];
-  if (s.status === "fulfilled") {
+  if (s.status === "fulfilled" && s.value) {
     soil = s.value.soil;
     soilLayers = s.value.layers;
     if (s.value.wrb) wrb = s.value.wrb;
     notes.push(...s.value.notes);
   } else {
     const { defaultSoil } = await import("./soilgrids");
-    soil = defaultSoil(errMsg(s.reason));
-    notes.push(`SoilGrids unavailable: ${errMsg(s.reason)}`);
+    const why = errMsg(s.status === "rejected" ? s.reason : "no result");
+    soil = defaultSoil(why);
+    notes.push(`SoilGrids unavailable: ${why}`);
+  }
+  out.soil = soil;
+  out.soilLayers = soilLayers;
+  if (wrb) out.wrb = wrb;
   }
 
-  let precipCheck: PrecipCrossCheck | null = null;
-  if (p.status === "fulfilled") {
-    precipCheck = p.value;
-    if (!precipCheck) notes.push("Precipitation cross-check not computed: fewer than 3 complete common calendar years.");
-  } else notes.push(`Precipitation cross-check unavailable: ${errMsg(p.reason)}`);
+  if (want("precip")) {
+    let precipCheck: PrecipCrossCheck | null = null;
+    if (p.status === "fulfilled") {
+      precipCheck = p.value ?? null;
+      if (!precipCheck) notes.push("Precipitation cross-check not computed: fewer than 3 complete common calendar years.");
+    } else notes.push(`Precipitation cross-check unavailable: ${errMsg(p.reason)}`);
+    out.precipCheck = precipCheck;
+  }
 
   notes.push("Climate (NASA POWER) and NDVI (MODIS) are served by /api/climate and /api/ndvi at the field centroid.");
-  return { geometry, terrain, soilLayers, soil, ...(wrb ? { wrb } : {}), precipCheck, notes };
+  return out;
 }

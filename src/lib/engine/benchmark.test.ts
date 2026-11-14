@@ -39,7 +39,10 @@ const TABLE: Row[] = [
   { name: "Konya rainfed wheat (W-F-W), rain calibrated", snap: konya, budget: 0, plan: ["wheat_winter", "fallow", "wheat_winter"], crop: "wheat_winter", lo: 1.5, hi: 3.0, adj: KONYA_RAIN_FACTOR },
   { name: "Konya rainfed wheat (W-F-W), POWER rain as is", snap: konya, budget: 0, plan: ["wheat_winter", "fallow", "wheat_winter"], crop: "wheat_winter", lo: 1.5, hi: 3.2 },
   { name: "Konya rainfed barley (B-F-W), calibrated", snap: konya, budget: 0, plan: ["barley_winter", "fallow", "wheat_winter"], crop: "barley_winter", lo: 1.3, hi: 3.0, adj: KONYA_RAIN_FACTOR },
-  { name: "Konya rainfed chickpea (W-C-B), calibrated", snap: konya, budget: 0, plan: ["wheat_winter", "chickpea", "barley_winter"], crop: "chickpea", lo: 0.4, hi: 1.8, adj: KONYA_RAIN_FACTOR },
+  // Grain legumes on the plateau: model is LOW vs ≈ 1.0–1.3 t/ha (spring sowing, water-limited; see docs/engine-v2.md §9).
+  { name: "Konya rainfed chickpea (W-C-B), calibrated", snap: konya, budget: 0, plan: ["wheat_winter", "chickpea", "barley_winter"], crop: "chickpea", lo: 0.6, hi: 1.8, adj: KONYA_RAIN_FACTOR },
+  { name: "Konya rainfed chickpea (W-C-B), POWER rain as is", snap: konya, budget: 0, plan: ["wheat_winter", "chickpea", "barley_winter"], crop: "chickpea", lo: 0.75, hi: 1.8 },
+  { name: "Konya rainfed lentil (W-L-B), calibrated", snap: konya, budget: 0, plan: ["wheat_winter", "lentil_red", "barley_winter"], crop: "lentil_red", lo: 0.35, hi: 1.6, adj: KONYA_RAIN_FACTOR },
   { name: "Konya irrigated wheat, 300 mm", snap: konya, budget: 300, plan: ["wheat_winter", "chickpea", "barley_winter"], crop: "wheat_winter", lo: 4.5, hi: 7.5, adj: KONYA_RAIN_FACTOR },
   { name: "Konya irrigated sugar beet, 600 mm", snap: konya, budget: 600, plan: ["wheat_winter", "sugar_beet", "barley_winter"], crop: "sugar_beet", lo: 45, hi: 90, adj: KONYA_RAIN_FACTOR },
   { name: "Harran rainfed wheat (W-C-B)", snap: urfa, budget: 0, plan: ["wheat_winter", "chickpea", "barley_winter"], crop: "wheat_winter", lo: 1.5, hi: 3.2 },

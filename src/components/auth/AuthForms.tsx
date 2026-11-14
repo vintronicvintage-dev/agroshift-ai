@@ -9,7 +9,7 @@ import { confirmUrl, getBrowserSupabase } from "@/lib/auth/browser";
 import { authErrorKind, isObfuscatedExistingUser, type AuthErrorKind } from "@/lib/auth/errors";
 import { isValidEmail, PASSWORD_MIN, passwordStrength } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/redirect";
-import { EmptyArt } from "@/components/ui/EmptyArt";
+import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
 
 type Status = { kind: "idle" } | { kind: "busy"; what: "password" | "magic" | "submit" } | { kind: "error"; err: AuthErrorKind } | { kind: "sent"; key: DictKey; email: string };
@@ -78,7 +78,7 @@ function PasswordInput({ id, value, onChange, autoComplete, invalid, describedBy
 function Strength({ pw, id }: { pw: string; id: string }) {
   const { t } = useI18n();
   const s = passwordStrength(pw);
-  const color = s <= 1 ? "var(--bad)" : s === 2 ? "var(--loam)" : "var(--accent-edge)";
+  const color = s <= 1 ? "var(--bad)" : s === 2 ? "var(--caution)" : "var(--accent-edge)";
   return (
     <div id={id} className="mt-2" aria-live="polite">
       <div className="flex gap-1" aria-hidden="true">
@@ -107,7 +107,7 @@ function Sent({ status, onReset }: { status: Extract<Status, { kind: "sent" }>; 
   const { t } = useI18n();
   return (
     <div role="status" className="border-t border-rule pt-5">
-      <EmptyArt kind="sent" size={144} />
+      <SpotArt name="email-sent" width={200} className="text-ink-2" />
       <p className="mt-3 font-display text-[length:var(--text-step-2)] font-[560] tracking-[-0.01em]">{t("auth.sentTitle")}</p>
       <p className="mt-1 text-[0.9rem] text-ink-2">{t(status.key, { email: status.email })}</p>
       <button type="button" className="btn mt-4" onClick={onReset}>

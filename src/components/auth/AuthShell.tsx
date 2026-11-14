@@ -6,105 +6,98 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 import { AUTH_ENABLED } from "@/lib/auth/config";
 import { setTheme, useTheme } from "@/lib/ui/theme";
-import { Wordmark } from "@/components/shell/Wordmark";
+import { Logo } from "@/components/brand/Logo";
 import { Icon } from "@/components/ui/Icons";
 import { ImageCredit } from "@/components/ui/ImageCredit";
 import { IMAGES } from "@/lib/ui/images";
 
-/** Two columns: the form on the left, a code-drawn brand panel on the right. One column on phones. */
+/**
+ * Sign-in pages: the form column on the left, the Harran Plain Landsat scene full-bleed on the
+ * right with Ortho Console chrome (corner ticks, sensor caption, solid plate). One column on phones,
+ * where the scene becomes a short strip above the form. Signing in is optional: the tool is open.
+ */
 export function AuthShell({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const theme = useTheme();
   const themeLabel = theme === "dark" ? t("theme.toLight") : t("theme.toDark");
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-      <div className="flex min-w-0 flex-col px-5 py-5 sm:px-10">
-        <header className="flex items-center justify-between gap-3">
-          <Link href="/" className="tap rounded-lg" aria-label={t("app.name")}>
-            <Wordmark />
+    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="flex min-w-0 flex-col px-4 py-3 sm:px-10">
+        <header className="flex h-12 items-center justify-between gap-3">
+          <Link href="/" className="tap rounded-md" aria-label={t("nav.home")}>
+            <Logo variant="horizontal" size={24} title="" />
           </Link>
           <span className="flex items-center gap-1">
-            <button type="button" className="btn btn-quiet gap-1.5 px-2.5 text-[0.8rem] font-semibold" lang={lang === "tr" ? "en" : "tr"} aria-label={t("lang.switchLabel")} onClick={() => setLang(lang === "tr" ? "en" : "tr")}>
-              <Icon name="lang" size={17} />
-              <span aria-hidden="true">{lang === "tr" ? "EN" : "TR"}</span>
+            <button type="button" className="btn btn-quiet btn-icon" lang={lang === "tr" ? "en" : "tr"} aria-label={t("lang.switchLabel")} onClick={() => setLang(lang === "tr" ? "en" : "tr")}>
+              <span className="font-mono text-[12px] font-semibold" aria-hidden="true">
+                {lang === "tr" ? "EN" : "TR"}
+              </span>
             </button>
-            <button type="button" className="btn btn-quiet px-2.5" aria-label={themeLabel} title={themeLabel} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              <Icon name={theme === "dark" ? "sun" : "moon"} size={18} />
+            <button type="button" className="btn btn-quiet btn-icon" aria-label={themeLabel} title={themeLabel} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              <Icon name={theme === "dark" ? "sun" : "moon"} />
             </button>
           </span>
         </header>
-        <main id="icerik" className="mx-auto flex w-full max-w-[26rem] flex-1 flex-col justify-center py-10">
-          <h1 className="font-display text-[2rem] font-semibold leading-[1.1] tracking-[-0.03em]">{title}</h1>
-          <p className="mt-2 text-[0.95rem] text-ink-2">{lead}</p>
-          {!AUTH_ENABLED && <GuestNotice />}
+        <ScenePanel compact />
+        <main id="icerik" className="mx-auto flex w-full max-w-[26rem] flex-1 flex-col justify-center py-8">
+          <h1 className="display text-[34px]">{title}</h1>
+          <p className="mt-2 text-[15px] text-ink-2">{lead}</p>
+          <p className="mt-4 flex items-start gap-2 rounded-md border border-line px-3 py-2.5 text-[14px] text-ink-2">
+            <Icon name="info" size={18} className="mt-0.5 shrink-0" />
+            <span>
+              {t("auth.optional")}{" "}
+              <Link href="/" className="font-semibold text-accent-ink underline underline-offset-2">
+                {t("auth.toTool")}
+              </Link>
+            </span>
+          </p>
+          {!AUTH_ENABLED && <p className="mt-3 text-[14px] text-ink-2">{t("auth.unavailable")}</p>}
           <div className="mt-7">{children}</div>
         </main>
-        <p className="text-[0.75rem] text-ink-2">{t("footer.challenge")}</p>
+        <p className="readout pb-3">{t("footer.challenge")}</p>
       </div>
-      <BrandPanel />
+      <ScenePanel />
     </div>
   );
 }
 
-function GuestNotice() {
-  const { t } = useI18n();
-  return (
-    <div role="note" className="mt-6 rounded-xl border border-[color-mix(in_srgb,var(--warn-ink)_25%,transparent)] bg-warn px-4 py-3 text-warn-ink">
-      <p className="flex items-center gap-2 font-semibold">
-        <Icon name="info" size={17} />
-        {t("auth.guest.title")}
-      </p>
-      <p className="mt-1 text-sm">{t("auth.guest.body")}</p>
-      <Link href="/" className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2">
-        {t("auth.toGuest")}
-        <Icon name="arrow" size={15} />
-      </Link>
-    </div>
-  );
-}
-
-/**
- * A real Landsat scene is the hero: the Harran Plain in August 2002, the Atatürk Reservoir in deep
- * blue at the top and the irrigated fields green at the lower right. Only a faint uniform tone sits
- * over the whole picture. The value sentences live in a compact dark glass card anchored over the
- * low-detail dry land at the lower left, sized for AA contrast against the brightest pixel of the
- * scene. The panel is dark in both themes, like the scene itself.
- */
-function BrandPanel() {
+function ScenePanel({ compact = false }: { compact?: boolean }) {
   const { t, L } = useI18n();
   const img = IMAGES.harranPlain;
   return (
-    <aside className="auth-brand relative hidden overflow-hidden border-l border-rule lg:flex lg:flex-col lg:justify-end" aria-label={t("auth.brand.label")}>
-      <Image
-        src={img.src}
-        alt={L(img.alt)}
-        fill
-        sizes="(min-width: 1024px) 52vw, 16px"
-        loading="eager"
-        fetchPriority="high"
-        placeholder="blur"
-        blurDataURL={img.blurDataURL}
-        className="object-cover object-[50%_60%]"
-      />
-      <div className="auth-tone absolute inset-0" aria-hidden="true" />
-      <ImageCredit text={img.creditShort} className="absolute right-4 top-4" />
-      <div className="relative p-6 xl:p-8">
-        <div className="auth-glass max-w-[20.5rem] rounded-2xl px-5 py-4.5 xl:max-w-[24rem]">
-          <ul className="space-y-2.5">
-            {(["auth.brand.1", "auth.brand.2", "auth.brand.3"] as const).map((k, i) => (
-              <li key={k} className="flex items-start gap-3">
-                <span className={`mt-[0.5rem] h-2 w-5 shrink-0 rounded-full ${i === 0 ? "bg-[#c8f25a]" : i === 1 ? "bg-[#56b4e9]" : "border border-dashed border-[#e2ae73]"}`} aria-hidden="true" />
-                <span className="font-display text-[1.06rem] font-medium leading-snug tracking-[-0.01em]">{t(k)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3.5 border-t border-white/10 pt-3 text-[0.76rem] leading-snug text-[#c9d4cb]">{t("auth.brand.caption")}</p>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[0.72rem] leading-snug text-[#c9d4cb]">
-            <Icon name="pin" size={12} />
-            {t("img.harran.caption")}
-          </p>
+    <aside
+      className={compact ? "relative -mx-4 mt-1 h-40 overflow-hidden sm:-mx-10 lg:hidden" : "relative hidden overflow-hidden border-l border-line lg:block"}
+      aria-label={compact ? undefined : t("auth.brand.label")}
+      aria-hidden={compact ? true : undefined}
+    >
+      {compact ? (
+        <div className="absolute inset-0 bg-cover bg-[50%_45%]" style={{ backgroundImage: `url(${img.src})` }} />
+      ) : (
+        <Image src={img.src} alt={L(img.alt)} fill sizes="55vw" placeholder="blur" blurDataURL={img.blurDataURL} className="object-cover object-[50%_60%]" priority />
+      )}
+      <Ticks />
+      <ImageCredit text={img.creditShort} className="absolute right-3 top-3" />
+      {!compact && (
+        <div className="absolute inset-x-0 bottom-0 p-6 xl:p-8">
+          <div className="plate max-w-[26rem] p-5" style={{ background: "rgb(11 14 12 / 0.86)", color: "#eef2ec", borderColor: "#26302a" }}>
+            <Logo variant="horizontal" size={22} tone="light" title="" />
+            <p className="mt-3 text-[17px] font-medium leading-snug">{t("auth.brand.v3")}</p>
+            <p className="mt-3 border-t border-white/10 pt-2.5 font-mono text-[12px] text-[#c4ccc4]">{t("img.harran.caption")}</p>
+          </div>
         </div>
-      </div>
+      )}
     </aside>
+  );
+}
+
+/** Ortho Console corner ticks over imagery. */
+function Ticks() {
+  const c = "absolute size-4 border-[#d4ff3a]";
+  return (
+    <span aria-hidden="true">
+      <span className={`${c} left-3 top-3 border-l-[1.5px] border-t-[1.5px]`} />
+      <span className={`${c} bottom-3 left-3 border-b-[1.5px] border-l-[1.5px]`} />
+      <span className={`${c} bottom-3 right-3 border-b-[1.5px] border-r-[1.5px]`} />
+    </span>
   );
 }

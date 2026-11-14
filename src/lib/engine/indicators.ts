@@ -173,9 +173,13 @@ export function nitrogenBalance(crops: RotationSequence, years: YearResult[]): N
 const IRRIGATED_ONLY = new Set<CropId>(["maize_grain", "sugar_beet", "cotton", "dry_bean"]);
 
 export function planWarnings(
-  crops: RotationSequence, soil: SoilHydraulics, budgetMm: number, erosion: ErosionIndicator | null,
+  crops: RotationSequence, soil: SoilHydraulics, budgetMm: number, erosion: ErosionIndicator | null, maxFallowYears = 3,
 ): PlanWarning[] {
   const out: PlanWarning[] = [];
+  const nf = crops.filter((c) => c === "fallow").length;
+  if (nf > maxFallowYears) out.push({ code: "fallow_heavy", cropId: "fallow", year: 0, severity: "warn", text: {
+    tr: `Bu planda 3 yılın ${nf}'${nf === 2 ? "si" : "ü"} nadas: toprak ${nf} yıl boş kalır, gelir ve toprak örtüsü azalır. Öneri listesine bu yüzden alınmaz (en çok ${maxFallowYears} nadas yılı); karşılaştırma için hesaplandı.`,
+    en: `${nf} of the 3 years are fallow: the land stays idle ${nf} years, losing income and soil cover. Such plans are not recommended (at most ${maxFallowYears} fallow year(s)); evaluated for comparison only.` } });
   const name = (c: CropId) => CROPS[c].name;
   const ph = soil.phTopsoil ?? null;
   const seen = new Set<CropId>();

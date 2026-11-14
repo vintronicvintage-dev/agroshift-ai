@@ -87,11 +87,21 @@ export function makeRecord(
   };
 }
 
-interface Objectives { water: number; income: number; soil: number; risk: number }
+interface Objectives { water: number; wp: number; dpv: number; income: number; soil: number; risk: number }
 
+/**
+ * Engine v2.1 water objective: one third each of (a) the rain-only deficit (mm/yr, lower better),
+ * (b) water productivity = gross revenue per m³ of water received (higher better) and (c) deficit
+ * per 1000 TL of output (lower better). (b) and (c) are per unit of production, so leaving land idle
+ * is not rewarded as "saving water". Income = whole-cycle margin per year, fallow years included
+ * (zero revenue, fallow cost).
+ */
 function objectives(r: PlanRecord, m: PlanMetrics): Objectives {
-  return { water: m.requirementP50, income: m.marginP50, soil: r.soil.score, risk: m.risk.score };
+  return { water: m.requirementP50, wp: m.waterProductivityP50, dpv: m.deficitPer1000TLP50, income: m.marginP50, soil: r.soil.score, risk: m.risk.score };
 }
+
+/** Number of fallow years in a 3-year plan. */
+export const fallowYears = (seq: readonly CropId[]) => seq.filter((c) => c === "fallow").length;
 
 /** Min–max normalised, higher-is-better components and composite (0–100). */
 export function scorePlans(items: { r: PlanRecord; m: PlanMetrics }[], w: PriorityWeights): PlanScore[] {
@@ -101,7 +111,7 @@ export function scorePlans(items: { r: PlanRecord; m: PlanMetrics }[], w: Priori
     for (const o of objs) { lo = Math.min(lo, o[k]); hi = Math.max(hi, o[k]); }
     return { lo, hi };
   };
-  const R = { water: range("water"), income: range("income"), soil: range("soil"), risk: range("risk") };
+  const R = { water: range("water"), wp: range("wp"), dpv: range("dpv"), income: range("income"), soil: range("soil"), risk: range("risk") };
   const norm = (k: keyof Objectives, v: number, lowerBetter: boolean) => {
     const { lo, hi } = R[k];
     if (!(hi - lo > 1e-9)) return 0.5;
@@ -110,7 +120,7 @@ export function scorePlans(items: { r: PlanRecord; m: PlanMetrics }[], w: Priori
   };
   return objs.map((o) => {
     const components = {
-      water: norm("water", o.water, true),
+      water: (norm("water", o.water, true) + norm("wp", o.wp, false) + norm("dpv", o.dpv, true)) / 3,
       income: norm("income", o.income, false),
       soil: norm("soil", o.soil, false),
       risk: norm("risk", o.risk, true),
@@ -212,6 +222,8 @@ export interface OptimizeInput {
   priorities: PriorityWeights;
   slopePct?: number | null;
   shortlistSize?: number;
+  /** Most fallow years a recommended plan may have (land-use intensity rule). Default 3 (no rule). */
+  maxFallowYears?: number;
 }
 
 export interface OptimizeOutput {
@@ -230,6 +242,8 @@ export interface OptimizeOutput {
   byId: Map<string, PlanRecord>;
   getOrMake: (seq: RotationSequence) => PlanRecord;
   shortlist: Map<string, PlanRecord>;
+  /** Feasible screened plans kept out of the recommendations by the land-use rule. */
+  landUseExcluded: number;
 }
 
 export function optimize(input: OptimizeInput): OptimizeOutput {
@@ -265,8 +279,11 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   // Shortlist
   const byScore = [...screened].sort((a, b) => b.r.screeningScore - a.r.screeningScore || a.r.id.localeCompare(b.r.id));
   const shortlist = new Map<string, PlanRecord>();
-  for (const x of byScore.slice(0, input.shortlistSize ?? DEFAULT_SHORTLIST)) shortlist.set(x.r.id, x.r);
-  for (const x of byScore.filter((y) => y.r.paretoScreening).slice(0, MAX_SCREEN_PARETO)) shortlist.set(x.r.id, x.r);
+  const maxF = input.maxFallowYears ?? 3;
+  const landOk = (r: PlanRecord) => fallowYears(r.crops) <= maxF;
+  const eligibleScreen = byScore.filter((y) => landOk(y.r));
+  for (const x of eligibleScreen.slice(0, input.shortlistSize ?? DEFAULT_SHORTLIST)) shortlist.set(x.r.id, x.r);
+  for (const x of eligibleScreen.filter((y) => y.r.paretoScreening).slice(0, MAX_SCREEN_PARETO)) shortlist.set(x.r.id, x.r);
 
   const byId = new Map(all.map((r) => [r.id, r]));
   const getOrMake = (seq: RotationSequence) =>
@@ -285,11 +302,11 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   const ePts = eParetoPool.map(({ r, m }) => ({ req: m.requirementP50, margin: m.marginP50, soil: r.soil.score }));
   const eFlags = paretoFlags(ePts);
   eParetoPool.forEach((x, i) => { x.r.paretoExact = eFlags[i]; });
-  const kneeFlags = eParetoPool.map((x, i) => eFlags[i] && x.r.feasible);
+  const kneeFlags = eParetoPool.map((x, i) => eFlags[i] && x.r.feasible && landOk(x.r));
   const ki = kneeIndex(ePts, kneeFlags);
   const knee = ki >= 0 ? eParetoPool[ki].r : null;
 
-  const ranked = scored.filter((x) => x.r.feasible && shortlist.has(x.r.id))
+  const ranked = scored.filter((x) => x.r.feasible && shortlist.has(x.r.id) && landOk(x.r))
     .map((x) => x.r)
     .sort((a, b) => (b.score!.composite - a.score!.composite) || a.id.localeCompare(b.id));
   const alternatives = pickDiverse(ranked, input.current, 3);
@@ -297,6 +314,6 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   return {
     current, alternatives, userPlans, feasible, exactSet: [...exactSet.values()], ranked, knee,
     enumerated: all.length, infeasibleByReason, pieceSimulations: screener.pieceSimulations,
-    byId, getOrMake, shortlist,
+    byId, getOrMake, shortlist, landUseExcluded: screened.filter((x) => !landOk(x.r)).length,
   };
 }

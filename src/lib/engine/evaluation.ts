@@ -55,6 +55,8 @@ export interface EvalContext {
   priceMultiplier: number;
   econ: Record<CropId, CropEconomics>;
   nPriceTLPerKgN: number;
+  /** Mean rainfall per year of each window (by first AY), mm — plan independent. */
+  rainByAy: Map<number, number>;
 }
 
 export type EconOverrides = Partial<Record<CropId, { priceTLPerKg?: number; varCostTLPerDa?: number; refYieldIrrigatedTHa?: number; refYieldRainfedCeilingTHa?: number }>>;
@@ -85,9 +87,16 @@ export function buildEvalContext(
     w0.push(g ?? ASSUMED_INITIAL_WETNESS);
     w0Assumed.push(g === null);
   }
+  const clim = setup.ctx.clim;
+  const rainByAy = new Map<number, number>();
+  for (const w of windows) {
+    let p = 0;
+    for (let i = w.startIdx; i < w.coreEndIdx; i++) p += clim.precip[i];
+    rainByAy.set(w.firstAy, (p * 365.25) / Math.max(1, w.coreEndIdx - w.startIdx));
+  }
   return {
     setup, windows, w0, w0Assumed, budgetNet, efficiency, waterPriceTLPerM3, priceMultiplier,
-    econ: cropEconomics(overrides), nPriceTLPerKgN: CROP_CONSTANTS.nPriceTLPerKgN.value,
+    econ: cropEconomics(overrides), nPriceTLPerKgN: CROP_CONSTANTS.nPriceTLPerKgN.value, rainByAy,
   };
 }
 
@@ -141,6 +150,10 @@ export interface WindowSummary {
   stressedCropYears: number;
   cropYears: number;
   wpCapped: boolean[];
+  /** Gross revenue, TL/da/yr (cycle mean; fallow years earn 0). */
+  revenue: number;
+  /** Water received: rain + gross irrigation, mm/yr (= m³/da/yr). */
+  waterIn: number;
   // exact-only extras (NaN in screening)
   frost: number[]; winterKill: number[]; heat: number[]; awAtSow: number[];
   deepPerc: number; runoff: number; massErr: number; years: number;
@@ -202,7 +215,7 @@ export function summarizeRaw(
       firstAy: raw.firstAy,
       requirement: raw.rainfedDeficit / 3, irrigation: 0, unmet: 0, exceeded: [false, false, false], ratios: [null, null, null],
       yields: [0, 0, 0], irrYear: [0, 0, 0], unmetYear: [0, 0, 0], margins: [0, 0, 0], marginMean: 0, lowYield: false,
-      stressedCropYears: 0, cropYears: 0, wpCapped: [false, false, false],
+      stressedCropYears: 0, cropYears: 0, wpCapped: [false, false, false], revenue: 0, waterIn: 0,
       frost: [NaN, NaN, NaN], winterKill: [NaN, NaN, NaN], heat: [NaN, NaN, NaN], awAtSow: [NaN, NaN, NaN],
       deepPerc: raw.deepPerc, runoff: raw.runoff, massErr: raw.massErr, years: raw.yearsLen,
     };
@@ -234,6 +247,8 @@ export function summarizeRaw(
       s.frost[k] = se.frost; s.winterKill[k] = se.wk; s.heat[k] = se.heat; s.awAtSow[k] = se.aw;
     }
     s.marginMean = (s.margins[0] + s.margins[1] + s.margins[2]) / 3;
+    s.revenue = ((s.yields[0] * econ[crops[0]].priceTLPerKg + s.yields[1] * econ[crops[1]].priceTLPerKg + s.yields[2] * econ[crops[2]].priceTLPerKg) * 100 * priceMultiplier) / 3;
+    s.waterIn = (ev.rainByAy.get(raw.firstAy) ?? 0) + s.irrigation / Math.max(0.05, ev.efficiency);
     return s;
   });
   return { windows, slots };
@@ -311,7 +326,16 @@ export interface PlanMetrics {
   marginP50: number;
   marginP10: number;
   risk: RiskResult;
+  /** Gross revenue per m³ of water received (rain + gross irrigation), TL/m³, P50. */
+  waterProductivityP50: number;
+  /** Rain-only deficit per 1000 TL of gross revenue (m³ per 1000 TL), P50; capped. */
+  deficitPer1000TLP50: number;
 }
+
+/** Cap of the deficit-per-revenue objective (plans with ~zero revenue), m³ per 1000 TL. */
+export const DEFICIT_PER_VALUE_CAP = 2000;
+export const deficitPerValue = (w: WindowSummary) => Math.min(DEFICIT_PER_VALUE_CAP, (w.requirement * 1000) / Math.max(1, w.revenue));
+export const waterProductivity = (w: WindowSummary) => (w.waterIn > 0 ? w.revenue / w.waterIn : 0);
 
 export function planMetrics(ws: WindowSummary[]): PlanMetrics | null {
   if (ws.length === 0) return null;
@@ -329,6 +353,8 @@ export function planMetrics(ws: WindowSummary[]): PlanMetrics | null {
   return {
     windows: ws.length, requirementP50: req.p50, marginP50: mar.p50, marginP10: mar.p10,
     risk: { score, components, weights: { ...RISK_WEIGHTS } },
+    waterProductivityP50: dist(ws.map(waterProductivity))!.p50,
+    deficitPer1000TLP50: dist(ws.map(deficitPerValue))!.p50,
   };
 }
 

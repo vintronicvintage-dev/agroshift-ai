@@ -1,14 +1,13 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { THEME_KEY as KEY } from "./bootScripts";
 
 export type Theme = "light" | "dark";
-import { THEME_KEY as KEY } from "./bootScripts";
 const listeners = new Set<() => void>();
 
-
 function current(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
 }
 
 export function setTheme(t: Theme) {
@@ -16,11 +15,12 @@ export function setTheme(t: Theme) {
   try {
     localStorage.setItem(KEY, t);
   } catch {
-    /* ignore */
+    /* storage unavailable: the choice lasts for this page view */
   }
   listeners.forEach((l) => l());
 }
 
+/** Server and hydration render "dark"; the real value arrives right after hydration. */
 export function useTheme(): Theme {
   return useSyncExternalStore(
     (cb) => {
@@ -28,6 +28,6 @@ export function useTheme(): Theme {
       return () => listeners.delete(cb);
     },
     current,
-    () => "light",
+    () => "dark",
   );
 }

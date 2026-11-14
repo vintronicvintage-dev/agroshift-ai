@@ -71,7 +71,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   // ── WHY ───────────────────────────────────────────────────────────────────
   if (isCurrent) {
     why.push(item("why.current", { plan: planEn(crops) },
-      "Mevcut rotasyonun ({plan}); diğer planlar bununla karşılaştırılır.",
+      "Mevcut ekim nöbetin ({plan}); diğer planlar bununla karşılaştırılır.",
       "Your current rotation ({plan}); every other plan is compared with it.", undefined, { plan: planTr(crops) }));
   } else if (plan.kind === "user") {
     why.push(item("why.user", { plan: planEn(crops) },
@@ -79,7 +79,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
       "A plan you built ({plan}); evaluated for comparison, not recommended by the tool.", undefined, { plan: planTr(crops) }));
   } else {
     why.push(item("why.rank", { rank: plan.rank ?? 0, score: plan.score.composite, current: current.score.composite },
-      "Önceliklerine göre {rank}. sırada: bileşik puan {score}/100 (mevcut rotasyon {current}/100).",
+      "Önceliklerine göre {rank}. sırada: bileşik puan {score}/100 (mevcut ekim nöbeti {current}/100).",
       "Ranked #{rank} for your priorities: composite score {score}/100 (current rotation {current}/100)."));
     const top = (Object.keys(ctx.priorities) as (keyof PriorityWeights)[]).sort((a, b) => ctx.priorities[b] - ctx.priorities[a])[0];
     why.push(item("why.priority", { weight: Math.round(ctx.priorities[top] * 100), value: plan.score.components[top] * 100, priority: PRIORITY_NAME[top].en },
@@ -90,8 +90,8 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   if (!isCurrent && pr && cr && Math.abs(pr.p50 - cr.p50) >= 10) {
     const less = pr.p50 < cr.p50;
     why.push(item(less ? "why.lessWater" : "why.moreWater", { diff: Math.abs(pr.p50 - cr.p50), plan: pr.p50, current: cr.p50 },
-      less ? "Yağış dışı su ihtiyacı mevcut rotasyondan yılda {diff} mm daha az (P50 {plan} / {current} mm)."
-        : "Yağış dışı su ihtiyacı mevcut rotasyondan yılda {diff} mm daha fazla (P50 {plan} / {current} mm).",
+      less ? "Yağış dışı su ihtiyacı mevcut ekim nöbetinden yılda {diff} mm daha az (P50 {plan} / {current} mm)."
+        : "Yağış dışı su ihtiyacı mevcut ekim nöbetinden yılda {diff} mm daha fazla (P50 {plan} / {current} mm).",
       less ? "Needs {diff} mm/yr less water beyond rain than the current rotation (P50 {plan} vs {current} mm)."
         : "Needs {diff} mm/yr more water beyond rain than the current rotation (P50 {plan} vs {current} mm).",
       ["FAO-56", ...nasa]));
@@ -100,8 +100,8 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   if (!isCurrent && pm && cm && Math.abs(pm.p50 - cm.p50) >= 100) {
     const up = pm.p50 > cm.p50;
     why.push(item(up ? "why.higherMargin" : "why.lowerMargin", { diff: Math.abs(pm.p50 - cm.p50), plan: pm.p50, current: cm.p50 },
-      up ? "Senaryo brüt marjı dekar başına yılda {diff} TL daha yüksek (P50 {plan} / {current} TL/da)."
-        : "Senaryo brüt marjı dekar başına yılda {diff} TL daha düşük (P50 {plan} / {current} TL/da).",
+      up ? "Senaryo kazancı (brüt) dekar başına yılda {diff} TL daha yüksek (P50 {plan} / {current} TL/da)."
+        : "Senaryo kazancı (brüt) dekar başına yılda {diff} TL daha düşük (P50 {plan} / {current} TL/da).",
       up ? "Scenario gross margin is {diff} TL/da/yr higher (P50 {plan} vs {current} TL/da)."
         : "Scenario gross margin is {diff} TL/da/yr lower (P50 {plan} vs {current} TL/da).",
       ["Scenario assumptions (editable)"]));
@@ -208,7 +208,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   }
   if (!isCurrent && pm && cm && pm.p50 > cm.p50 + 100) {
     benefits.push(item("benefit.margin", { diff: pm.p50 - cm.p50 },
-      "Senaryo varsayımlarıyla dekar başına yılda yaklaşık {diff} TL ek brüt marj (fiyatları düzenleyebilirsin).",
+      "Senaryo varsayımlarıyla dekar başına yılda yaklaşık {diff} TL ek kazanç (brüt) (fiyatları düzenleyebilirsin).",
       "About {diff} TL/da/yr extra gross margin under the scenario assumptions (prices are editable)."));
   }
 

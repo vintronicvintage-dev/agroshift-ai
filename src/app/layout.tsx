@@ -1,52 +1,43 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { Archivo, Geist_Mono, Instrument_Sans } from "next/font/google";
 import { I18nProvider } from "@/lib/i18n";
-import { GS_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
+import { LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
 import { TraceProvider } from "@/components/trace/TraceProvider";
+import { FieldDataProvider } from "@/components/data/FieldData";
+import { CropPatternDefs } from "@/components/brand/CropPatternDefs";
 import "./globals.css";
 
-/** UI, body and every number (tabular figures). */
-const hanken = Hanken_Grotesk({
-  variable: "--font-hanken",
-  subsets: ["latin", "latin-ext"],
-});
-
-/** Notebook voice: a text serif for page titles, section titles and the verdict. Never for labels. */
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
-  subsets: ["latin", "latin-ext"],
-  axes: ["opsz"],
-});
-
-/** Instrument voice: measured readouts only (big numbers, units beside them). */
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500"],
-});
+/** Display and numerals: condensed width axis for hero numerals and plan names. */
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin", "latin-ext"], axes: ["wdth"] });
+/** UI and body. */
+const instrument = Instrument_Sans({ variable: "--font-instrument", subsets: ["latin", "latin-ext"] });
+/** Readouts only: units, coordinates, dates, source ids. Never sentences. */
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
-  title: "AgroShift: ekim nöbeti karar desteği",
-  description:
-    "Tarlanın şu anki üç yıllık ekim sırasını, NASA POWER, MODIS ve SoilGrids verisiyle başka sıralarla karşılaştırır: su, toprak sağlığı, risk ve kâr. Karar vermez, kararına destek olur.",
+  title: "AgroShift: tarlana uygun ekim nöbeti",
+  description: "Tarlanı uydu görüntüsü üzerinde çiz, NASA verisiyle arazini tanı ve üç yıllık ekim nöbetini su, kazanç, toprak ve riskle karşılaştır. Karar senin.",
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#edf1e9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d1310" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f5f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0e0c" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="tr" data-theme="dark" suppressHydrationWarning className={`${hanken.variable} ${newsreader.variable} ${plexMono.variable} h-full`}>
+    <html lang="tr" data-theme="dark" suppressHydrationWarning className={`${archivo.variable} ${instrument.variable} ${geistMono.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: [THEME_BOOT_SCRIPT, LANG_BOOT_SCRIPT, INTRO_BOOT_SCRIPT, GS_BOOT_SCRIPT].join(";") }} />
+        <script dangerouslySetInnerHTML={{ __html: [THEME_BOOT_SCRIPT, LANG_BOOT_SCRIPT].join(";") }} />
       </head>
-      <body className="min-h-full">
+      <body>
+        <CropPatternDefs />
         <I18nProvider>
-          <TraceProvider>{children}</TraceProvider>
+          <FieldDataProvider>
+            <TraceProvider>{children}</TraceProvider>
+          </FieldDataProvider>
         </I18nProvider>
       </body>
     </html>

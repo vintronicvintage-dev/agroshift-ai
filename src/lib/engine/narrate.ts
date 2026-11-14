@@ -29,10 +29,10 @@ export function tradeSummary(plan: PlanResult, current: PlanResult, rainfed: boo
   const lines: LocalizedText[] = [];
   const okTr = rainfed ? "hiçbir yılda verim yarının altına düşmedi" : "su yetti";
   const okEn = rainfed ? "no year fell below half yield" : "the water was enough";
-  lines.push({ tr: `${outOf(okP, n, "tr")} ${okTr} (mevcut rotasyonda ${trLocative(okC)}).`, en: `${capital(outOf(okP, n, "en"))} ${okEn} (current rotation: ${okC} of ${n}).` });
+  lines.push({ tr: `${outOf(okP, n, "tr")} ${okTr} (mevcut ekim nöbetinde ${trLocative(okC)}).`, en: `${capital(outOf(okP, n, "en"))} ${okEn} (current rotation: ${okC} of ${n}).` });
   if (md !== null && plan.kind !== "current") lines.push(md >= 0
-    ? { tr: `Dekar başına yılda yaklaşık ${fn(Math.round(md), "tr")} TL daha fazla brüt marj (tarlanın tamamında ${fn(Math.round(md * areaDa), "tr")} TL/yıl; senaryo).`, en: `About ${fn(Math.round(md), "en")} TL/da/yr more gross margin (${fn(Math.round(md * areaDa), "en")} TL/yr for the whole field; scenario).` }
-    : { tr: `Dekar başına yılda yaklaşık ${fn(Math.round(-md), "tr")} TL daha az brüt marj (tarlanın tamamında ${fn(Math.round(-md * areaDa), "tr")} TL/yıl; senaryo).`, en: `About ${fn(Math.round(-md), "en")} TL/da/yr less gross margin (${fn(Math.round(-md * areaDa), "en")} TL/yr for the whole field; scenario).` });
+    ? { tr: `Dekar başına yılda yaklaşık ${fn(Math.round(md), "tr")} TL daha fazla kazanç (brüt) (tarlanın tamamında ${fn(Math.round(md * areaDa), "tr")} TL/yıl; senaryo).`, en: `About ${fn(Math.round(md), "en")} TL/da/yr more gross margin (${fn(Math.round(md * areaDa), "en")} TL/yr for the whole field; scenario).` }
+    : { tr: `Dekar başına yılda yaklaşık ${fn(Math.round(-md), "tr")} TL daha az kazanç (brüt) (tarlanın tamamında ${fn(Math.round(-md * areaDa), "tr")} TL/yıl; senaryo).`, en: `About ${fn(Math.round(-md), "en")} TL/da/yr less gross margin (${fn(Math.round(-md * areaDa), "en")} TL/yr for the whole field; scenario).` });
   if (wd !== null && plan.kind !== "current" && Math.abs(wd) >= 5) {
     const what = rainfed ? { tr: "yağışın karşılamadığı su ihtiyacı", en: "water need not met by rain" } : { tr: "sulama suyu", en: "irrigation water" };
     lines.push(wd < 0
@@ -58,9 +58,9 @@ export function narratePlan(plan: PlanResult, current: PlanResult, rainfed: bool
     const okTr = rainfed ? "verim hiç yarının altına düşmedi" : "su yetti";
     const okEn = rainfed ? "yield never fell below half" : "the water was enough";
     if (isCur || !t || t.marginDiffTLPerDaPerYr === null) {
-      verdict = { tr: `Mevcut rotasyonun dekar başına yılda ortalama ${fn(Math.round(m.p50), "tr")} TL brüt marj bırakıyor (senaryo); geçmiş ${outOf(ok, n, "tr")} ${okTr}.`,
+      verdict = { tr: `Mevcut ekim nöbetin dekar başına yılda ortalama ${fn(Math.round(m.p50), "tr")} TL kazanç (brüt) bırakıyor (senaryo); geçmiş ${outOf(ok, n, "tr")} ${okTr}.`,
         en: `Your current rotation leaves about ${fn(Math.round(m.p50), "en")} TL/da/yr gross margin (scenario); ${okEn} ${outOf(ok, n, "en")} in the past.` };
-      if (!isCur) verdict = { tr: verdict.tr.replace("Mevcut rotasyonun", "Bu plan"), en: verdict.en.replace("Your current rotation", "This plan") };
+      if (!isCur) verdict = { tr: verdict.tr.replace("Mevcut ekim nöbetin", "Bu plan"), en: verdict.en.replace("Your current rotation", "This plan") };
     } else {
       const md = t.marginDiffTLPerDaPerYr, wd = t.waterDiffM3PerDaPerYr ?? 0;
       const moneyTr = md >= 0 ? `${fn(Math.round(md), "tr")} TL daha fazla kazandırır` : `${fn(Math.round(-md), "tr")} TL daha az kazandırır`;
@@ -68,7 +68,7 @@ export function narratePlan(plan: PlanResult, current: PlanResult, rainfed: bool
       const waterTr = Math.abs(wd) < 5 ? "suyu aşağı yukarı aynı" : wd < 0 ? `${fn(Math.round(-wd), "tr")} m³ daha az su ister` : `${fn(Math.round(wd), "tr")} m³ daha fazla su ister`;
       const waterEn = Math.abs(wd) < 5 ? "needs about the same water" : wd < 0 ? `needs ${fn(Math.round(-wd), "en")} m³ less water` : `needs ${fn(Math.round(wd), "en")} m³ more water`;
       verdict = {
-        tr: `Bu plan mevcut rotasyonuna göre dekar başına yılda ${moneyTr} ve ${waterTr}; geçmiş ${outOf(ok, n, "tr")} ${okTr}.`,
+        tr: `Bu plan mevcut ekim nöbetine göre dekar başına yılda ${moneyTr} ve ${waterTr}; geçmiş ${outOf(ok, n, "tr")} ${okTr}.`,
         en: `Compared with your current rotation this plan ${moneyEn} per da per year and ${waterEn}; ${okEn} ${outOf(ok, n, "en")} in the past.`,
       };
     }

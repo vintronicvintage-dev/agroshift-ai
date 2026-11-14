@@ -178,7 +178,7 @@ about 4–5 ms per plan on the real snapshots.
 
 ## 8. Verification
 
-* `npm test`: 180 tests in 17 files, all passing.
+* `npm test`: 189 tests in 18 files, all passing (v2.1 added `landUse.test.ts`).
   * New engine files: `engineV2.test.ts` (pre-crop sanity and symmetry, steady-state convergence and
     seed independence, cyclic calendar, layered = uniform, layered mass balance, rainfall adjustment
     monotone and reported, slope CN/erosion, lapse, yield model and the French–Schultz cap,
@@ -199,7 +199,9 @@ about 4–5 ms per plan on the real snapshots.
 | same, POWER rain as is | 2.02 | | 1.5–3.2 |
 | same, ERA5 monthly factors | 1.48 (over-correction) | | – |
 | Konya rainfed barley, calibrated | 1.57 | ≈ 1.5–2.5 | 1.3–3.0 |
-| Konya rainfed chickpea, calibrated | 0.54 | ≈ 1.0–1.3 (**model low**) | 0.4–1.8 |
+| Konya rainfed chickpea, calibrated | 0.68 (v2: 0.54) | ≈ 1.0–1.3 (**model low**) | 0.6–1.8 |
+| Konya rainfed chickpea, POWER as is | 0.86 | | 0.75–1.8 |
+| Konya rainfed lentil, calibrated | 0.42 | ≈ 1.0–1.3 (**model low**) | 0.35–1.6 |
 | Konya irrigated wheat 300 mm | 4.74 | 4.5–7 | 4.5–7.5 |
 | Konya sugar beet 600 mm | 46 | ≈ 55–70 | 45–90 |
 | Harran rainfed wheat | 2.10 | 2.0–2.5 (dryland, Harran Univ. statement) | 1.5–3.2 |
@@ -208,17 +210,60 @@ about 4–5 ms per plan on the real snapshots.
 
 ### Runtime (Node 24, real snapshots, robust + sensitivity included)
 
-Konya `analyze` 336–368 ms (224 ms without robust/sweep); Harran 377–430 ms (305 ms without).
-`evaluateCustomPlan` 3.6–5.4 ms. A browser-class runtime is typically 1.5–2.5× slower, i.e. about
+Konya `analyze` 362–408 ms (235 ms without robust/sweep); Harran 381–441 ms (302 ms without).
+`evaluateCustomPlan` 3.7–5.3 ms. A browser-class runtime is typically 1.5–2.5× slower, i.e. about
 0.6–1.1 s, under the 1.5 s target.
+
+## 8b. v2.1 follow-up: land use, water objective, legume yields
+
+**Fallow-heavy recommendations (cause).** The water component of the composite was the rain-only
+deficit (mm/yr). A fallow year lowers it trivially, so plans such as vetch → fallow → fallow ranked
+high under equal priorities. Fixes:
+
+* **Water objective, production-normalised.** water = ⅓ deficit (mm/yr, lower better) + ⅓ water
+  productivity (gross revenue per m³ of water received = rain + gross irrigation, higher better) +
+  ⅓ deficit per 1000 TL of output (lower better, capped at 2000). Idle land earns nothing, so it
+  is no longer "water saving". This is reported per plan as `PlanResult.waterProductivity`.
+* **Land-use rule (hard, recommendations only).** A recommended / robust / knee / sweep plan may
+  have at most `maxFallowYears` fallow years. The default comes from the engine's own water balance:
+  * 1 if rainfed fallow (wheat → fallow → wheat vs wheat → barley → wheat, same windows) stores
+    ≥ 25 mm more water at the next wheat sowing and the net budget is < 100 mm/yr (classic dryland
+    cereal–fallow);
+  * otherwise 0;
+  * `options.maxFallowYears` overrides it.
+
+  Current and custom plans are still evaluated and get a `fallow_heavy` warning. The result reports
+  `AnalysisResult.landUse` (limit, source, storage gain, excluded plans, reason).
+* **Income** already used the whole-cycle margin per year, with fallow years at zero revenue minus
+  the fallow cost (verified by a test).
+
+**Plateau chickpea too low (cause, from `scripts/dump-trace.ts`, Konya W-C-B rainfed, calibrated rain).**
+
+| hypothesis | evidence | verdict |
+|---|---|---|
+| Snow lost to runoff / evaporation | P on tmean ≤ 0 °C days ≈ 23 mm per winter, runoff on those days ≈ 1 mm | not the cause (no snow store added) |
+| Poor winter recharge | AW at sowing 85 of 119 mm (layered column); 98 of 230 mm with the uniform soil; ratio 0.34 → 0.36 | storage is near the soil's capacity; bare evaporation is normal |
+| Root depth 0.8 m | 1.0 m → ratio +0.02 | minor |
+| Sowing date 25 Mar | 10 Mar → ratio 0.34 → 0.40, heat days 6.8 → 2.6 | real but an assumption either way; calendar unchanged |
+| Water supply | ETc ≈ 390 mm vs ETa ≈ 110 mm; in-season rain 64 mm (calibrated) vs 110 (POWER) | dominant, and it depends on the rain source |
+| **Double-counted management gap** | ceiling 1.6 vs irrigated 2.0 applied on top of the water ratio, although legume management barely differs (no N fertiliser) | **modelling error → fixed**: chickpea / lentil ceiling = irrigated reference (2.0 / 1.8 t/ha) |
+
+Before → after (Konya rainfed, calibrated ×320/551): chickpea 0.54 → 0.68 t/ha (0.86 with POWER as
+is), lentil ≈ 0.35 → 0.42, wheat unchanged 1.65 (1.52 / 1.77). The legumes remain low against
+≈ 1.0–1.3 t/ha. The remaining gap is water-limited spring growth, which is sensitive to the rain
+source and the sowing date. It stays an open weakness, and the benchmark rows are tightened
+(chickpea ≥ 0.6 calibrated, ≥ 0.75 uncalibrated; lentil ≥ 0.35) so regressions are visible.
+
+Turkish wording in engine texts: "ekim nöbeti" instead of "rotasyon", "kazanç (brüt)" instead of
+"brüt marj".
 
 ## 9. Known weaknesses
 
-* **Fallow-heavy plans** (e.g. vetch → fallow → fallow) can win under equal priorities. The water
-  objective is the rain-only deficit per year, and fallow lowers it trivially. A water-productivity
-  objective (deficit per TL or per kg) would fix this.
-* **Rainfed spring chickpea** is too low on the plateau (0.5 vs ≈ 1.1 t/ha): spring sowing, the Ky
-  assumption, and no early-season soil-water advantage from snow.
+* Fixed in v2.1 (§8b): fallow-heavy recommendations. The fallow limit depends on the 25 mm /
+  100 mm thresholds (assumption).
+* **Rainfed plateau legumes** are still low (chickpea 0.68, lentil 0.42 vs ≈ 1.0–1.3 t/ha). The
+  cause is water-limited spring growth (§8b), not snow. Earlier sowing and the rain source move it
+  most.
 * Every rotation percentage, the rainfed ceilings, cost share, pH ranges, N fixation/removal, C
   factors and the lapse rate are assumptions. Benchmarks are approximate, not a TÜİK table lookup.
 * Rainfall bias dominates rainfed results. The engine exposes it (`precipUncertainty`, confidence)

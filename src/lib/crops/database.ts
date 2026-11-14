@@ -19,6 +19,7 @@ const ECON = "Scenario assumption (2025/26 TL order of magnitude) — edit for y
 const YIELD = "Assumption, TÜİK national-average order of magnitude";
 const SPEC = "AgroShift spec §4.6 rotation rule";
 const RF_CEILING = "Assumption: water-unlimited yield under typical rainfed management (lower N rate, seed rate and inputs than irrigated fields) — about a good rainfed year; Ym of a crop-year moves from this value to the irrigated value with irrigation intensity";
+const RF_CEILING_LEGUME = "Assumption: equal to the irrigated reference — rainfed and irrigated grain-legume management hardly differ (no N fertiliser, same seed rate), so the water ratio alone carries the rainfed gap (v2.1: removes a double-counted management gap)";
 const PH = "Assumption: soil pH range without a pH-related flag (general agronomic tolerance ranges; e.g. dry bean Fe/Zn chlorosis on calcareous high-pH soils). Verify locally";
 const N_REMOVAL = "Assumption: kg N removed per t of harvested product (protein/N content order of magnitude)";
 const N_FIX = "Assumption: biological N fixation per crop year, kg N/ha (order of magnitude for rainfed Mediterranean conditions; see e.g. the review by Herridge et al. 2008, Plant Soil 311:1–18, for typical ranges)";
@@ -121,7 +122,7 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 20, high: 40 }, "Assumption: residual N credit to the next crop, grain-legume literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 2.0, rainfed: 1.1 }, YIELD),
-    rainfedCeilingTHa: asm(1.6, RF_CEILING),
+    rainfedCeilingTHa: asm(2.0, RF_CEILING_LEGUME),
     phRange: asm({ min: 6.0, max: 9.0 }, PH),
     nRemovalKgPerT: asm(35, N_REMOVAL),
     nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
@@ -151,7 +152,7 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 15, high: 40 }, "Assumption: residual N credit, grain-legume literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 1.8, rainfed: 1.2 }, YIELD),
-    rainfedCeilingTHa: asm(1.5, RF_CEILING),
+    rainfedCeilingTHa: asm(1.8, RF_CEILING_LEGUME),
     phRange: asm({ min: 5.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(40, N_REMOVAL),
     nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
@@ -268,7 +269,7 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 10, high: 30 }, "Assumption: common bean is a weak N fixer; literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 2.6, rainfed: 1.0 }, YIELD),
-    rainfedCeilingTHa: asm(1.6, RF_CEILING),
+    rainfedCeilingTHa: asm(2.0, RF_CEILING_LEGUME),
     phRange: asm({ min: 6.0, max: 7.8 }, PH),
     nRemovalKgPerT: asm(35, N_REMOVAL),
     nFixationKgHa: asm({ low: 20, high: 60 }, N_FIX),

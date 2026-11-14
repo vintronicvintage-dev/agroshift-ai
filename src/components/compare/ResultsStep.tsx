@@ -16,6 +16,7 @@ import { ParetoChart } from "./ParetoChart";
 import { PlanCard, type CompareContext } from "./PlanCard";
 import { RotationBuilder } from "./RotationBuilder";
 import { ScenarioBar, type ScenarioDraft } from "./ScenarioBar";
+import { ScientificLayersCard } from "./ScientificLayersCard";
 import { Verdict } from "./Verdict";
 
 interface Props {
@@ -52,7 +53,7 @@ export function ResultsStep(p: Props) {
       "Plan ID",
       t("tbl.plan"),
       t("plan.score"),
-      `${t("tbl.water")} (mm/${t("unit.yr")})`,
+      `${t("tbl.deficit")} (mm/${t("unit.yr")})`,
       "P10-P90 Water (mm)",
       `${t("tbl.margin")} (TL/da/${t("unit.yr")})`,
       "P10-P90 Margin (TL/da)",
@@ -64,11 +65,11 @@ export function ResultsStep(p: Props) {
     ];
     const rows = plans.map((pl) => {
       const names = pl.crops.map((c) => L(CROPS[c].name)).join(" -> ");
-      const wMed = pl.water.requirementMmPerYr ? Math.round(pl.water.requirementMmPerYr.median) : "";
+      const wMed = pl.water.requirementMmPerYr ? Math.round(pl.water.requirementMmPerYr.p50) : "";
       const wBand = pl.water.requirementMmPerYr
         ? `${Math.round(pl.water.requirementMmPerYr.p10)}-${Math.round(pl.water.requirementMmPerYr.p90)}`
         : "";
-      const mMed = pl.economics.grossMarginTLPerDaPerYr ? Math.round(pl.economics.grossMarginTLPerDaPerYr.median) : "";
+      const mMed = pl.economics.grossMarginTLPerDaPerYr ? Math.round(pl.economics.grossMarginTLPerDaPerYr.p50) : "";
       const mBand = pl.economics.grossMarginTLPerDaPerYr
         ? `${Math.round(pl.economics.grossMarginTLPerDaPerYr.p10)}-${Math.round(pl.economics.grossMarginTLPerDaPerYr.p90)}`
         : "";
@@ -80,10 +81,10 @@ export function ResultsStep(p: Props) {
         `"${wBand}"`,
         mMed,
         `"${mBand}"`,
-        pl.soilHealth.total,
-        pl.risk.level,
+        pl.soilHealth.score,
+        pl.risk.score,
         pl.confidence?.grade ?? "",
-        pl.sensitivity?.stabilityPct ?? "",
+        pl.stability ? Math.round(pl.stability.top3Share * 100) : "",
         pl.erosion?.cFactor ?? "",
       ].join(",");
     });
@@ -178,6 +179,8 @@ export function ResultsStep(p: Props) {
           )}
 
           <ScenarioBar value={p.scenario} onChange={p.onScenario} fieldBudget={p.fieldBudget} rainfed={p.rainfed} running={p.running} status={p.status} calibration={p.calibration} />
+
+          <ScientificLayersCard result={result} />
 
           <div className={p.running ? "opacity-80 transition-opacity" : undefined}>
             <CompareTable

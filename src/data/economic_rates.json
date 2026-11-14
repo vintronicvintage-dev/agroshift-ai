@@ -1,0 +1,140 @@
+{
+  "version": "2026.1",
+  "currency": "TRY",
+  "referenceDate": "2026-10-15",
+  "sourceSummary": "TMO 2025/2026 Alım Fiyatları ve Bölgesel Tarım Borsaları / Gübre Piyasası Referansları",
+  "crops": {
+    "wheat_winter": {
+      "nameTr": "Buğday (Ekmeklik)",
+      "nameEn": "Winter wheat",
+      "priceTLPerTon": 13500,
+      "priceTLPerKg": 13.5,
+      "source": "TMO Ekmeklik Buğday Alım Referansı (2025/26)",
+      "date": "2026-06-15"
+    },
+    "barley_winter": {
+      "nameTr": "Arpa",
+      "nameEn": "Winter barley",
+      "priceTLPerTon": 11000,
+      "priceTLPerKg": 11.0,
+      "source": "TMO Arpa Alım Referansı (2025/26)",
+      "date": "2026-06-15"
+    },
+    "sunflower": {
+      "nameTr": "Ayçiçeği (Yağlık)",
+      "nameEn": "Sunflower",
+      "priceTLPerTon": 22000,
+      "priceTLPerKg": 22.0,
+      "source": "Trakya Birlik / Bölgesel Piyasa Yağlık Ayçiçeği Referansı",
+      "date": "2026-09-10"
+    },
+    "chickpea": {
+      "nameTr": "Nohut",
+      "nameEn": "Chickpea",
+      "priceTLPerTon": 35000,
+      "priceTLPerKg": 35.0,
+      "source": "TMO / İç Anadolu Ticaret Borsası Nohut Referansı",
+      "date": "2026-08-20"
+    },
+    "lentil_red": {
+      "nameTr": "Kırmızı Mercimek",
+      "nameEn": "Red lentil",
+      "priceTLPerTon": 36000,
+      "priceTLPerKg": 36.0,
+      "source": "GAP / Güneydoğu Anadolu Ticaret Borsası Kırmızı Mercimek Referansı",
+      "date": "2026-08-20"
+    },
+    "maize_grain": {
+      "nameTr": "Dane Mısır",
+      "nameEn": "Grain maize",
+      "priceTLPerTon": 11500,
+      "priceTLPerKg": 11.5,
+      "source": "TMO / Bölgesel Dane Mısır Alım Referansı",
+      "date": "2026-09-25"
+    },
+    "sugar_beet": {
+      "nameTr": "Şeker Pancarı",
+      "nameEn": "Sugar beet",
+      "priceTLPerTon": 3100,
+      "priceTLPerKg": 3.1,
+      "source": "Türkşeker Pancar Alım Referansı (2025/26)",
+      "date": "2026-09-15"
+    },
+    "dry_bean": {
+      "nameTr": "Kuru Fasulye",
+      "nameEn": "Dry bean",
+      "priceTLPerTon": 45000,
+      "priceTLPerKg": 45.0,
+      "source": "Bölgesel Ticaret Borsası Kuru Fasulye Referansı",
+      "date": "2026-09-15"
+    },
+    "alfalfa": {
+      "nameTr": "Yonca (Kuru Ot)",
+      "nameEn": "Alfalfa",
+      "priceTLPerTon": 7500,
+      "priceTLPerKg": 7.5,
+      "source": "Bölgesel Kaba Yem Piyasası Referansı",
+      "date": "2026-09-01"
+    },
+    "vetch": {
+      "nameTr": "Fiğ (Kuru Ot)",
+      "nameEn": "Vetch",
+      "priceTLPerTon": 6500,
+      "priceTLPerKg": 6.5,
+      "source": "Bölgesel Kaba Yem Piyasası Referansı",
+      "date": "2026-09-01"
+    },
+    "cotton": {
+      "nameTr": "Kütlü Pamuk",
+      "nameEn": "Seed cotton",
+      "priceTLPerTon": 30000,
+      "priceTLPerKg": 30.0,
+      "source": "GAP / Çukurova Pamuk Piyasası Referansı",
+      "date": "2026-10-01"
+    },
+    "maize_silage": {
+      "nameTr": "Silajlık Mısır",
+      "nameEn": "Silage maize",
+      "priceTLPerTon": 2800,
+      "priceTLPerKg": 2.8,
+      "source": "Bölgesel Kaba Yem / Silaj Piyasası Referansı",
+      "date": "2026-09-15"
+    },
+    "sainfoin": {
+      "nameTr": "Korunga (Kuru Ot)",
+      "nameEn": "Sainfoin",
+      "priceTLPerTon": 6800,
+      "priceTLPerKg": 6.8,
+      "source": "Bölgesel Kaba Yem Piyasası Referansı",
+      "date": "2026-09-01"
+    },
+    "fallow": {
+      "nameTr": "Nadas",
+      "nameEn": "Fallow",
+      "priceTLPerTon": 0,
+      "priceTLPerKg": 0,
+      "source": "Ürün çıkışı yok",
+      "date": "2026-10-15"
+    }
+  },
+  "fertilizers": {
+    "urea_46": {
+      "nameTr": "Üre Gübresi (%46 N)",
+      "nameEn": "Urea (46% N)",
+      "priceTLPerKg": 19.5,
+      "nContentFraction": 0.46,
+      "effectiveNPriceTLPerKgN": 42.39,
+      "source": "Bölgesel Tarım Kredi / Gübre Bayi Piyasa Referansı",
+      "date": "2026-10-15"
+    },
+    "dap_18_46": {
+      "nameTr": "DAP Gübresi (%18 N - %46 P₂O₅)",
+      "nameEn": "DAP (18-46-0)",
+      "priceTLPerKg": 26.0,
+      "nContentFraction": 0.18,
+      "p2o5ContentFraction": 0.46,
+      "source": "Bölgesel Tarım Kredi / Gübre Bayi Piyasa Referansı",
+      "date": "2026-10-15"
+    }
+  }
+}

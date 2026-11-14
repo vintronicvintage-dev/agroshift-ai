@@ -25,6 +25,7 @@ export interface DailyWeather {
   precip: number | null;// mm/gün
   gwetRoot: number | null; // 0–1, kök bölgesi toprak ıslaklığı (MERRA-2)
   gwetTop: number | null;  // 0–1
+  gwetProf?: number | null; // 0–1, toprak profili nemi (NASA POWER GWETPROF)
 }
 export interface SourceMeta {
   name: string; provider: string; url: string;

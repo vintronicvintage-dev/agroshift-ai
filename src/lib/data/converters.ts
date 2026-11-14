@@ -34,8 +34,17 @@ const EXPECTED_UNITS: Record<string, string[]> = {
   GWETTOP: ["1"],
 };
 
+const OPTIONAL_UNITS: Record<string, string[]> = {
+  GWETPROF: ["1"],
+};
+
 export function assertPowerUnits(parameters: Record<string, { units?: string }>): RsUnitResult {
   for (const [k, ok] of Object.entries(EXPECTED_UNITS)) {
+    const u = (parameters[k]?.units ?? "").trim().toLowerCase();
+    if (!ok.includes(u)) throw new Error(`Unexpected unit for ${k} from NASA POWER: "${parameters[k]?.units}"`);
+  }
+  for (const [k, ok] of Object.entries(OPTIONAL_UNITS)) {
+    if (parameters[k] === undefined) continue;
     const u = (parameters[k]?.units ?? "").trim().toLowerCase();
     if (!ok.includes(u)) throw new Error(`Unexpected unit for ${k} from NASA POWER: "${parameters[k]?.units}"`);
   }
@@ -51,6 +60,7 @@ export const POWER_PARAMS = [
   "ALLSKY_SFC_SW_DWN",
   "PRECTOTCORR",
   "GWETROOT",
+  "GWETPROF",
   "GWETTOP",
 ] as const;
 
@@ -95,6 +105,7 @@ export function powerToDaily(resp: PowerResponse): { daily: DailyWeather[]; elev
       precip: powerValue(p.PRECTOTCORR?.[k]),
       gwetRoot: powerValue(p.GWETROOT?.[k]),
       gwetTop: powerValue(p.GWETTOP?.[k]),
+      gwetProf: p.GWETPROF ? powerValue(p.GWETPROF[k]) : null,
     };
   });
   while (daily.length && allNull(daily[daily.length - 1])) daily.pop();

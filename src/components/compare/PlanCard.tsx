@@ -9,6 +9,7 @@ import { Traced, type Trace } from "@/components/trace/TraceProvider";
 import { StripCalendar } from "./StripCalendar";
 import { RangeBar } from "./RangeBar";
 import { WhyPanel } from "./WhyPanel";
+import { EconomicsBreakdownCard } from "./EconomicsBreakdownCard";
 
 export interface CompareContext {
   result: AnalysisResult;
@@ -393,6 +394,8 @@ export function PlanCard({ plan, ctx, onRemove, id }: { plan: PlanResult; ctx: C
       )}
 
       <WhyPanel explanation={plan.explanation} resolve={ctx.resolve} extraGaps={ctx.calibration ? undefined : [t("cal.caution")]} />
+
+      <EconomicsBreakdownCard plan={plan} />
 
       {onRemove && (
         <button type="button" className="btn mt-4 self-start" onClick={onRemove}>

@@ -124,9 +124,9 @@ export function ParcelScanCard({ summary, scanData, scanning }: Props) {
               <thead>
                 <tr className="border-b border-rule text-ink-2">
                   <th className="py-1 pr-2">cm</th>
-                  <th className="py-1 px-2">{t("soil.sand")} %</th>
-                  <th className="py-1 px-2">{t("soil.silt")} %</th>
-                  <th className="py-1 px-2">{t("soil.clay")} %</th>
+                  <th className="py-1 px-2">{t("field.sand")} %</th>
+                  <th className="py-1 px-2">{t("field.silt")} %</th>
+                  <th className="py-1 px-2">{t("field.clay")} %</th>
                   <th className="py-1 px-2">SOC g/kg</th>
                   <th className="py-1 pl-2">pH</th>
                 </tr>

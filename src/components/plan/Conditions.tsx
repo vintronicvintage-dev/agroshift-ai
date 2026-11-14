@@ -23,7 +23,7 @@ export function ScenarioControl() {
   ];
   return (
     <div>
-      <div className="seg" role="group" aria-label={t("sc.label")}>
+      <div className="seg seg-scroll" role="group" aria-label={t("sc.label")}>
         {presets.map((p) => (
           <button key={p.id} type="button" aria-pressed={sc.preset === p.id} onClick={() => setStore({ scenario: { preset: p.id, rainMultiplier: p.rain, tempDeltaC: p.temp, priceMultiplier: sc.priceMultiplier } })}>
             {t(`sc.${p.id}`)}

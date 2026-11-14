@@ -93,10 +93,10 @@
 - Modify: `agroshift/src/components/yontem/MethodsPage.tsx`
 - Test: `agroshift/src/lib/engine/review.test.ts`
 
-- [ ] **Step 1: Motorun Türkçe çıktı metinlerinde (`DISCLAIMER`, `explainPlan`) doğrudan v3 terminolojisinin ("ekim nöbeti", "kazanç (brüt)", tekil "danış" hitabı) üretildiğini denetleyen testi yaz**
-- [ ] **Step 2: Testi çalıştır ve RED durumunu kanıtla**
-- [ ] **Step 3: Motor metinlerini güncelle; `/yontem` sayfasına sayfa içi hızlı gezinme indeksi (anchor nav) ekle ve mobil görünüm pürüzlerini düzelt**
-- [ ] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
+- [x] **Step 1: Motorun Türkçe çıktı metinlerinde (`DISCLAIMER`, `explainPlan`) doğrudan v3 terminolojisinin ("ekim nöbeti", "kazanç (brüt)", tekil "danış" hitabı) üretildiğini denetleyen testi yaz**
+- [x] **Step 2: Testi çalıştır ve RED durumunu kanıtla**
+- [x] **Step 3: Motor metinlerini güncelle; `/yontem` sayfasına sayfa içi hızlı gezinme indeksi (anchor nav) ekle ve mobil görünüm pürüzlerini düzelt**
+- [x] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
 
 ---
 

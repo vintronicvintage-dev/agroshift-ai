@@ -147,6 +147,47 @@ describe("agricultural-year assignment", () => {
     const s2 = scheduleSequence(["chickpea", "wheat_winter", "fallow"], "south_lowland");
     expect(s2.slots[0]!.autumn).toBe(true);
     expect(s2.slots[0]!.sowOffset).toBe(61);
+    expect(s2.slots[0]!.stages).toHaveLength(4);
     expect(s2.conflictYears).toHaveLength(0);
+  });
+});
+
+describe("engine-UI v3 Turkish vocabulary alignment (no analyst jargon in raw engine output)", () => {
+  it("emits 'ekim nöbeti' and 'kazanç (brüt)' directly without 'rotasyon' or 'marj'", () => {
+    const field: FieldInput = {
+      areaDa: 50,
+      soil: LOAM_SOIL,
+      irrigationBudgetMm: 250,
+      irrigationEfficiency: 0.7,
+      currentRotation: ["wheat_winter", "fallow", "wheat_winter"],
+    };
+    const r = analyze({ climate: highland, field });
+    const trTexts: string[] = [
+      r.disclaimer.tr,
+      r.optimizer.method.tr,
+      ...(r.robustness ? [r.robustness.method.tr] : []),
+      ...(r.sensitivity ? [r.sensitivity.method.tr] : []),
+    ];
+    for (const p of [r.current, ...r.alternatives]) {
+      trTexts.push(
+        ...p.explanation.why.map((x) => x.text.tr),
+        ...p.explanation.evidence.map((x) => x.text.tr),
+        ...p.explanation.benefits.map((x) => x.text.tr),
+        ...p.explanation.gaps.map((x) => x.text.tr),
+        ...p.explanation.localReview.map((x) => x.text.tr),
+      );
+      if (p.narrative) {
+        trTexts.push(
+          p.narrative.verdict.tr,
+          ...p.narrative.gains.map((x) => x.text.tr),
+          ...p.narrative.losses.map((x) => x.text.tr),
+          ...p.narrative.watch.map((x) => x.text.tr),
+        );
+      }
+    }
+    const joined = trTexts.join("\n");
+    expect(joined).not.toMatch(/rotasyon/i);
+    expect(joined).not.toMatch(/\bmarj(ı|lar|dan|a)?\b/i);
+    expect(r.disclaimer.tr).toMatch(/danış\.$/);
   });
 });

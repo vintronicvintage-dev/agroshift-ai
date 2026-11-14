@@ -340,6 +340,22 @@ select.input {
     min-height: 44px;
   }
 }
+@media (max-width: 640px) {
+  .seg-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: none;
+  }
+  .seg-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .seg-scroll > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
 
 /* ── surfaces ─────────────────────────────────────────────────────────── */
 .panel {

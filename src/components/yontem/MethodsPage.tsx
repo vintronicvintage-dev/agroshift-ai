@@ -61,12 +61,12 @@ export function MethodsPage() {
   return (
     <div className="mx-auto max-w-[1200px] px-4 pt-6 sm:px-6">
       <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label={t("y.index")} className="lg:sticky lg:top-20 lg:self-start">
-          <p className="label">{t("y.index")}</p>
-          <ol className="mt-2 grid grid-cols-2 gap-x-3 sm:grid-cols-3 lg:block">
+        <nav aria-label={t("y.index")} className="sticky top-14 z-20 -mx-4 border-b border-line bg-bg px-4 py-2 lg:top-20 lg:mx-0 lg:self-start lg:border-b-0 lg:bg-transparent lg:p-0">
+          <p className="label hidden lg:block">{t("y.index")}</p>
+          <ol className="flex gap-1.5 overflow-x-auto scroll-thin lg:mt-2 lg:block lg:overflow-visible">
             {SECTIONS.map((s) => (
-              <li key={s.id}>
-                <a href={`#${s.id}`} className="flex min-h-10 items-center text-[14px] text-ink-2 hover:text-ink">
+              <li key={s.id} className="shrink-0">
+                <a href={`#${s.id}`} className="flex min-h-10 items-center rounded-md border border-line bg-surface px-2.5 text-[13px] text-ink-2 hover:text-ink lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:text-[14px]">
                   {t(s.key)}
                 </a>
               </li>

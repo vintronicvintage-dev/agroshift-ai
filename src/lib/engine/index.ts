@@ -266,7 +266,7 @@ export function analyze(input: AnalysisInput): AnalysisResult {
       scenarios: robust.scenarios.map((s) => ({ id: s.id, label: s.label, rainMultiplier: s.rain, tempDeltaC: s.temp })),
       pool: robustPool.size,
       method: {
-        tr: `${robustPool.size} plan ${robust.scenarios.length} senaryoda tam oynatıldı; her senaryoda öncelik puanı hesaplandı, pişmanlık = o senaryodaki en iyi puan − planın puanı. Sağlam plan en büyük pişmanlığı en küçük olandır (minimax regret); CVaR20 = tüm senaryolarda en kötü %20 dönemin ortalama marjı.`,
+        tr: `${robustPool.size} plan ${robust.scenarios.length} senaryoda tam oynatıldı; her senaryoda öncelik puanı hesaplandı, pişmanlık = o senaryodaki en iyi puan − planın puanı. Sağlam plan en büyük pişmanlığı en küçük olandır (minimax regret); CVaR20 = tüm senaryolarda en kötü %20 dönemin ortalama kazancı (brüt).`,
         en: `${robustPool.size} plans were replayed exactly in ${robust.scenarios.length} scenarios; regret = best composite in a scenario − the plan's composite. The robust plan minimises the maximum regret; CVaR20 = mean margin of the worst 20 % of windows pooled over scenarios.`,
       },
     } : null,

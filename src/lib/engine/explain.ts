@@ -214,7 +214,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
 
   // ── GAPS ──────────────────────────────────────────────────────────────────
   gaps.push(item("gap.economics", {},
-    "Fiyat, maliyet ve referans verimler varsayımdır (2025/26 mertebesi); marj bir senaryodur, kesin kâr değildir.",
+    "Fiyat, maliyet ve referans verimler varsayımdır (2025/26 mertebesi); kazanç (brüt) bir senaryodur, kesin kâr değildir.",
     "Prices, costs and reference yields are assumptions (2025/26 order of magnitude); margins are a scenario, not a profit forecast."));
   gaps.push(item("gap.calendar", { zone: ZONE_LABEL[ctx.zone].en },
     "Ekim tarihleri ve evre uzunlukları bölge tipi için varsayımdır: {zone}.",

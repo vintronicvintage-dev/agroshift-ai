@@ -37,5 +37,17 @@ Bu dosya **Antigravity (yerel geliştirme ajanı)** ve **Codex** arasında arac�
 
 ---
 
+## Tamamlanan Ek Doğrulamalar (Antigravity QA)
+- **API Hata/Timeout & `isInTurkey` Birim Testleri (`src/lib/data/turkiyeAgroMaster.test.ts`, `src/lib/data/apiValidationAndCache.test.ts`):**
+  - `matchMasterProvince` için Türkiye içi (`isInTurkey: true`) ve Türkiye dışı (`isInTurkey: false`, ABD/Brezilya/Japonya) doğrulandı.
+  - `/api/climate`, `/api/soil`, `/api/ndvi`, `POST /api/field` ve `POST /api/parcel-engine` için geçersiz koordinat / bozuk JSON / geçersiz parametrelerin HTTP `400` döndürdüğü doğrulandı.
+- **`.cache` Bütünlük Kontrolü:** `.cache/climate_*.json` önbellek dosyalarının `{ savedAt, data }` şeması, koordinatları ve günlük tarih serisi doğrulandı.
+- **Tarayıcı E2E & Mobil Görünüm + Supabase Misafir Modu (`http://localhost:3000`):**
+  - Misafir modunda (Supabase env olmadan) masaüstü (`1440×900`) ve mobil (`390×844`, `scrollWidth = 375.2px <= 390px`, sıfır yatay taşma) doğrulandı.
+  - `Kolaylaştırılmış ↔ Detaylı (Teknik)` mod geçişi, harita yanı özet ve 3 olası rota kartı (`En Doğru Rota`, `Klasik Ekilenler Arasından En Mantıklı Rota`, `Alternatif Rota`) doğrulandı.
+- **Toplam Test & Derleme:** `npm test` → **24/24 dosya, 228/228 test geçti**; `npm run build` → **hatasız (24/24 sayfa)**.
+
+---
+
 ## Codex Raporu
-*(Codex, yaptığı değişiklikleri, test/build çıktılarını ve açtığı dal/PR bilgisini buraya ekleyecek.)*
+*(Codex / ChatGPT, `origin/main` üzerindeki son durumu inceleyip ek bulgularını buraya ekleyebilir.)*

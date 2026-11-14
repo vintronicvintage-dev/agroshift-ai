@@ -9,8 +9,9 @@ import type { LonLat } from "@/lib/data/fieldTypes";
 import { tileSourceById } from "@/lib/data/tiles";
 import { metersPerPixel } from "@/lib/data/turkeyRegions";
 import { PILOTS } from "@/lib/data/pilots";
-import { climateEvidence, CROPS } from "@/lib/engine";
-import type { CropId } from "@/lib/types";
+import { climateEvidence, CROP_IDS, CROPS } from "@/lib/engine";
+import { CROP_ID_TO_MASTER, evaluateMasterPlan, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
+import type { CropId, RotationSequence } from "@/lib/types";
 import {
   getStore,
   makeField,
@@ -546,6 +547,37 @@ export function FieldWorkspace() {
   }, [currentPlan]);
 
   const currentCrop1 = store.inputs.rotation[0];
+
+  const masterProvince = useMemo(
+    () => matchMasterProvince(centroid?.lat ?? 37.5677, centroid?.lon ?? 32.7804),
+    [centroid?.lat, centroid?.lon],
+  );
+  const masterEval = useMemo(
+    () =>
+      evaluateMasterPlan({
+        lat: centroid?.lat ?? 37.5677,
+        lon: centroid?.lon ?? 32.7804,
+        crops: best?.crops ?? store.inputs.rotation,
+        tillageCode: "aniza_dogrudan_ekim",
+        irrigationCode: store.inputs.rainfed
+          ? "kuru_tarim"
+          : store.inputs.method === "drip"
+            ? "damla"
+            : store.inputs.method === "sprinkler"
+              ? "yagmurlama"
+              : "salma",
+      }),
+    [centroid?.lat, centroid?.lon, best?.crops, store.inputs.rotation, store.inputs.rainfed, store.inputs.method],
+  );
+
+  const assignCropYear = useCallback(
+    (cropId: CropId, yrIdx: 0 | 1 | 2) => {
+      const next: RotationSequence = [...store.inputs.rotation] as RotationSequence;
+      next[yrIdx] = cropId;
+      setInputs({ rotation: next });
+    },
+    [store.inputs.rotation],
+  );
 
   return (
     <div id="kontrol-paneli" className="mx-auto max-w-[1640px] space-y-5 px-3 py-4 sm:px-6 sm:py-5">
@@ -1617,43 +1649,90 @@ export function FieldWorkspace() {
 
             <ol className="mt-4 space-y-3">
               {topCropRecommendations.length > 0 ? (
-                topCropRecommendations.map((item, idx) => (
-                  <li
-                    key={item.cropId}
-                    className="flex items-center gap-3 rounded-2xl border border-line bg-bg/65 px-3.5 py-3 transition-colors hover:border-accent/50"
-                  >
-                    <span className="numeral flex size-7 shrink-0 items-center justify-center rounded-full bg-[#e6f4ea] text-[14px] text-[#1e6b34]">
-                      {idx + 1}
-                    </span>
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-line bg-surface shadow-xs">
-                      <CropArt crop={item.cropId} size={34} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-display text-[16px] font-semibold text-ink">
-                          {L(item.def.name)}
-                        </p>
-                        <span className="font-mono text-[12.5px] font-semibold text-[#1e6b34]">
-                          {lang === "tr" ? "Uygunluk" : "Match"}: %{item.suitabilityPct}
+                topCropRecommendations.map((item, idx) => {
+                  const mCode = CROP_ID_TO_MASTER[item.cropId];
+                  const mEntry = masterProvince.province.il_urun_verim_su_ve_rotasyon_matrisi.urun_detay_tablosu[mCode];
+                  const suit = mEntry?.ekolojik_uygunluk_durumu ?? "Uygun";
+                  return (
+                    <li
+                      key={item.cropId}
+                      className="flex flex-col gap-2 rounded-2xl border border-line bg-bg/65 px-3.5 py-3 transition-colors hover:border-accent/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="numeral flex size-7 shrink-0 items-center justify-center rounded-full bg-[#e6f4ea] text-[14px] text-[#1e6b34]">
+                          {idx + 1}
                         </span>
-                      </div>
-                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-2">
-                        <div
-                          className="h-full rounded-full bg-[#22c55e] transition-all duration-300"
-                          style={{ width: `${item.suitabilityPct}%` }}
-                        />
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px]">
-                        <span className="font-mono text-ink-2">
-                          {lang === "tr" ? "Verim" : "Yield"}: <strong className="text-ink">{n(item.yieldKgDa, 0)} kg/da</strong> · {n(item.def.priceTLPerKg.value, 1)} ₺/kg
+                        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-line bg-surface shadow-xs">
+                          <CropArt crop={item.cropId} size={34} />
                         </span>
-                        <span className="font-mono font-semibold text-[#1e6b34]">
-                          +{n(item.marginTLPerDa, 0)} ₺/da {lang === "tr" ? "kâr" : "profit"}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="truncate font-display text-[16px] font-semibold text-ink">
+                                {L(item.def.name)}
+                              </p>
+                              <span
+                                className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9.5px] font-bold ${
+                                  suit === "Uygun"
+                                    ? "bg-[#dcfce7] text-[#166534]"
+                                    : suit === "Kisitli_Uygun"
+                                      ? "bg-[#fef3c7] text-[#92400e]"
+                                      : "bg-[#fee2e2] text-[#991b1b]"
+                                }`}
+                              >
+                                {suit === "Uygun" ? "Uygun" : suit === "Kisitli_Uygun" ? "Kısıtlı" : "Don Riskli"}
+                              </span>
+                            </div>
+                            <span className="font-mono text-[12.5px] font-semibold text-[#1e6b34]">
+                              {lang === "tr" ? "Uygunluk" : "Match"}: %{item.suitabilityPct}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-2">
+                            <div
+                              className="h-full rounded-full bg-[#22c55e] transition-all duration-300"
+                              style={{ width: `${item.suitabilityPct}%` }}
+                            />
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                            <span className="font-mono text-ink-2">
+                              {lang === "tr" ? "Verim" : "Yield"}: <strong className="text-ink">{n(item.yieldKgDa, 0)} kg/da</strong> · {n(item.def.priceTLPerKg.value, 1)} ₺/kg
+                            </span>
+                            <span className="font-mono font-semibold text-[#1e6b34]">
+                              +{n(item.marginTLPerDa, 0)} ₺/da {lang === "tr" ? "kâr" : "profit"}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))
+
+                      {/* Decisive 1-Click Year Placement Strip */}
+                      <div className="flex items-center justify-between gap-2 border-t border-line/70 pt-1.5 text-[11px]">
+                        <span className="font-mono text-[10.5px] text-ink-2">
+                          {mEntry ? `ETc ${n(mEntry.ETc_mm, 0)}mm · dn ${n(mEntry.net_su_ihtiyaci_dn_mm, 0)}mm` : "FAO-56"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10.5px] text-ink-2">{lang === "tr" ? "Rotasyona Ekle:" : "Add to Year:"}</span>
+                          {([0, 1, 2] as const).map((yIdx) => {
+                            const activeYr = store.inputs.rotation[yIdx] === item.cropId;
+                            return (
+                              <button
+                                key={yIdx}
+                                type="button"
+                                onClick={() => assignCropYear(item.cropId, yIdx)}
+                                className={`rounded px-2 py-0.5 font-mono text-[10.5px] font-bold transition-colors ${
+                                  activeYr
+                                    ? "bg-[#1e6b34] text-white"
+                                    : "border border-line bg-surface text-ink-2 hover:border-[#1e6b34] hover:text-ink"
+                                }`}
+                              >
+                                {yIdx + 1}. Yıl
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })
               ) : (
                 <li className="skel h-44" />
               )}
@@ -1710,13 +1789,38 @@ export function FieldWorkspace() {
             </div>
             <p className="mt-1.5 text-[13px] text-ink-2">
               {lang === "tr"
-                ? "Toprak azot dengesini koruyan ve su stresini minimize eden en uygun 3 yıllık dizilim:"
-                : "Optimal 3-year sequence preserving soil nitrogen and minimizing water stress:"}
+                ? `${masterProvince.province.kimlik_ve_cografya.il_adi} ili için önerilen münavebe paketleri ve yıllık ürün seçimi:`
+                : `Recommended rotation packages and annual crop selection for ${masterProvince.province.kimlik_ve_cografya.il_adi}:`}
             </p>
+
+            {/* 1-Click Province Preset Packages from turkiye_agro_master.json */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {masterEval.packages.map((pkg) => {
+                const isAct =
+                  store.inputs.rotation[0] === pkg.crops[0] &&
+                  store.inputs.rotation[1] === pkg.crops[1] &&
+                  store.inputs.rotation[2] === pkg.crops[2];
+                return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => setInputs({ rotation: [...pkg.crops] })}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      isAct
+                        ? "bg-[#1e6b34] text-white shadow-xs"
+                        : "border border-line bg-bg text-ink-2 hover:border-[#1e6b34]/50 hover:text-ink"
+                    }`}
+                    title={pkg.description}
+                  >
+                    {pkg.badgeTr}: {pkg.crops.map((c) => L(CROPS[c].name).split(" (")[0]).join(" → ")}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* 3 Year Cards connected with arrows */}
             {best ? (
-              <div className="mt-4 grid grid-cols-3 items-stretch gap-2">
+              <div className="mt-3.5 grid grid-cols-3 items-stretch gap-2">
                 {best.crops.map((cid, idx) => {
                   const def = CROPS[cid];
                   const yr = best.years[idx];
@@ -1733,20 +1837,31 @@ export function FieldWorkspace() {
                   return (
                     <div
                       key={idx}
-                      className="relative flex flex-col items-center justify-between rounded-2xl border border-line bg-bg/75 p-3 text-center"
+                      className="relative flex flex-col items-center justify-between rounded-2xl border border-line bg-bg/75 p-2.5 text-center"
                     >
-                      <span className="text-[12.5px] font-semibold text-ink-2">
+                      <span className="text-[12px] font-semibold text-ink-2">
                         {idx + 1}. {lang === "tr" ? "Yıl" : "Year"}
                       </span>
-                      <span className="my-2 flex size-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-surface shadow-sm">
-                        <CropArt crop={cid} size={36} />
+                      <span className="my-1.5 flex size-13 items-center justify-center rounded-full border border-[#bbf7d0] bg-surface shadow-sm">
+                        <CropArt crop={cid} size={34} />
                       </span>
-                      <div>
-                        <p className="font-display text-[15px] font-semibold text-ink">{L(def.name)}</p>
-                        <p className="mt-0.5 text-[10.5px] leading-tight text-ink-2">{roleText}</p>
+                      <div className="w-full">
+                        <select
+                          aria-label={`${idx + 1}. Yıl Ürün Seçimi`}
+                          value={store.inputs.rotation[idx]}
+                          onChange={(e) => assignCropYear(e.target.value as CropId, idx as 0 | 1 | 2)}
+                          className="w-full truncate rounded-lg border border-line bg-surface px-1.5 py-0.5 text-center font-display text-[13px] font-semibold text-ink cursor-pointer"
+                        >
+                          {CROP_IDS.map((x) => (
+                            <option key={x} value={x}>
+                              {L(CROPS[x].name)}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-[10px] leading-tight text-ink-2">{roleText}</p>
                         {yr?.yieldTHa && (
-                          <p className="readout mt-1.5 text-[11px] font-semibold text-ink">
-                            {yKgDa} kg/da ({n(yr.yieldTHa.p50 / 10, 2)} t/da)
+                          <p className="readout mt-1 text-[11px] font-semibold text-ink">
+                            {yKgDa} kg/da
                           </p>
                         )}
                         <p className={`font-mono text-[11px] font-semibold ${mTLDa >= 0 ? "text-[#1e6b34]" : "text-bad"}`}>

@@ -10,6 +10,13 @@ import { GET as getFieldVegetation } from "@/app/api/fields/[field_id]/vegetatio
 import { GET as getFieldWater } from "@/app/api/fields/[field_id]/water/route";
 import { validateAndNormalizeParcelGeometry } from "./geospatial";
 import { scientificRepository } from "./repository";
+import {
+  evaluateMasterPlan,
+  getMasterProvinceByPlaka,
+  matchMasterProvince,
+  TURKIYE_AGRO_MASTER,
+} from "@/lib/data/turkiyeAgroMaster";
+import { SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 
 describe("Agricultural Scientific Data Infrastructure & API Routes", () => {
   it("GET /api/data/sources returns all 12 scientific data sources with Verified, Estimated, and Unavailable classifications", async () => {
@@ -202,5 +209,52 @@ describe("Agricultural Scientific Data Infrastructure & API Routes", () => {
     const statusAfterSecond = await (await getStatus()).json();
     expect(statusAfterSecond.ingestionJobsCount).toBe(statusAfterFirst.ingestionJobsCount);
     expect(statusAfterFirst.ingestionJobsCount).toBeGreaterThanOrEqual(statusBefore.ingestionJobsCount);
+  });
+
+  it("turkiyeAgroMaster integrates all 81 provinces (6 layers) & evaluates Konya, Diyarbakır, Erzurum, and Edirne accurately", () => {
+    const provinces = Object.keys(TURKIYE_AGRO_MASTER.iller_detayli_81);
+    expect(provinces.length).toBe(81);
+
+    // Verify Konya (42) match and evaluation
+    const konyaMatch = matchMasterProvince(37.5677, 32.7804);
+    expect(konyaMatch.plaka).toBe("42");
+    expect(konyaMatch.province.kimlik_ve_cografya.il_adi).toBe("Konya");
+    expect(Object.keys(konyaMatch.province.il_urun_verim_su_ve_rotasyon_matrisi.onerilen_3_yillik_rotasyon_paketleri).length).toBe(3);
+
+    // Evaluate Konya 3-year rotation with no-till vs conventional tillage
+    const evalNoTill = evaluateMasterPlan({
+      lat: 37.5677,
+      lon: 32.7804,
+      crops: ["chickpea", "wheat_winter", "sunflower"],
+      tillageCode: "aniza_dogrudan_ekim",
+      irrigationCode: "damla",
+      climateMode: "tipik",
+    });
+    const evalPlow = evaluateMasterPlan({
+      lat: 37.5677,
+      lon: 32.7804,
+      crops: ["chickpea", "wheat_winter", "sunflower"],
+      tillageCode: "geleneksel_surum",
+      irrigationCode: "salma",
+      climateMode: "tipik",
+    });
+
+    expect(evalNoTill.totals.avgAnnualDtMm).toBeLessThan(evalPlow.totals.avgAnnualDtMm);
+    expect(evalNoTill.totals.fuelLitersPerDa3Yr).toBeLessThan(evalPlow.totals.fuelLitersPerDa3Yr);
+    expect(evalNoTill.totals.hasLegume).toBe(true);
+    expect(evalNoTill.years[0].nitrogenDeltaKgDa).toBeGreaterThan(0);
+
+    // Verify Erzurum (25) marks Cotton as frost-risky / unsuitable
+    const erzurum = getMasterProvinceByPlaka("25");
+    expect(erzurum).not.toBeNull();
+    expect(erzurum!.il_urun_verim_su_ve_rotasyon_matrisi.urun_detay_tablosu.Pamuk.ekolojik_uygunluk_durumu).toContain("Don");
+
+    // Verify all photo-backed scientific source cards have valid metadata and parameter arrays
+    expect(SCIENTIFIC_SOURCE_CARDS.length).toBeGreaterThanOrEqual(10);
+    for (const card of SCIENTIFIC_SOURCE_CARDS) {
+      expect(card.photoSrc.startsWith("/images/")).toBe(true);
+      expect(card.parameters.length).toBeGreaterThanOrEqual(3);
+      expect(card.officialUrl.startsWith("https://")).toBe(true);
+    }
   });
 });

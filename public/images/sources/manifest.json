@@ -1,0 +1,32 @@
+{
+  "nasa-smap": {
+    "local": "/images/sources/nasa-smap.jpg",
+    "remote": "https://images-assets.nasa.gov/image/PIA23146/PIA23146~small.jpg",
+    "title": "SMAP Sea Surface Salinity and Soil Moisture Time Lapse",
+    "nasa_id": "PIA23146"
+  },
+  "nasa-gpm": {
+    "local": "/images/sources/nasa-gpm.jpg",
+    "remote": "https://images-assets.nasa.gov/image/201404250029HQ/201404250029HQ~medium.jpg",
+    "title": "USA Science and Engineering Festival 2014",
+    "nasa_id": "201404250029HQ"
+  },
+  "nasa-ecostress": {
+    "local": "/images/sources/nasa-ecostress.jpg",
+    "remote": "https://images-assets.nasa.gov/image/PIA25488/PIA25488~medium.jpg",
+    "title": "Evapotranspiration over Central Valley",
+    "nasa_id": "PIA25488"
+  },
+  "nasa-cmip6": {
+    "local": "/images/sources/nasa-cmip6.jpg",
+    "remote": "https://images-assets.nasa.gov/image/PIA26185/PIA26185~medium.jpg",
+    "title": "PREFIRE CubeSat in Earth Orbit (Artist's Concept)",
+    "nasa_id": "PIA26185"
+  },
+  "irrigation-pivot": {
+    "local": "/images/sources/irrigation-pivot.jpg",
+    "remote": "https://images-assets.nasa.gov/image/PIA15849/PIA15849~medium.jpg",
+    "title": "Wadi As-Sirhan, Saudi Arabia",
+    "nasa_id": "PIA15849"
+  }
+}

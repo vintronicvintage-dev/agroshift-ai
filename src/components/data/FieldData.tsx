@@ -15,6 +15,7 @@ import { useAnalysis, type AnalysisState } from "@/lib/ui/useAnalysis";
 import type { AnalysisRequest } from "@/lib/ui/analysisProtocol";
 import { decodeFieldHash, METHOD_EFF, setField, useStore, type EconDraft } from "@/lib/ui/fieldStore";
 import { describeRing } from "@/lib/ui/geo";
+import { getClassicRegionalSequence } from "@/lib/data/turkiyeAgroMaster";
 import { useI18n } from "@/lib/i18n";
 import { saveLastRun } from "@/lib/ui/lastRun";
 
@@ -316,6 +317,15 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
   const terrainData = terrain?.basis === "polygon" ? terrain.data : (snap?.terrain ?? undefined);
   const request = useMemo<AnalysisRequest | null>(() => {
     if (!f || !soil || !areaDa || areaDa <= 0) return null;
+    const centroid = describeRing(f.ring).centroid;
+    const classicSeq = getClassicRegionalSequence(centroid.lat, centroid.lon);
+    const mergedExtraPlans = [...store.extraPlans];
+    if (
+      classicSeq &&
+      !mergedExtraPlans.some((p) => p[0] === classicSeq[0] && p[1] === classicSeq[1] && p[2] === classicSeq[2])
+    ) {
+      mergedExtraPlans.push(classicSeq);
+    }
     return {
       field: {
         areaDa,
@@ -332,7 +342,7 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
       },
       scenario: { rainMultiplier: sc.rainMultiplier, tempDeltaC: sc.tempDeltaC, priceMultiplier: sc.priceMultiplier },
       economics: econ,
-      options: store.extraPlans.length ? { extraPlans: store.extraPlans } : undefined,
+      options: mergedExtraPlans.length ? { extraPlans: mergedExtraPlans } : undefined,
       ...(precipCheck ? { precipCheck: precipCheck as AnalysisInput["precipCheck"] } : {}),
       precipAdjustment,
     };

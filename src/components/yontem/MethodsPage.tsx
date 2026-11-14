@@ -13,6 +13,8 @@ import { IMAGES, IMAGE_LIST, IMAGES_RETRIEVED } from "@/lib/ui/images";
 import { useFieldData } from "@/components/data/FieldData";
 import { ImageCredit } from "@/components/ui/ImageCredit";
 import { useL } from "@/components/plan/planKit";
+import { Mod16ValidationCard } from "@/components/yontem/Mod16ValidationCard";
+import { TarsimValidationCard } from "@/components/yontem/TarsimValidationCard";
 
 const SECTIONS: { id: string; key: DictKey }[] = [
   { id: "veri", key: "m.data" },
@@ -21,6 +23,7 @@ const SECTIONS: { id: string; key: DictKey }[] = [
   { id: "varsayimlar", key: "y.assumptions" },
   { id: "agirliklar", key: "m.weights" },
   { id: "urunler", key: "m.crops" },
+  { id: "dogrulama", key: "y.val.tarsim" },
   { id: "sinirlar", key: "m.limits" },
   { id: "gorseller", key: "m.images" },
   { id: "kaynakca", key: "m.methodRefs" },
@@ -254,6 +257,13 @@ export function MethodsPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </Sec>
+
+          <Sec id="dogrulama" title={lang === "tr" ? "Bağımsız Doğrulama (MODIS MOD16 & TARSİM)" : "Independent Validation (MODIS MOD16 & TARSİM)"}>
+            <div className="space-y-6">
+              <Mod16ValidationCard />
+              <TarsimValidationCard />
             </div>
           </Sec>
 

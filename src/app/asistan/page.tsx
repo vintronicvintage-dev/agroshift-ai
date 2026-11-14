@@ -7,8 +7,12 @@ import { AppShell } from "@/components/shell/AppShell";
 import { EmptyFieldBanner, PageHeader, ProvenanceBadge, SectionCard } from "@/components/ui/AgroCard";
 import { useFieldData } from "@/components/data/FieldData";
 import { CROPS } from "@/lib/engine";
+import { getClassicRegionalSequence, matchMasterProvince } from "@/lib/data/turkiyeAgroMaster";
 import { useI18n } from "@/lib/i18n";
-import { pilotField, setField, useStore } from "@/lib/ui/fieldStore";
+import { annualPrecipStats } from "@/lib/ui/calibration";
+import { doyLabel, frostStats } from "@/lib/ui/derive";
+import { describeRing } from "@/lib/ui/geo";
+import { METHOD_EFF, pilotField, setField, useStore } from "@/lib/ui/fieldStore";
 
 interface ChatMessage {
   id: string;
@@ -45,31 +49,87 @@ export default function AssistantPage() {
         ? "Şu anda aktif bir tarla seçili değil veya analiz henüz tamamlanmadı. Doğrulanmamış verilerden öneri üretemem; önce bir parsel seçin veya Konya–Çumra örneğini açın."
         : "No active parcel is selected or analysis has not finished yet. I cannot provide recommendations without verified model outputs.";
       links = [{ href: "/tarlalarim", label: tr ? "Tarla Seç" : "Select Field" }];
-    } else if (q.includes("bütçe") || q.includes("aşıyor") || q.includes("aşım") || q.includes("su") || q.includes("budget") || q.includes("water")) {
+    } else if (q.includes("don") || q.includes("soğuk") || q.includes("iklim") || q.includes("yağış") || q.includes("frost") || q.includes("climate") || q.includes("rain")) {
+      const climate = (data.climate.status === "ok" ? data.climate.data : null) ?? data.snapshot?.snap.climate ?? null;
+      const frost = climate ? frostStats(climate) : null;
+      const meanMm = climate ? annualPrecipStats(climate).meanMm : null;
+      const precipMm = meanMm != null ? Math.round(meanMm) : null;
+      const lastSpring = frost?.lastSpring ? doyLabel(frost.lastSpring.median, lang) : "—";
+      const lastSpring90 = frost?.lastSpring ? doyLabel(frost.lastSpring.p90, lang) : "—";
+      const firstAutumn = frost?.firstAutumn ? doyLabel(frost.firstAutumn.median, lang) : "—";
+      replyText = tr
+        ? `${store.field.name} parselinde NASA POWER günlük serisine göre yıllık ortalama yağış ${precipMm ?? "—"} mm'dir. Son bahar donu ortanca ${lastSpring} (10 yılın 9'unda ${lastSpring90} sonrası don yok), ilk güz donu ise ortanca ${firstAutumn} civarındadır.`
+        : `For ${store.field.name}, NASA POWER daily records show ${precipMm ?? "—"} mm/yr mean rainfall. Median last spring frost is ${lastSpring} (90% frost-free after ${lastSpring90}), and median first autumn frost is ${firstAutumn}.`;
+      links = [{ href: "/iklim", label: tr ? "İklim & Don Analizi" : "Climate & Frost" }];
+    } else if (q.includes("neden") || q.includes("sıra") || q.includes("azot") || q.includes("baklagil") || q.includes("why") || q.includes("sequence") || q.includes("nitrogen")) {
+      const yrText = best?.years
+        ?.map((yr, idx) => {
+          const name = tr ? CROPS[yr.cropId].name.tr.split(" (")[0] : CROPS[yr.cropId].name.en.split(" (")[0];
+          const yld = Math.round((yr.yieldTHa?.p50 ?? 0) * 100);
+          const irr = Math.round(yr.irrigationNetMm?.p50 ?? 0);
+          const mrg = Math.round(yr.grossMarginTLPerDa?.p50 ?? 0);
+          return tr
+            ? `${idx + 1}. Yıl ${name} (~${n(yld, 0)} kg/da, ${irr > 0 ? `${irr} mm sulama` : "kuru tarım"}, ${n(mrg, 0)} ₺/da)`
+            : `Year ${idx + 1} ${name} (~${n(yld, 0)} kg/da, ${irr > 0 ? `${irr} mm irr.` : "rainfed"}, ${n(mrg, 0)} TL/da)`;
+        })
+        .join(" → ");
+      const nLow = best ? (best.soilHealth.nContributionKgHa.low / 10).toFixed(1) : "0";
+      const nHigh = best ? (best.soilHealth.nContributionKgHa.high / 10).toFixed(1) : "0";
+      replyText = tr
+        ? `${store.field.name} için önerilen sıralama: ${yrText}. Bu dizilim hastalık döngüsünü kırarken toprağa yıllık ${nLow}–${nHigh} kg/da biyolojik azot katkısı sağlar (toprak sağlığı skoru: ${best?.soilHealth.score ?? "—"}/100).`
+        : `Recommended sequence for ${store.field.name}: ${yrText}. It breaks disease cycles and adds ${nLow}–${nHigh} kg/da biological nitrogen (soil health score: ${best?.soilHealth.score ?? "—"}/100).`;
+      links = [
+        { href: "/plan", label: tr ? "3 Yıllık Plan" : "3-Year Plan" },
+        { href: "/tarla", label: tr ? "Rotasyon Detayı" : "Rotation Detail" },
+      ];
+    } else if (q.includes("risk") || q.includes("zarar") || q.includes("kâr") || q.includes("kazanç") || q.includes("gelir") || q.includes("fiyat") || q.includes("profit") || q.includes("margin")) {
+      const p10 = Math.round(best?.economics.grossMarginTLPerDaPerYr?.p10 ?? 0);
+      const p50 = Math.round(best?.economics.grossMarginTLPerDaPerYr?.p50 ?? 0);
+      const p90 = Math.round(best?.economics.grossMarginTLPerDaPerYr?.p90 ?? 0);
+      const cvar = best?.robust ? Math.round(best.robust.cvar20MarginTLPerDaPerYr) : null;
+      const centroid = describeRing(store.field.ring).centroid;
+      const prov = matchMasterProvince(centroid.lat, centroid.lon);
+      const classicSeq = getClassicRegionalSequence(centroid.lat, centroid.lon);
+      const classicStr = classicSeq
+        ? classicSeq.map((c) => (tr ? CROPS[c].name.tr.split(" (")[0] : CROPS[c].name.en.split(" (")[0])).join(" → ")
+        : null;
+      replyText = tr
+        ? `${store.field.name} için önerilen rotada brüt kâr dağılımı: kötü yılda (P10) ${n(p10, 0)} ₺/da, ortanca (P50) ${n(p50, 0)} ₺/da, iyi yılda (P90) ${n(p90, 0)} ₺/da${cvar != null ? ` (CVaR20 kuyruk riski: ${n(cvar, 0)} ₺/da)` : ""}.${classicStr ? ` (${prov.province.kimlik_ve_cografya.il_adi} klasik il sırası: ${classicStr}.)` : ""}`
+        : `For ${store.field.name}, gross margin ranges from ${n(p10, 0)} (P10) to ${n(p50, 0)} (P50) and ${n(p90, 0)} TL/da/yr (P90)${cvar != null ? `, with CVaR20 = ${n(cvar, 0)} TL/da` : ""}.${classicStr ? ` (${prov.province.kimlik_ve_cografya.il_adi} regional classic: ${classicStr}.)` : ""}`;
+      links = [
+        { href: "/ekonomi", label: tr ? "Verim & Ekonomi" : "Economics" },
+        { href: "/risk", label: tr ? "Risk Simülasyonu" : "Risk Simulation" },
+      ];
+    } else if (q.includes("bütçe") || q.includes("aşıyor") || q.includes("aşım") || q.includes("sulama") || q.includes("damla") || q.includes("yağmurlama") || q.includes("su") || q.includes("budget") || q.includes("water") || q.includes("irrigation")) {
       const curDef = Math.round(current?.water.unmetDeficitMmPerYr?.p50 ?? 0);
       const bestDef = Math.round(best?.water.unmetDeficitMmPerYr?.p50 ?? 0);
+      const eff = METHOD_EFF[store.inputs.method];
+      const grossM3 = Math.round(budgetNet / eff);
       const curCrops = current?.crops.map((c) => (tr ? CROPS[c].name.tr : CROPS[c].name.en)).join(" → ");
       const bestCrops = best?.crops.map((c) => (tr ? CROPS[c].name.tr : CROPS[c].name.en)).join(" → ");
       replyText = tr
-        ? `${store.field.name} tarlasında yıllık ${budgetNet} mm net sulama bütçesi altında mevcut planınız (${curCrops}) medyan +${curDef} mm su açığı üretiyor. Önerilen Alternatif 1 (${bestCrops}) ise +${bestDef} mm açıkla bütçeye daha yakındır. Hesaplama 2001–2024 NASA POWER günlük verisiyle FAO-56 su dengesinden üretilmiştir.`
-        : `For ${store.field.name} under a ${budgetNet} mm/yr net budget, your current plan (${curCrops}) shows +${curDef} mm median unmet deficit, whereas Alternative 1 (${bestCrops}) reduces this to +${bestDef} mm using FAO-56 daily water balance on NASA POWER (2001–2024).`;
+        ? `${store.field.name} tarlasında yıllık ${budgetNet} mm net sulama bütçesi (%${Math.round(eff * 100)} randımanla brüt ${grossM3} m³/da) altında mevcut planınız (${curCrops}) medyan +${curDef} mm su açığı üretiyor. Önerilen Alternatif 1 (${bestCrops}) ise +${bestDef} mm açıkla bütçeye daha yakındır. Hesaplama 2001–2024 NASA POWER günlük verisiyle FAO-56 su dengesinden üretilmiştir.`
+        : `For ${store.field.name} under ${budgetNet} mm/yr net budget (${grossM3} m³/da gross at ${Math.round(eff * 100)}% efficiency), your current plan (${curCrops}) shows +${curDef} mm median unmet deficit, whereas Alternative 1 (${bestCrops}) reduces this to +${bestDef} mm using FAO-56 daily water balance on NASA POWER (2001–2024).`;
       links = [
         { href: "/sulama", label: tr ? "Sulama Yönetimi" : "Irrigation" },
         { href: "/plan", label: tr ? "Rotasyon Planı" : "Rotation Plan" },
       ];
-    } else if (q.includes("toprak") || q.includes("eksik") || q.includes("fosfor") || q.includes("soil")) {
+    } else if (q.includes("toprak") || q.includes("eksik") || q.includes("fosfor") || q.includes("potasyum") || q.includes("ph") || q.includes("soil") || q.includes("lab")) {
       const ph = data.soil?.ph ?? "—";
       const soc = data.soil?.soc ?? "—";
+      const clay = data.soil?.clay ?? "—";
+      const sand = data.soil?.sand ?? "—";
+      const srcLabel = data.soil?.origin === "user" ? (tr ? "Kullanıcı Laboratuvarı" : "User Lab") : "ISRIC SoilGrids 250m";
       replyText = tr
-        ? `ISRIC SoilGrids 250m (0–30 cm) verisine göre pH ${ph} ve organik karbon (SOC) ${soc} g/kg düzeyindedir. Ancak Fosfor (P), Potasyum (K) ve Tuzluluk (EC) uydu/SoilGrids verisiyle ölçülemez ve şu an "Ölçüm Mevcut Değil" durumundadır; bu parametreler için yerel laboratuvar analizi önerilir.`
-        : `Based on ISRIC SoilGrids 250m (0–30 cm), pH is ${ph} and SOC is ${soc} g/kg. Phosphorus (P), Potassium (K), and Salinity (EC) are marked Unavailable because they require local lab testing.`;
+        ? `${srcLabel} (0–30 cm) verisine göre pH ${ph}, organik karbon (SOC) ${soc} g/kg, kil %${clay} ve kum %${sand} düzeyindedir. Ancak Fosfor (P), Potasyum (K) ve Tuzluluk (EC) uydu/SoilGrids verisiyle ölçülemez ve şu an "Ölçüm Mevcut Değil" durumundadır; bu parametreler için yerel laboratuvar analizi önerilir.`
+        : `Based on ${srcLabel} (0–30 cm), pH is ${ph}, SOC is ${soc} g/kg, clay ${clay}%, sand ${sand}%. Phosphorus (P), Potassium (K), and Salinity (EC) are marked Unavailable because they require local lab testing.`;
       links = [{ href: "/toprak", label: tr ? "Toprak Analizi" : "Soil Analysis" }];
     } else {
       const bestCrops = best?.crops.map((c) => (tr ? CROPS[c].name.tr : CROPS[c].name.en)).join(" → ");
       const bestMargin = Math.round(best?.economics.grossMarginTLPerDaPerYr?.p50 ?? 0);
       replyText = tr
-        ? `${store.field.name} için en dengeli önerilen sıra ${bestCrops} şeklindedir. Senaryo çıktısı olarak medyan yıllık brüt kâr ${n(bestMargin, 0)} ₺/da ve toprak sağlığı model göstergesi ${best?.soilHealth.score ?? "—"}/100 olarak hesaplanmıştır. Kesin ekim kararı öncesi yerel ziraat mühendisine danışmanız önerilir.`
-        : `For ${store.field.name}, the top-ranked sequence is ${bestCrops}, with a median scenario gross margin of ${n(bestMargin, 0)} TL/da/yr and a soil health model indicator of ${best?.soilHealth.score ?? "—"}/100.`;
+        ? `${store.field.name} için en dengeli önerilen sıra ${bestCrops} şeklindedir. Senaryo çıktısı olarak medyan yıllık brüt kâr ${n(bestMargin, 0)} ₺/da ve toprak sağlığı model göstergesi ${best?.soilHealth.score ?? "—"}/100 olarak hesaplanmıştır. Don tarihleri, azot katkısı veya P10–P90 risk dağılımı hakkında da soru sorabilirsiniz.`
+        : `For ${store.field.name}, the top-ranked sequence is ${bestCrops}, with a median scenario gross margin of ${n(bestMargin, 0)} TL/da/yr and a soil health model indicator of ${best?.soilHealth.score ?? "—"}/100. You can also ask about frost dates, nitrogen contribution, or P10–P90 risk.`;
       links = [
         { href: "/plan", label: tr ? "Planları Karşılaştır" : "Compare Plans" },
         { href: "/dayanak", label: tr ? "Bilimsel Dayanak" : "Evidence" },
@@ -85,13 +145,17 @@ export default function AssistantPage() {
   const quickPrompts = tr
     ? [
         "Mevcut plan neden bütçeyi aşıyor?",
+        "Neden bu 1→2→3 sırası ve azot katkısı önerildi?",
+        "Bu parselde son bahar donu ne zaman?",
+        "Kötü yılda (P10) kazanç ve risk nedir?",
         "Toprak analizimde hangi veriler eksik?",
-        "Önerilen 3 yıllık planın özeti nedir?",
       ]
     : [
         "Why does the current plan exceed the budget?",
+        "Why this 1→2→3 sequence and nitrogen contribution?",
+        "When is the last spring frost on this parcel?",
+        "What is the P10 downside margin and risk?",
         "Which soil measurements are missing?",
-        "Summarize the recommended 3-year plan",
       ];
 
   return (

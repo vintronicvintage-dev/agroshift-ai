@@ -278,5 +278,33 @@
     "verified": true,
     "verified_on": "2026-11-14",
     "notes": "Implemented in src/lib/data-infra/turkishAgData.ts."
+  },
+  {
+    "id": "tagem-dsi-2017",
+    "title": "Türkiye'de Sulanan Bitkilerin Bitki Su Tüketimleri Rehberi (TAGEM-SuET)",
+    "authors_or_org": "T.C. Tarım ve Orman Bakanlığı TAGEM & DSİ Genel Müdürlüğü",
+    "date": "2017",
+    "url": "https://www.tarimorman.gov.tr/TAGEM",
+    "doi_or_arxiv": "",
+    "version": "2017 Ulusal Rehber",
+    "license": "Kamuya Açık Resmi Tarımsal Rehber",
+    "used_for": "81 il bazında 18 kültür bitkisinin (Yeşil Mercimek, Soya, Kanola, Aspir, Patates, Korunga dahil) fenolojik takvimi, Kc katsayıları, mevsimlik ETc ve net/toplam sulama suyu (Dn/Dt) matrisi",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Implemented in data/turkiye_agro_master.json, src/lib/data/turkiyeAgroMaster.ts, and src/lib/crops/cropRequirements.ts."
+  },
+  {
+    "id": "tarim-havzalari-tthdm",
+    "title": "Türkiye Tarım Havzaları Üretim ve Destekleme Modeli (TTHDM) & FAO EcoCrop / GAEZ v4 Ekolojik Gereksinimler",
+    "authors_or_org": "T.C. Tarım ve Orman Bakanlığı & FAO / IIASA",
+    "date": "2025",
+    "url": "https://www.tarimorman.gov.tr/Konular/Bitkisel-Uretim/Tarim-Havzalari",
+    "doi_or_arxiv": "",
+    "version": "2025-2027 Üretim Planlaması & GAEZ v4",
+    "license": "Kamuya Açık Resmi Mevzuat & FAO Open Archive",
+    "used_for": "18 mahsulün yetişmesi için gereken 6 boyutlu ekofizyolojik gereksinimler (termal GDD/don/vernalizasyon, kuru tarım yağış eşiği, toprak kil/kum/pH/tuzluluk ECe sınırları, SRTM rakım/eğim tavanı ve N-P-K / münavebe kuralları)",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Implemented in src/lib/crops/cropRequirements.ts and src/lib/crops/database.ts."
   }
 ]

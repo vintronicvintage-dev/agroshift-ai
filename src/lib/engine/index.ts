@@ -44,7 +44,14 @@ import {
   LAPSE_RATE_C_PER_M, FALLOW_GAIN_MIN_MM, FALLOW_MAX_BUDGET_MM, type AnalysisContext, type CustomPlanResult,
 } from "./context";
 
-export { CROPS, CROP_IDS, CROP_CONSTANTS } from "../crops/database";
+export { CROPS, CROP_IDS, DEFAULT_CANDIDATE_CROP_IDS, CROP_CONSTANTS } from "../crops/database";
+export {
+  CROP_REQUIREMENTS,
+  evaluateAllCropsForParcel,
+  type CropGrowthRequirementsSpec,
+  type LearnedCropSuitabilityItem,
+  type ParcelBiophysicalInput,
+} from "../crops/cropRequirements";
 export { climateZone, scheduleSequence, ZONE_LABEL } from "../crops/calendar";
 export { preCropEffect, previousCrops, ROTATION_GROUP, BREAK_YEARS_ADVISED, N_NEED_KG_HA, type PreCropEffect } from "../crops/preCrop";
 export { et0PenmanMonteith, et0Hargreaves } from "./et0";

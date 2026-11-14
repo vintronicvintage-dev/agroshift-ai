@@ -13,6 +13,7 @@ import { CropArt } from "@/components/brand/CropArt";
 import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
+import { TermTooltip } from "@/components/ui/TermTooltip";
 import { JudgmentNote } from "@/components/shell/AppShell";
 import { MiniTable } from "@/components/tarla/CardKit";
 import { cropName, planLabel, signed, useL } from "@/components/plan/planKit";
@@ -28,6 +29,17 @@ const CLAIM_SOURCE_MAP: Record<ClaimId, string[]> = {
   soil: ["ISRIC_SOILGRIDS", "LANDSAT_SENTINEL_MODIS_NDVI", "NASA_SRTM_DEM"],
   rain: ["NASA_GPM_IMERG", "NASA_POWER"],
   periods: ["NASA_POWER", "TAGEM_DSI_2017", "FAO_56_33_GAEZ"],
+};
+
+const CLAIM_TERM_MAP: Record<ClaimId, string> = {
+  water: "dn",
+  money: "gross_margin",
+  why: "munavebe",
+  climate: "et0",
+  frost: "ecostress",
+  soil: "soil_health",
+  rain: "imerg",
+  periods: "p10_p50_p90",
 };
 
 export function EvidencePage() {
@@ -249,8 +261,9 @@ export function EvidencePage() {
           <div className="min-w-0 space-y-6">
             <article className="bento-card p-5 sm:p-6" aria-labelledby="iddia-h">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                <span className="rounded-full bg-[#e6f4ea] px-3 py-1 font-mono text-[11.5px] font-bold text-[#1e6b34]">
-                  {t("ev.claimN", { n: idx + 1, of: claims.length })} — {t(active.key)}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e6f4ea] px-3 py-1 font-mono text-[11.5px] font-bold text-[#1e6b34]">
+                  <span>{t("ev.claimN", { n: idx + 1, of: claims.length })} — {t(active.key)}</span>
+                  <TermTooltip termId={CLAIM_TERM_MAP[active.id]} size="md" />
                 </span>
                 <div className="flex items-center gap-2">
                   <button

@@ -19,6 +19,7 @@ import {
 import { CropArt } from "@/components/brand/CropArt";
 import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 import { Icon } from "@/components/ui/Icons";
+import { TermTooltip } from "@/components/ui/TermTooltip";
 
 /**
  * Decluttered, high-clarity Scientific Calculation Hub, 81-Province Rotation Studio & Photo Source Cards.
@@ -216,7 +217,10 @@ export function EvidenceFoundations({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "Referans ET₀" : "Reference ET₀"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center justify-end gap-1">
+                      <span>{lang === "tr" ? "Referans ET₀" : "Reference ET₀"}</span>
+                      <TermTooltip termId="et0" />
+                    </p>
                     <p className="numeral text-[26px] text-[#c0392b]">
                       {n(res.climate.meanAnnualEt0Mm ?? clim.yillik_referans_ETo_mm, 0)}{" "}
                       <span className="text-[13px] font-normal">mm</span>
@@ -234,7 +238,10 @@ export function EvidenceFoundations({
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-ink-2">ECOSTRESS Yaz Yüzey Sıcaklığı:</span>
+                    <span className="text-ink-2 flex items-center gap-1">
+                      <span>ECOSTRESS Yaz Yüzey Sıcaklığı:</span>
+                      <TermTooltip termId="ecostress" />
+                    </span>
                     <span className="font-mono font-semibold text-[#b45309]">
                       {n(sat.ecostress_yaz_yuzey_sicakligi_LST_C, 1)} °C ({sat.ecostress_termal_stres_gun_sayisi} stres günü)
                     </span>
@@ -259,13 +266,19 @@ export function EvidenceFoundations({
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">
                   <div>
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "Su Tutma (TAW)" : "Water Cap. (TAW)"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center gap-1">
+                      <span>{lang === "tr" ? "Su Tutma (TAW)" : "Water Cap. (TAW)"}</span>
+                      <TermTooltip termId="taw" />
+                    </p>
                     <p className="numeral text-[26px] text-[#1e6b34]">
                       {n(res.soil.tawMmPerM, 0)} <span className="text-[13px] font-normal">mm/m</span>
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "SMAP Bahar Nemi" : "SMAP Spring θ"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center justify-end gap-1">
+                      <span>{lang === "tr" ? "SMAP Bahar Nemi" : "SMAP Spring θ"}</span>
+                      <TermTooltip termId="smap" />
+                    </p>
                     <p className="numeral text-[26px] text-[#0277bd]">
                       %{n(sat.smap_kok_nemi_4_mevsim_m3_m3.ilkbahar * 100, 1)}
                     </p>
@@ -282,7 +295,10 @@ export function EvidenceFoundations({
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-ink-2">pH · Organik Madde · Tuzluluk:</span>
+                    <span className="text-ink-2 flex items-center gap-1">
+                      <span>pH · Organik Madde · Tuzluluk:</span>
+                      <TermTooltip termId="salinity_ece" />
+                    </span>
                     <span className="font-mono font-semibold text-ink">
                       pH {n(soil.ph, 1)} · %{n(soil.organik_madde_yuzde, 2)} · {n(soil.tuzluluk_EC_dS_m, 2)} dS/m
                     </span>
@@ -307,14 +323,20 @@ export function EvidenceFoundations({
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">
                   <div>
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "Net Sulama (dn)" : "Net Irrigation (dn)"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center gap-1">
+                      <span>{lang === "tr" ? "Net Sulama (dn)" : "Net Irrigation (dn)"}</span>
+                      <TermTooltip termId="dn" />
+                    </p>
                     <p className="numeral text-[26px] text-[#0277bd]">
                       {n(masterEval.totals.avgAnnualDnMm, 0)}{" "}
                       <span className="text-[13px] font-normal">mm/yıl</span>
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "Brüt Su (dt)" : "Gross Water (dt)"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center justify-end gap-1">
+                      <span>{lang === "tr" ? "Brüt Su (dt)" : "Gross Water (dt)"}</span>
+                      <TermTooltip termId="dt" />
+                    </p>
                     <p className="numeral text-[26px] text-ink">
                       {n(masterEval.totals.avgAnnualDtMm, 0)}{" "}
                       <span className="text-[13px] font-normal">m³/da</span>
@@ -355,14 +377,20 @@ export function EvidenceFoundations({
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">
                   <div>
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "Yıllık Brüt Kâr" : "Annual Gross Margin"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center gap-1">
+                      <span>{lang === "tr" ? "Yıllık Brüt Kâr" : "Annual Gross Margin"}</span>
+                      <TermTooltip termId="gross_margin" />
+                    </p>
                     <p className="numeral text-[26px] text-[#1e6b34]">
                       +{n(best.economics.grossMarginTLPerDaPerYr?.p50 ?? 0, 0)}{" "}
                       <span className="text-[13px] font-normal">₺/da</span>
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11.5px] text-ink-2">{lang === "tr" ? "3Y Azot Dengesi" : "3Y N Balance"}</p>
+                    <p className="text-[11.5px] text-ink-2 flex items-center justify-end gap-1">
+                      <span>{lang === "tr" ? "3Y Azot Dengesi" : "3Y N Balance"}</span>
+                      <TermTooltip termId="n_fixation" />
+                    </p>
                     <p
                       className={`numeral text-[26px] ${
                         masterEval.totals.netNitrogenKgDa3Yr >= 0 ? "text-[#1e6b34]" : "text-[#b45309]"
@@ -379,14 +407,20 @@ export function EvidenceFoundations({
                 </div>
                 <div className="mt-3 space-y-1 text-[12px]">
                   <div className="flex justify-between">
-                    <span className="text-ink-2">P10 (Kurak) – P90 (Yağışlı) Kâr:</span>
+                    <span className="text-ink-2 flex items-center gap-1">
+                      <span>P10 (Kurak) – P90 (Yağışlı) Kâr:</span>
+                      <TermTooltip termId="p10_p50_p90" />
+                    </span>
                     <span className="font-mono font-semibold text-ink">
                       {n(best.economics.grossMarginTLPerDaPerYr?.p10 ?? 0, 0)} …{" "}
                       {n(best.economics.grossMarginTLPerDaPerYr?.p90 ?? 0, 0)} ₺/da
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-ink-2">2035 CMIP6 (SSP2-4.5 / SSP5-8.5):</span>
+                    <span className="text-ink-2 flex items-center gap-1">
+                      <span>2035 CMIP6 (SSP2-4.5 / SSP5-8.5):</span>
+                      <TermTooltip termId="cmip6" />
+                    </span>
                     <span className="font-mono font-semibold text-[#b45309]">
                       +{n(cmip.ssp245.sicaklik_artisi_C, 1)}°C / +{n(cmip.ssp585.sicaklik_artisi_C, 1)}°C
                     </span>

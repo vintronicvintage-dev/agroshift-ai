@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CROP_IDS } from "@/lib/crops/database";
+import { CROP_REQUIREMENTS } from "@/lib/crops/cropRequirements";
 import { scientificRepository } from "@/lib/data-infra/repository";
 import type { CropId } from "@/lib/types";
 
@@ -19,5 +20,15 @@ export async function GET(req: Request) {
   const bundle = await scientificRepository.getCropParametersBundle(
     cropParam ? (cropParam as CropId) : undefined,
   );
-  return NextResponse.json(bundle, { status: 200 });
+  const requirements = cropParam
+    ? { [cropParam]: CROP_REQUIREMENTS[cropParam as CropId] }
+    : CROP_REQUIREMENTS;
+
+  return NextResponse.json(
+    {
+      ...bundle,
+      requirements,
+    },
+    { status: 200 },
+  );
 }

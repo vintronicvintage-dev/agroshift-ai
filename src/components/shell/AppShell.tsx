@@ -11,6 +11,7 @@ import { pilotField, setField, setStore, useStore } from "@/lib/ui/fieldStore";
 import { PILOTS } from "@/lib/data/pilots";
 import { useAuthUser } from "@/lib/auth/useAuthUser";
 import { useFieldData } from "@/components/data/FieldData";
+import { GlossaryTriggerButton } from "@/components/ui/TermTooltip";
 
 const PLACES: { href: string; key: DictKey; icon: IconName }[] = [
   { href: "/", key: "nav.field", icon: "dashboard" },
@@ -201,6 +202,7 @@ function TopBar({ path, onOpenMobileNav }: { path: string; onOpenMobileNav: () =
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
+        <GlossaryTriggerButton />
         <PilotLocationSelector />
         <ScenarioQuickSelector />
         <button

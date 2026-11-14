@@ -20,6 +20,7 @@ import { CropArt } from "@/components/brand/CropArt";
 import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
+import { TermTooltip } from "@/components/ui/TermTooltip";
 import { Verdict } from "./Verdict";
 import { Timeline, bareLines } from "./Timeline";
 import { Compare, MarkerIcon, WindowStrip } from "./Compare";
@@ -176,8 +177,9 @@ export function PlanPage() {
               {/* KPI 1: Water */}
               <div className="bento-card p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2">
-                    {lang === "tr" ? "Yıllık Sulama İhtiyacı (dn)" : "Annual Net Irrigation"}
+                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+                    <span>{lang === "tr" ? "Yıllık Sulama İhtiyacı (dn)" : "Annual Net Irrigation"}</span>
+                    <TermTooltip termId="dn" />
                   </span>
                   <span className="rounded-lg bg-[#e0f2fe] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#0277bd]">
                     FAO-56 & TAGEM
@@ -196,8 +198,9 @@ export function PlanPage() {
               {/* KPI 2: Gross Margin */}
               <div className="bento-card p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2">
-                    {lang === "tr" ? "Yıllık Beklenen Brüt Kâr" : "Expected Annual Margin"}
+                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+                    <span>{lang === "tr" ? "Yıllık Beklenen Brüt Kâr" : "Expected Annual Margin"}</span>
+                    <TermTooltip termId="gross_margin" />
                   </span>
                   <span className="rounded-lg bg-[#dcfce7] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#166534]">
                     TMO / Borsa 2026
@@ -217,8 +220,9 @@ export function PlanPage() {
               {/* KPI 3: Soil & Biological Nitrogen */}
               <div className="bento-card p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2">
-                    {lang === "tr" ? "Toprak Sağlığı & 3Y Azot (ΔN)" : "Soil Health & 3Y Nitrogen"}
+                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+                    <span>{lang === "tr" ? "Toprak Sağlığı & 3Y Azot (ΔN)" : "Soil Health & 3Y Nitrogen"}</span>
+                    <TermTooltip termId="soil_health" />
                   </span>
                   <span className="rounded-lg bg-[#fef3c7] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#92400e]">
                     RUSLE & Baklagil
@@ -241,8 +245,9 @@ export function PlanPage() {
               {/* KPI 4: Climate Reliability */}
               <div className="bento-card p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2">
-                    {lang === "tr" ? "Tarihsel Su Güvenilirliği" : "Historical Water Reliability"}
+                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+                    <span>{lang === "tr" ? "Tarihsel Su Güvenilirliği" : "Historical Water Reliability"}</span>
+                    <TermTooltip termId="confidence_grade" />
                   </span>
                   {best.confidence && <GradeBadge grade={best.confidence.grade} />}
                 </div>

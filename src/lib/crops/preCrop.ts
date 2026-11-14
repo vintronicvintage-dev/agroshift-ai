@@ -19,22 +19,30 @@
 import type { Confidence, CropId, LocalizedText } from "../types";
 import { CROPS } from "./database";
 
-export type RotationGroup = "small_grain" | "maize" | "grain_legume" | "forage_legume" | "beet" | "sunflower" | "cotton" | "fallow";
+export type RotationGroup =
+  | "small_grain" | "maize" | "grain_legume" | "forage_legume"
+  | "beet" | "sunflower" | "brassica" | "tuber" | "cotton" | "fallow";
 
 export const ROTATION_GROUP: Record<CropId, RotationGroup> = {
   wheat_winter: "small_grain", barley_winter: "small_grain", maize_grain: "maize",
-  chickpea: "grain_legume", lentil_red: "grain_legume", dry_bean: "grain_legume",
-  alfalfa: "forage_legume", vetch: "forage_legume",
-  sugar_beet: "beet", sunflower: "sunflower", cotton: "cotton", fallow: "fallow",
+  chickpea: "grain_legume", lentil_red: "grain_legume", lentil_green: "grain_legume",
+  soybean: "grain_legume", dry_bean: "grain_legume",
+  alfalfa: "forage_legume", sainfoin: "forage_legume", vetch: "forage_legume",
+  sugar_beet: "beet", sunflower: "sunflower", safflower: "sunflower",
+  canola: "brassica", potato: "tuber", cotton: "cotton", fallow: "fallow",
 };
 
 /** Sclerotinia sclerotiorum hosts in the crop list (broadleaf). */
-const SCLEROTINIA_HOSTS = new Set<CropId>(["sunflower", "dry_bean", "chickpea", "lentil_red"]);
+const SCLEROTINIA_HOSTS = new Set<CropId>([
+  "sunflower", "safflower", "canola", "soybean", "dry_bean", "chickpea", "lentil_red", "lentil_green", "potato",
+]);
 
 /** Fertiliser N requirement used to cap the N credit, kg N/ha (assumption, order of magnitude). */
 export const N_NEED_KG_HA: Record<CropId, number> = {
-  wheat_winter: 120, barley_winter: 90, maize_grain: 200, sugar_beet: 150, sunflower: 80, cotton: 150,
-  chickpea: 0, lentil_red: 0, dry_bean: 0, alfalfa: 0, vetch: 0, fallow: 0,
+  wheat_winter: 120, barley_winter: 90, maize_grain: 200, sugar_beet: 150,
+  sunflower: 80, safflower: 60, canola: 140, potato: 160, cotton: 150,
+  chickpea: 0, lentil_red: 0, lentil_green: 0, soybean: 20, dry_bean: 0,
+  alfalfa: 0, sainfoin: 0, vetch: 0, fallow: 0,
 };
 
 export interface PreCropEffect {
@@ -106,7 +114,12 @@ export function preCropEffect(prev: CropId, next: CropId): PreCropEffect {
       f *= 1.05; codes.push("legume_break");
       tr.push("baklagil sonrası mısır: verim ×1,05"); en.push("maize after legume: yield ×1.05");
       source = SRC_BREAK;
-    } else if ((gp === "sunflower" || gp === "beet" || gp === "cotton") && gn === "small_grain") {
+    } else if (gp === "brassica" && gn === "small_grain") {
+      f *= 1.1; codes.push("brassica_biofumigation");
+      tr.push("kanola sonrası tahıl: verim ×1,10 (glukozinolat biyo-fümigasyon ile kök çürüklüğü kırılır)");
+      en.push("cereal after canola: yield ×1.10 (glucosinolate biofumigation breaks take-all root disease)");
+      source = SRC_BREAK;
+    } else if ((gp === "sunflower" || gp === "beet" || gp === "cotton" || gp === "tuber") && gn === "small_grain") {
       f *= 1.05; codes.push("broadleaf_break");
       tr.push("geniş yapraklı ürün sonrası tahıl: verim ×1,05 (tahıl hastalık döngüsü kırılır)"); en.push("cereal after a broadleaf crop: yield ×1.05 (cereal disease break)");
       source = SRC_BREAK;
@@ -145,4 +158,7 @@ export function previousCrops(seq: readonly CropId[]): [CropId, CropId, CropId] 
  * sugar beet (beet cyst nematode, rhizomania), sunflower (broomrape/Orobanche, Sclerotinia) and
  * chickpea/lentil (Ascochyta, Fusarium) are usually advised longer breaks (≈ 4 years). Assumption.
  */
-export const BREAK_YEARS_ADVISED: Partial<Record<CropId, number>> = { sugar_beet: 4, sunflower: 4, chickpea: 4, lentil_red: 4 };
+export const BREAK_YEARS_ADVISED: Partial<Record<CropId, number>> = {
+  sugar_beet: 4, sunflower: 4, safflower: 3, canola: 3, potato: 4,
+  chickpea: 4, lentil_red: 4, lentil_green: 4, soybean: 3,
+};

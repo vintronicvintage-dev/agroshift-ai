@@ -9,11 +9,17 @@ export const CROP_ART: Readonly<Record<CropId, string>> = {
   barley_winter: "/illustrations/crops/barley_winter.svg",
   chickpea: "/illustrations/crops/chickpea.svg",
   lentil_red: "/illustrations/crops/lentil_red.svg",
+  lentil_green: "/illustrations/crops/lentil_red.svg",
   sugar_beet: "/illustrations/crops/sugar_beet.svg",
   maize_grain: "/illustrations/crops/maize_grain.svg",
   sunflower: "/illustrations/crops/sunflower.svg",
+  soybean: "/illustrations/crops/dry_bean.svg",
+  canola: "/illustrations/crops/sunflower.svg",
+  safflower: "/illustrations/crops/sunflower.svg",
   dry_bean: "/illustrations/crops/dry_bean.svg",
+  potato: "/illustrations/crops/sugar_beet.svg",
   alfalfa: "/illustrations/crops/alfalfa.svg",
+  sainfoin: "/illustrations/crops/alfalfa.svg",
   vetch: "/illustrations/crops/vetch.svg",
   cotton: "/illustrations/crops/cotton.svg",
   fallow: "/illustrations/crops/fallow.svg",
@@ -242,6 +248,77 @@ function renderBotanicalCrop(crop: string) {
           <circle cx="20" cy="21.5" r="5.8" fill="#ffffff" />
           {/* Brown calyx bracts */}
           <path d="M12 24L20 28L28 24L24 30H16L12 24Z" fill="#78350f" />
+        </g>
+      );
+
+    case "lentil_green":
+      return (
+        <g>
+          {[
+            [14, 15], [22, 13], [27, 19],
+            [11, 23], [19, 21], [25, 27],
+            [15, 29], [21, 31],
+          ].map(([cx, cy], idx) => (
+            <g key={idx}>
+              <ellipse cx={cx} cy={cy} rx="5.2" ry="3.8" fill="#4d7c0f" stroke="#365314" strokeWidth="1.1" />
+              <ellipse cx={cx - 1.2} cy={cy - 1} rx="2" ry="1.1" fill="#bef264" opacity="0.65" />
+            </g>
+          ))}
+        </g>
+      );
+
+    case "soybean":
+      return (
+        <g>
+          <path d="M9 24C12 13 22 8 31 11C29 22 19 28 9 24Z" fill="#84cc16" stroke="#3f6212" strokeWidth="1.2" />
+          <circle cx="15" cy="24" r="4.6" fill="#eab308" stroke="#a16207" strokeWidth="1.2" />
+          <circle cx="23" cy="27" r="4.6" fill="#facc15" stroke="#a16207" strokeWidth="1.2" />
+          <circle cx="28" cy="21" r="4.2" fill="#fde047" stroke="#a16207" strokeWidth="1.1" />
+        </g>
+      );
+
+    case "canola":
+      return (
+        <g>
+          <path d="M20 18V36" stroke="#15803d" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="20" cy="11" r="4.2" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
+          <circle cx="14" cy="16" r="4.2" fill="#fde047" stroke="#ca8a04" strokeWidth="1" />
+          <circle cx="26" cy="16" r="4.2" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+          <circle cx="20" cy="19" r="3.6" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+          <circle cx="20" cy="15" r="2.2" fill="#15803d" />
+        </g>
+      );
+
+    case "safflower":
+      return (
+        <g>
+          <path d="M20 22V36" stroke="#15803d" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M13 24L20 28L27 24L24 17H16L13 24Z" fill="#16a34a" stroke="#14532d" strokeWidth="1.2" />
+          <path d="M15 17C14 11 17 6 20 5C23 6 26 11 25 17Z" fill="#f97316" stroke="#c2410c" strokeWidth="1.1" />
+          <path d="M17.5 16C17.5 11 19 7 20 6C21 7 22.5 11 22.5 16Z" fill="#facc15" />
+        </g>
+      );
+
+    case "potato":
+      return (
+        <g>
+          <ellipse cx="17" cy="23" rx="8.5" ry="6.2" transform="rotate(-14 17 23)" fill="#d6a85a" stroke="#854d0e" strokeWidth="1.3" />
+          <ellipse cx="25.5" cy="27" rx="7.2" ry="5.4" transform="rotate(15 25.5 27)" fill="#e2b86b" stroke="#854d0e" strokeWidth="1.3" />
+          <circle cx="14" cy="21" r="1" fill="#854d0e" />
+          <circle cx="19" cy="24" r="1" fill="#854d0e" />
+          <circle cx="26" cy="26" r="1" fill="#854d0e" />
+          <path d="M18 16C18 11 21 8 24 8" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" />
+        </g>
+      );
+
+    case "sainfoin":
+      return (
+        <g>
+          <path d="M20 15V36" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round" />
+          <ellipse cx="14" cy="25" rx="4.5" ry="2.3" transform="rotate(-25 14 25)" fill="#16a34a" />
+          <ellipse cx="26" cy="25" rx="4.5" ry="2.3" transform="rotate(25 26 25)" fill="#16a34a" />
+          <path d="M15 16C15 9 18 5 20 5C22 5 25 9 25 16Z" fill="#ec4899" stroke="#be185d" strokeWidth="1.1" />
+          <circle cx="20" cy="10" r="2" fill="#fbcfe8" />
         </g>
       );
 

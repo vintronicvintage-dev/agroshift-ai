@@ -53,6 +53,9 @@ import {
   YieldProfitabilityPanel,
 } from "./DashboardCharts";
 import { EvidenceFoundations } from "./EvidenceFoundations";
+import { CropRequirementsMatrix } from "./CropRequirementsMatrix";
+import { TermTooltip } from "@/components/ui/TermTooltip";
+import type { ParcelBiophysicalInput } from "@/lib/crops/cropRequirements";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
@@ -579,6 +582,45 @@ export function FieldWorkspace() {
     [store.inputs.rotation],
   );
 
+  const parcelBiophysicalInput: ParcelBiophysicalInput = {
+    lat: centroid?.lat ?? 37.5677,
+    lon: centroid?.lon ?? 32.7804,
+    elevationM:
+      data.terrain?.data.elevationMean ??
+      masterProvince.province.kimlik_ve_cografya.ortalama_tarim_rakimi_m,
+    slopePct:
+      data.terrain?.data.slopePct ??
+      masterProvince.province.kimlik_ve_cografya.ortalama_egim_yuzde,
+    soil: {
+      sandPct: data.soil?.sand ?? masterProvince.province.toprak_profili_0_30cm_soilgrids.kum_yuzde,
+      siltPct: data.soil?.silt ?? masterProvince.province.toprak_profili_0_30cm_soilgrids.silt_yuzde,
+      clayPct: data.soil?.clay ?? masterProvince.province.toprak_profili_0_30cm_soilgrids.kil_yuzde,
+      ph: data.soil?.ph ?? masterProvince.province.toprak_profili_0_30cm_soilgrids.ph,
+      organicMatterPct:
+        data.soil?.soc !== undefined && data.soil.soc !== null
+          ? Number((data.soil.soc * 1.724).toFixed(2))
+          : masterProvince.province.toprak_profili_0_30cm_soilgrids.organik_madde_yuzde,
+    },
+    climate: {
+      annualPrecipMm:
+        climateSum?.meanAnnualPrecipMm ??
+        masterProvince.province.iklim_ve_su_serisi_2005_2026.yillik_yagis_tipik_mm,
+      annualEt0Mm:
+        climateSum?.meanAnnualEt0Mm ??
+        masterProvince.province.iklim_ve_su_serisi_2005_2026.yillik_referans_ETo_mm,
+      meanAnnualTempC: recentWeather?.allTemp ?? 12.6,
+      hotDaysPerYr:
+        masterProvince.province.uydu_gozlem_smap_hls_ecostress.ecostress_termal_stres_gun_sayisi,
+      frostDaysPerYr: Math.max(
+        0,
+        365 - masterProvince.province.iklim_ve_su_serisi_2005_2026.donsuz_gun_sayisi,
+      ),
+    },
+    irrigationBudgetMm: store.inputs.rainfed ? 0 : store.inputs.budget,
+    irrigationEfficiency: METHOD_EFF[store.inputs.method],
+    currentCropId: store.inputs.rotation[0],
+  };
+
   return (
     <div id="kontrol-paneli" className="mx-auto max-w-[1640px] space-y-5 px-3 py-4 sm:px-6 sm:py-5">
       {/* ── Collapsible Hero Banner matching top-left of reference mockup ── */}
@@ -665,7 +707,7 @@ export function FieldWorkspace() {
           <div className="relative z-10 grid grid-cols-2 gap-2 border-t border-white/15 bg-[#0b2111]/85 px-4 py-3 sm:grid-cols-5 sm:px-7">
             {[
               { icon: "satellite" as IconName, tr: "NASA Uydu Verileri", en: "NASA Satellite Data", sub: "POWER · SMAP · MODIS" },
-              { icon: "sprout" as IconName, tr: "Akıllı Ürün Önerileri", en: "Smart Crop Ranking", sub: "12 Ürün · FAO-56" },
+              { icon: "sprout" as IconName, tr: "Akıllı Ürün Önerileri", en: "Smart Crop Ranking", sub: "18 Mahsul · FAO-56" },
               { icon: "plan" as IconName, tr: "3 Yıllık Rotasyon", en: "3-Year Rotation", sub: "TOPSIS Optimizasyon" },
               { icon: "chart" as IconName, tr: "Verim & Kârlılık Analizi", en: "Yield & Margin Analysis", sub: "P10 · P50 · P90" },
               { icon: "shield" as IconName, tr: "Risk Simülasyonları", en: "Risk Simulations", sub: "Kuraklık & Sıcaklık" },
@@ -904,7 +946,10 @@ export function FieldWorkspace() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1">
-              <p className="text-[12.5px] font-medium text-ink-2">{lang === "tr" ? "Su Kaynağı" : "Water Supply"}</p>
+              <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+                <span>{lang === "tr" ? "Su Kaynağı" : "Water Supply"}</span>
+                <TermTooltip termId="irrigation_efficiency" />
+              </p>
               <button
                 type="button"
                 className="text-[11px] font-semibold text-accent-ink hover:underline"
@@ -964,7 +1009,10 @@ export function FieldWorkspace() {
             <Icon name="layers" size={24} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-medium text-ink-2">{lang === "tr" ? "Toprak Tipi (USDA)" : "Soil Texture (USDA)"}</p>
+            <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+              <span>{lang === "tr" ? "Toprak Tipi (USDA)" : "Soil Texture (USDA)"}</span>
+              <TermTooltip termId="soil_texture" />
+            </p>
             <p className="mt-0.5 truncate font-display text-[19px] font-semibold capitalize text-ink">
               {data.soil ? texName(data.soil.textureClass, t) : lang === "tr" ? "Yükleniyor…" : "Loading…"}
             </p>
@@ -982,8 +1030,9 @@ export function FieldWorkspace() {
             <Icon name="evidence" size={24} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-medium text-ink-2">
-              {lang === "tr" ? "Mevcut Verim & İklim Trendi" : "Yield & Climate Trend"}
+            <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
+              <span>{lang === "tr" ? "Mevcut Verim & İklim Trendi" : "Yield & Climate Trend"}</span>
+              <TermTooltip termId="et0" />
             </p>
             <p className="numeral mt-0.5 truncate text-[20px] text-[#c0392b]">
               {currentYaYmPct !== null ? (
@@ -1161,41 +1210,53 @@ export function FieldWorkspace() {
                 </div>
                 {nasaPanelOpen && (
                   <div className="space-y-1.5 px-3.5 py-2.5 text-[12.5px]">
-                    <label className="flex cursor-pointer items-center gap-2.5 py-0.5">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-[#22c55e]"
-                        checked={layerState.overlays.includes("ndvi")}
-                        onChange={() => toggleOverlay("ndvi")}
-                      />
-                      <span>{lang === "tr" ? "NDVI (Bitki Sağlığı)" : "NDVI (Crop Vigor)"}</span>
+                    <label className="flex cursor-pointer items-center justify-between gap-2 py-0.5">
+                      <span className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-[#22c55e]"
+                          checked={layerState.overlays.includes("ndvi")}
+                          onChange={() => toggleOverlay("ndvi")}
+                        />
+                        <span>{lang === "tr" ? "NDVI (Bitki Sağlığı)" : "NDVI (Crop Vigor)"}</span>
+                      </span>
+                      <TermTooltip termId="ndvi" variant="dark" />
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2.5 py-0.5">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-[#22c55e]"
-                        checked={layerState.overlays.includes("smap")}
-                        onChange={() => toggleOverlay("smap")}
-                      />
-                      <span>{lang === "tr" ? "Toprak Nemi (SMAP)" : "Soil Moisture (SMAP)"}</span>
+                    <label className="flex cursor-pointer items-center justify-between gap-2 py-0.5">
+                      <span className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-[#22c55e]"
+                          checked={layerState.overlays.includes("smap")}
+                          onChange={() => toggleOverlay("smap")}
+                        />
+                        <span>{lang === "tr" ? "Toprak Nemi (SMAP)" : "Soil Moisture (SMAP)"}</span>
+                      </span>
+                      <TermTooltip termId="smap" variant="dark" />
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2.5 py-0.5">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-[#22c55e]"
-                        checked={layerState.overlays.includes("imerg")}
-                        onChange={() => toggleOverlay("imerg")}
-                      />
-                      <span>{lang === "tr" ? "Yağış (IMERG)" : "Precipitation (IMERG)"}</span>
+                    <label className="flex cursor-pointer items-center justify-between gap-2 py-0.5">
+                      <span className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-[#22c55e]"
+                          checked={layerState.overlays.includes("imerg")}
+                          onChange={() => toggleOverlay("imerg")}
+                        />
+                        <span>{lang === "tr" ? "Yağış (IMERG)" : "Precipitation (IMERG)"}</span>
+                      </span>
+                      <TermTooltip termId="imerg" variant="dark" />
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2.5 py-0.5">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-[#22c55e]"
-                        checked={layerState.base === "relief"}
-                        onChange={() => updateLayers({ base: layerState.base === "relief" ? "esri" : "relief" })}
-                      />
-                      <span>{lang === "tr" ? "Yüzey Yükselti (SRTM)" : "Elevation (SRTM 30m)"}</span>
+                    <label className="flex cursor-pointer items-center justify-between gap-2 py-0.5">
+                      <span className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-[#22c55e]"
+                          checked={layerState.base === "relief"}
+                          onChange={() => updateLayers({ base: layerState.base === "relief" ? "esri" : "relief" })}
+                        />
+                        <span>{lang === "tr" ? "Yüzey Yükselti (SRTM)" : "Elevation (SRTM 30m)"}</span>
+                      </span>
+                      <TermTooltip termId="srtm" variant="dark" />
                     </label>
                     <label className="flex cursor-pointer items-center gap-2.5 py-0.5">
                       <input
@@ -1414,8 +1475,9 @@ export function FieldWorkspace() {
                       <Icon name="layers" size={18} />
                     </span>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink">
-                        {lang === "tr" ? "Toprak Sağlığı" : "Soil Health"}
+                      <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
+                        <span>{lang === "tr" ? "Toprak Sağlığı" : "Soil Health"}</span>
+                        <TermTooltip termId="soil_health" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {currentPlan
@@ -1440,8 +1502,9 @@ export function FieldWorkspace() {
                       <Icon name="drop" size={18} />
                     </span>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink">
-                        {lang === "tr" ? "Toprak Nemi" : "Root Moisture"}
+                      <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
+                        <span>{lang === "tr" ? "Toprak Nemi" : "Root Moisture"}</span>
+                        <TermTooltip termId="smap" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {moist
@@ -1468,8 +1531,9 @@ export function FieldWorkspace() {
                       <Icon name="sprout" size={18} />
                     </span>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink">
-                        {lang === "tr" ? "Bitki Sağlığı (NDVI)" : "Vegetation (NDVI)"}
+                      <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
+                        <span>{lang === "tr" ? "Bitki Sağlığı (NDVI)" : "Vegetation (NDVI)"}</span>
+                        <TermTooltip termId="ndvi" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {latestNdvi
@@ -1496,8 +1560,9 @@ export function FieldWorkspace() {
                       <Icon name="thermo" size={18} />
                     </span>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink">
-                        {lang === "tr" ? "Ortalama Sıcaklık" : "Mean Temperature"}
+                      <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
+                        <span>{lang === "tr" ? "Ortalama Sıcaklık" : "Mean Temperature"}</span>
+                        <TermTooltip termId="nasa_power" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {lang === "tr" ? "Son 30 gün (POWER)" : "Last 30 days (POWER)"}
@@ -1518,8 +1583,9 @@ export function FieldWorkspace() {
                       <Icon name="rain" size={18} />
                     </span>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink">
-                        {lang === "tr" ? "Yıllık / 30G Yağış" : "Annual / 30d Rain"}
+                      <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
+                        <span>{lang === "tr" ? "Yıllık / 30G Yağış" : "Annual / 30d Rain"}</span>
+                        <TermTooltip termId="pe" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {recentWeather
@@ -1637,8 +1703,9 @@ export function FieldWorkspace() {
                   {lang === "tr" ? "Akıllı Ürün Önerileri" : "Smart Crop Recommendations"}
                 </h2>
               </div>
-              <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
-                FAO-56 & TOPSIS
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
+                <span>FAO-56 & TOPSIS</span>
+                <TermTooltip termId="topsis_pareto" />
               </span>
             </div>
             <p className="mt-1.5 text-[13px] text-ink-2">
@@ -1762,8 +1829,9 @@ export function FieldWorkspace() {
                 <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
                   <Icon name="plan" size={18} />
                 </span>
-                <h2 className="font-display text-[18px] font-semibold text-ink">
-                  {lang === "tr" ? "Üç Yıllık Ürün Rotasyon Planı" : "Three-Year Crop Rotation Plan"}
+                <h2 className="font-display text-[18px] font-semibold text-ink flex items-center gap-1.5">
+                  <span>{lang === "tr" ? "Üç Yıllık Ürün Rotasyon Planı" : "Three-Year Crop Rotation Plan"}</span>
+                  <TermTooltip termId="munavebe" />
                 </h2>
               </div>
               {res && res.alternatives.length > 1 ? (
@@ -1951,6 +2019,14 @@ export function FieldWorkspace() {
         </article>
       </section>
 
+      {/* ── ROW 3.25: 18-Mahsul Biyofiziksel Yetişme Gereksinimleri ve Parsel Uyum Öğrenme Matrisi ── */}
+      <CropRequirementsMatrix
+        parcelInput={parcelBiophysicalInput}
+        provinceName={masterProvince.province.kimlik_ve_cografya.il_adi}
+        currentRotation={store.inputs.rotation}
+        onAssignCropToYear={(yrIdx, cropId) => assignCropYear(cropId, yrIdx)}
+      />
+
       {/* ── ROW 3.5: Monthly Water Balance Climograph & 24-Year Historical Performance Strip ── */}
       {climateSum && best && (
         <section
@@ -1984,8 +2060,9 @@ export function FieldWorkspace() {
                 />
               </div>
               <div>
-                <h2 className="font-display text-[18px] font-semibold text-ink">
-                  {lang === "tr" ? "Risk Simülasyonları" : "Climate & Market Risk Simulations"}
+                <h2 className="font-display text-[18px] font-semibold text-ink flex items-center gap-1.5">
+                  <span>{lang === "tr" ? "Risk Simülasyonları" : "Climate & Market Risk Simulations"}</span>
+                  <TermTooltip termId="p10_p50_p90" />
                 </h2>
                 <p className="text-[12.5px] text-ink-2">
                   {lang === "tr"
@@ -2130,8 +2207,9 @@ export function FieldWorkspace() {
                   <Icon name="evidence" size={18} />
                 </span>
                 <div>
-                  <h2 className="font-display text-[18px] font-semibold text-ink">
-                    {lang === "tr" ? "Açıklanabilir Karar Dayanağı" : "Explainable Decision Rationale"}
+                  <h2 className="font-display text-[18px] font-semibold text-ink flex items-center gap-1.5">
+                    <span>{lang === "tr" ? "Açıklanabilir Karar Dayanağı" : "Explainable Decision Rationale"}</span>
+                    <TermTooltip termId="confidence_grade" />
                   </h2>
                   <p className="text-[12.5px] text-ink-2">
                     {lang === "tr" ? "Neden bu rotasyon planını öneriyoruz?" : "Why do we recommend this rotation plan?"}

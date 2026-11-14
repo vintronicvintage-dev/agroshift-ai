@@ -17,6 +17,12 @@ import {
   TURKIYE_AGRO_MASTER,
 } from "@/lib/data/turkiyeAgroMaster";
 import { SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
+import {
+  CROP_REQUIREMENTS,
+  evaluateAllCropsForParcel,
+} from "@/lib/crops/cropRequirements";
+import { CROP_IDS } from "@/lib/crops/database";
+import { GLOSSARY_LIST, getGlossaryTerm } from "@/lib/ui/glossary";
 
 describe("Agricultural Scientific Data Infrastructure & API Routes", () => {
   it("GET /api/data/sources returns all 12 scientific data sources with Verified, Estimated, and Unavailable classifications", async () => {
@@ -144,7 +150,8 @@ describe("Agricultural Scientific Data Infrastructure & API Routes", () => {
     const resAll = await getCropParams(reqAll);
     expect(resAll.status).toBe(200);
     const bodyAll = await resAll.json();
-    expect(bodyAll.cropCount).toBe(12);
+    expect(bodyAll.cropCount).toBe(18);
+    expect(Object.keys(bodyAll.requirements).length).toBe(18);
     expect(bodyAll.tuikYieldBaselines.length).toBeGreaterThanOrEqual(8);
     expect(bodyAll.officialMarketPrices.length).toBeGreaterThanOrEqual(8);
 
@@ -256,5 +263,63 @@ describe("Agricultural Scientific Data Infrastructure & API Routes", () => {
       expect(card.parameters.length).toBeGreaterThanOrEqual(3);
       expect(card.officialUrl.startsWith("https://")).toBe(true);
     }
+  });
+
+  it("evaluates all 18 crops' 6-dimensional biophysical growth requirements & validates 32 interactive glossary terms", () => {
+    expect(CROP_IDS.length).toBe(18);
+    expect(Object.keys(CROP_REQUIREMENTS).length).toBe(18);
+
+    // Ensure all 6 newly added crops are present with complete requirements
+    const newCrops = ["lentil_green", "soybean", "canola", "safflower", "potato", "sainfoin"] as const;
+    for (const cid of newCrops) {
+      const req = CROP_REQUIREMENTS[cid];
+      expect(req).toBeDefined();
+      expect(req.thermal.gddRequired).toBeGreaterThan(800);
+      expect(req.water.seasonalEtcRangeMm[1]).toBeGreaterThan(req.water.seasonalEtcRangeMm[0]);
+      expect(req.soil.salinityThresholdDsm).toBeGreaterThan(0);
+    }
+
+    // Dryland Central Anatolian plateau parcel (Konya-Çumra rainfed 340 mm, elevation 1015 m)
+    const drylandEvals = evaluateAllCropsForParcel({
+      lat: 37.5677,
+      lon: 32.7804,
+      elevationM: 1015,
+      slopePct: 2.0,
+      soil: {
+        sandPct: 28,
+        siltPct: 36,
+        clayPct: 36,
+        ph: 7.7,
+        organicMatterPct: 1.5,
+      },
+      climate: {
+        annualPrecipMm: 340,
+        annualEt0Mm: 1180,
+        meanAnnualTempC: 11.8,
+        hotDaysPerYr: 28,
+        frostDaysPerYr: 78,
+      },
+      irrigationBudgetMm: 0,
+      irrigationEfficiency: 0.75,
+      currentCropId: "wheat_winter",
+    });
+
+    expect(drylandEvals.length).toBe(17); // 18 minus fallow
+    const safflowerDry = drylandEvals.find((e) => e.cropId === "safflower")!;
+    const lentilGreenDry = drylandEvals.find((e) => e.cropId === "lentil_green")!;
+    const sainfoinDry = drylandEvals.find((e) => e.cropId === "sainfoin")!;
+    const cottonDry = drylandEvals.find((e) => e.cropId === "cotton")!;
+
+    // Under dryland 1015m plateau conditions following wheat, drought-tolerant pulses/oilseeds/forage outrank cotton
+    expect(safflowerDry.overallSuitabilityPct).toBeGreaterThan(cottonDry.overallSuitabilityPct);
+    expect(lentilGreenDry.overallSuitabilityPct).toBeGreaterThan(cottonDry.overallSuitabilityPct);
+    expect(sainfoinDry.overallSuitabilityPct).toBeGreaterThan(cottonDry.overallSuitabilityPct);
+
+    // Validate all glossary terms and alias lookups
+    expect(GLOSSARY_LIST.length).toBeGreaterThanOrEqual(30);
+    expect(getGlossaryTerm("ndvi")?.symbol).toBe("NDVI");
+    expect(getGlossaryTerm("et0")?.symbol).toBe("ET₀");
+    expect(getGlossaryTerm("topsis")?.id).toBe("topsis_pareto");
+    expect(getGlossaryTerm("ece_salinity")?.id).toBe("salinity_ece");
   });
 });

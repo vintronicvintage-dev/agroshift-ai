@@ -86,10 +86,13 @@ export interface Evidence {
 // ── Crops ────────────────────────────────────────────────────────────────────
 
 export type CropId =
-  | "wheat_winter" | "barley_winter" | "chickpea" | "lentil_red" | "sugar_beet"
-  | "maize_grain" | "sunflower" | "dry_bean" | "alfalfa" | "vetch" | "cotton" | "fallow";
+  | "wheat_winter" | "barley_winter" | "chickpea" | "lentil_red" | "lentil_green"
+  | "sugar_beet" | "maize_grain" | "sunflower" | "soybean" | "canola" | "safflower"
+  | "dry_bean" | "potato" | "alfalfa" | "sainfoin" | "vetch" | "cotton" | "fallow";
 
-export type CropFamily = "poaceae" | "fabaceae" | "amaranthaceae" | "asteraceae" | "malvaceae" | "none";
+export type CropFamily =
+  | "poaceae" | "fabaceae" | "amaranthaceae" | "asteraceae" | "malvaceae"
+  | "brassicaceae" | "solanaceae" | "none";
 
 /** Coarse agro-climatic zone used to pick the regional crop calendar (Türkiye, 36–42°N). */
 export type ClimateZone = "south_lowland" | "north_lowland" | "highland";

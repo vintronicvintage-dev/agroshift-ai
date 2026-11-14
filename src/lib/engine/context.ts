@@ -8,7 +8,7 @@ import type {
   AnalysisInput, ClimateSeries, ClimateZone, ConstraintViolation, CropId, ExplanationItem, LocalizedText, MonthlyDemand, PlanResult,
   PlanWindow, PriorityWeights, RotationSequence, SoilHydraulics, BuilderMessage, PlanWarning, PreCropEffectInfo,
 } from "../types";
-import { CROPS, CROP_IDS, CROP_CONSTANTS, asm } from "../crops/database";
+import { CROPS, CROP_IDS, DEFAULT_CANDIDATE_CROP_IDS, CROP_CONSTANTS, asm } from "../crops/database";
 import { climateZone, harvestMonthDay, sowMonthDay, scheduleSequence } from "../crops/calendar";
 import { preCropEffect, previousCrops, N_NEED_KG_HA } from "../crops/preCrop";
 import { trLocative } from "./units";
@@ -182,7 +182,7 @@ function buildContext(input: AnalysisInput): AnalysisContext {
   const overrides = input.economics?.crops ?? {};
   const ev = buildEvalContext(setup, windows, budgetNet, efficiency, waterPrice, priceMultiplier, overrides);
   const env: EvalEnv = { series, monthlyFactors, soil, zone, budgetNet, efficiency, waterPrice, priceMultiplier, overrides, lapseDeltaC };
-  const candidates = (field.candidateCrops?.length ? field.candidateCrops : CROP_IDS).filter((c) => CROP_IDS.includes(c));
+  const candidates = (field.candidateCrops?.length ? field.candidateCrops : DEFAULT_CANDIDATE_CROP_IDS).filter((c) => CROP_IDS.includes(c));
 
   // Confidence inputs shared by all plans.
   const reasons: LocalizedText[] = [];

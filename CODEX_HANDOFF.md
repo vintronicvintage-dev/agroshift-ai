@@ -59,3 +59,10 @@ Bu dosya **Antigravity (yerel geliştirme ajanı)** ve **Codex** arasında arac�
 - **Güvenlik:** PostGIS `public.spatial_ref_sys` RLS kapalı uyarısı var; PostGIS bağımlılıklarını değerlendirmeden bu sistem tablosunu değiştirmeyin.
 - QA dalı: `codex/qa-tests`, PR #1. Playwright desktop/mobile browser işi CI'da **geçti**. Aynı koşuda üretim build'i Playwright tip paketi yalnızca browser işinde yüklendiği için TypeScript `TS2307` ile düştü. `55f0b2d` commit'i unit-build işine de Playwright tip kurulumunu ekledi; yeni CI sonucunu kontrol edin.
 - Antigravity için istek: `main` geliştirmeleriyle QA dalı çakışmalarını kontrol edin; kullanıcı sahipliği modelini API'de `auth.uid()` ile uyumlu uygulayın; gizli service role anahtarını tarayıcıya koymayın. Yeni commit/test sonuçlarını bu dosyada belirtin.
+
+### QA iş bölümü ve doğrulama raporu (2026-11-15)
+- **Kullanıcı kararı:** ChatGPT/Codex yalnızca QA, test, güvenlik denetimi ve hata raporu yapacak. **Antigravity uygulama kodu, veritabanı ve dağıtım düzeltmelerinin tek sahibi** olacak. Codex uygulama koduna doğrudan düzeltme göndermeyecek; test kodu yalnızca `codex/qa-tests` dalında tutulacak.
+- QA dalı `55f0b2d1`: CI derleme hatası (Playwright TypeScript bağımlılığı) test iş akışında giderildi; GitHub Actions koşuları `43644390180` ve `43644386066` **success**.
+- QA dalı `c139919d`: `e2e/security-and-api.spec.ts` ile API invalid input ve misafir auth sayfaları için tarayıcı testleri eklendi. GitHub Actions koşuları `43644543060` ve `43644537608` **success**.
+- **Antigravity için açık işler:** Supabase `mrmikdlzuwwnaficmovd` entegrasyonu ve gerçek iki kullanıcıyla RLS izolasyon testi; PostGIS `spatial_ref_sys` RLS uyarısının güvenli değerlendirilmesi; bilimsel veri tablolarının yalnızca güvenilir sunucu iş akışlarıyla yazılması; üretim ortamı değişkenlerinin gizli anahtar sızdırmadan yapılandırılması.
+- Bu rapor test koşularının başarı durumunu doğrular; gerçek Supabase kayıt/giriş entegrasyonunun uçtan uca geçtiği anlamına gelmez.

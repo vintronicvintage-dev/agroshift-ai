@@ -1,16 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { CROP_IDS, CROPS } from "@/lib/engine";
 import type { AnalysisResult, CropId, RotationSequence, YearResult } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { PILOTS } from "@/lib/data/pilots";
 import {
-  DEFAULT_SCENARIO,
-  METHOD_EFF,
-  pilotField,
-  setField,
   setInputs,
   setStore,
   TON_PER_IRRIGATION,
@@ -25,10 +20,14 @@ import { TermTooltip } from "@/components/ui/TermTooltip";
 export interface FieldShiftComparisonProps {
   result: AnalysisResult | null;
   running: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+  children?: ReactNode;
   effectiveAreaDa: number;
   soilTextureLabel: string;
   provinceName: string;
   /** Optional callbacks when embedded in the main workspace (`/`) */
+  onPinField?: () => void;
   onDrawPolygon?: () => void;
   onOpenCoords?: () => void;
   onJumpToMap?: () => void;
@@ -69,8 +68,6 @@ export function evaluateYearBudgetStatus(
   const exceededShare = yr.budgetExceededShare ?? 0;
   const exceededWindows = Math.round(exceededShare * totalWindows);
   const kcMid = def.agronomy?.kc.value.mid ?? 0;
-  const ky = def.agronomy?.ky.value ?? 0;
-  const yaYmPct = Math.round((yr.yieldRatio?.p50 ?? 1) * 100);
 
   if (yr.cropId === "fallow") {
     return {
@@ -92,28 +89,14 @@ export function evaluateYearBudgetStatus(
     };
   }
 
-  // Determine exceedance under irrigated vs. rainfed (0 mm budget) conditions
-  const isRainfed = budgetNetMm <= 0;
-  const exceeded = isRainfed
-    ? unmetDeficitP50Mm >= 20 || (unmetDeficitP90Mm >= 40 && yaYmPct < 85)
-    : exceededShare > 0.04 || unmetDeficitP50Mm >= 10 || (irrigatedMm >= budgetNetMm - 2 && unmetDeficitP90Mm >= 18);
+  const exceeded = exceededShare > 0;
+  const hasDeficit = (yr.unmetDeficitMm?.p50 ?? 0) > 0;
 
   if (exceeded) {
-    const statusBadge = isRainfed
-      ? lang === "tr"
-        ? `AŞIM · +${ Math.max(unmetDeficitP50Mm, unmetDeficitP90Mm) } mm su açığı`
-        : `DEFICIT · +${ Math.max(unmetDeficitP50Mm, unmetDeficitP90Mm) } mm deficit`
-      : lang === "tr"
-        ? `AŞIM · Bütçe yetmedi (+${Math.max(unmetDeficitP50Mm, unmetDeficitP90Mm)} mm açık)`
-        : `EXCEEDED · Over budget (+${Math.max(unmetDeficitP50Mm, unmetDeficitP90Mm)} mm deficit)`;
-
-    const reasonText = isRainfed
-      ? lang === "tr"
-        ? `${yr.year}. Yıl (${cropName}): Yıllık sulama bütçesi 0 mm (kuru tarım) olduğundan, bitkinin tepe su tüketimi (Kc=${kcMid.toFixed(2)}, Ky=${ky.toFixed(2)}) doğal yağış ve kök nemini aştı; medyan +${unmetDeficitP50Mm} mm (kurak yıllarda +${unmetDeficitP90Mm} mm) karşılanamayan su açığı oluştu (Ya/Ym=%${yaYmPct}).`
-        : `Year ${yr.year} (${cropName}): With a 0 mm (rainfed) budget, crop water demand (Kc=${kcMid.toFixed(2)}, Ky=${ky.toFixed(2)}) exceeded rainfall and root storage, leaving a median +${unmetDeficitP50Mm} mm (+${unmetDeficitP90Mm} mm in dry years) unmet deficit (Ya/Ym=${yaYmPct}%).`
-      : lang === "tr"
-        ? `${yr.year}. Yıl (${cropName}): Yıllık ${Math.round(budgetNetMm)} mm net sulama bütçesi tamamen tükendi (${irrigatedMm} mm uygulandı). Ürün su talebi (Kc=${kcMid.toFixed(2)}, Ky=${ky.toFixed(2)}) bütçeyi aştığı için ${totalWindows} tarihsel dönemin ${Math.max(1, exceededWindows)}'inde su yetmedi ve medyan +${unmetDeficitP50Mm} mm (kurak yıllarda +${unmetDeficitP90Mm} mm) su açığı kaldı.`
-        : `Year ${yr.year} (${cropName}): The ${Math.round(budgetNetMm)} mm annual net budget was exhausted (${irrigatedMm} mm applied). Crop ETc demand (Kc=${kcMid.toFixed(2)}, Ky=${ky.toFixed(2)}) exceeded the budget in ${Math.max(1, exceededWindows)} of ${totalWindows} windows, leaving a +${unmetDeficitP50Mm} mm median (+${unmetDeficitP90Mm} mm dry-year) deficit.`;
+    const statusBadge = lang === "tr" ? "AŞIM" : "EXCEEDED";
+    const reasonText = lang === "tr"
+      ? `${yr.year}. Yıl (${cropName}): ${budgetNetMm} mm net bütçe, ${totalWindows} dönemin ${exceededWindows}’inde su talebini karşılamadı (Kc=${kcMid.toFixed(2)}).`
+      : `Year ${yr.year} (${cropName}): The ${budgetNetMm} mm net budget fell short in ${exceededWindows} of ${totalWindows} periods (Kc=${kcMid.toFixed(2)}).`;
 
     return {
       year: yr.year,
@@ -123,7 +106,7 @@ export function evaluateYearBudgetStatus(
       unmetDeficitP50Mm,
       unmetDeficitP90Mm,
       exceededShare,
-      exceededWindows: Math.max(1, exceededWindows),
+      exceededWindows,
       totalWindows,
       exceeded: true,
       statusBadge,
@@ -142,23 +125,24 @@ export function evaluateYearBudgetStatus(
     exceededWindows,
     totalWindows,
     exceeded: false,
-    statusBadge:
-      lang === "tr"
-        ? `UYGUN · ${irrigatedMm} mm (Bütçe içinde)`
-        : `OK · ${irrigatedMm} mm (Within budget)`,
+    statusBadge: hasDeficit ? (lang === "tr" ? "Su açığı" : "Water deficit") : (lang === "tr" ? "UYGUN" : "Within budget"),
     reasonText:
       lang === "tr"
-        ? `${yr.year}. Yıl (${cropName}): Yıllık ${irrigatedMm} mm net sulama ile su talebi (Kc=${kcMid.toFixed(2)}) ${Math.round(budgetNetMm)} mm bütçeyi aşmadan karşılandı.`
-        : `Year ${yr.year} (${cropName}): Net irrigation of ${irrigatedMm} mm met crop demand (Kc=${kcMid.toFixed(2)}) within the ${Math.round(budgetNetMm)} mm budget.`,
+        ? `${yr.year}. Yıl (${cropName}): Net sulama medyanı ${irrigatedMm} mm. ${budgetNetMm} mm bütçeyi aşmadan hesaplanan su açığı medyanı ${unmetDeficitP50Mm} mm (P90: ${unmetDeficitP90Mm} mm).`
+        : `Year ${yr.year} (${cropName}): Median net irrigation was ${irrigatedMm} mm. Within the ${budgetNetMm} mm budget, the median deficit was ${unmetDeficitP50Mm} mm (P90: ${unmetDeficitP90Mm} mm).`,
   };
 }
 
 export function FieldShiftComparison({
   result,
   running,
+  error,
+  onRetry,
+  children,
   effectiveAreaDa,
   soilTextureLabel,
   provinceName,
+  onPinField,
   onDrawPolygon,
   onOpenCoords,
   onJumpToMap,
@@ -167,38 +151,10 @@ export function FieldShiftComparison({
 }: FieldShiftComparisonProps) {
   const { lang, n, L } = useI18n();
   const store = useStore();
-  const [expandedWhy, setExpandedWhy] = useState<Record<string, boolean>>({
-    alt_0: true,
-  });
-  const [recentChangePulse, setRecentChangePulse] = useState(false);
-
   const budgetNetMm = store.inputs.rainfed ? 0 : store.inputs.budget;
   const scenarioPreset = store.scenario.preset;
-
-  // Trigger a brief computing/updating pulse whenever the user changes budget, scenario, or current rotation
-  const settingsSignature = `${store.field?.id ?? "none"}|${budgetNetMm}|${store.inputs.method}|${scenarioPreset}|${store.scenario.rainMultiplier}|${store.scenario.tempDeltaC}|${store.inputs.rotation.join(",")}`;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRecentChangePulse(true);
-    const timer = setTimeout(() => setRecentChangePulse(false), 320);
-    return () => clearTimeout(timer);
-  }, [settingsSignature]);
-
-  const isBusy = running || recentChangePulse;
-
-  // Action: Open Konya-Çumra Example
-  const openKonyaCumraExample = (presetRotation?: RotationSequence) => {
-    const f = pilotField("konya-cumra", lang);
-    if (f) setField(f);
-    setInputs({
-      rainfed: false,
-      budget: 200,
-      method: "sprinkler",
-      rotation: presetRotation ?? ["wheat_winter", "sugar_beet", "wheat_winter"],
-      excluded: [],
-    });
-    setStore({ scenario: DEFAULT_SCENARIO });
-  };
+  const tr = lang === "tr";
+  const needsField = Boolean(children && !store.field);
 
   const assignCurrentCropYear = (cropId: CropId, yrIdx: 0 | 1 | 2) => {
     const next: RotationSequence = [...store.inputs.rotation] as RotationSequence;
@@ -213,88 +169,24 @@ export function FieldShiftComparison({
 
   const comparedPlans = result
     ? [
-        { role: "current" as const, plan: result.current, badgeTr: "Mevcut Ekim Nöbetin", badgeEn: "Your Current Rotation" },
+        { role: "current" as const, plan: result.current, badgeTr: "Mevcut plan", badgeEn: "Current plan" },
         ...validAlternatives.map((alt, idx) => ({
           role: `alt_${idx}` as const,
           plan: alt,
-          badgeTr: `Alternatif ${idx + 1}${idx === 0 ? " (Önerilen)" : ""}`,
-          badgeEn: `Alternative ${idx + 1}${idx === 0 ? " (Recommended)" : ""}`,
+          badgeTr: `Alternatif ${idx + 1}`,
+          badgeEn: `Alternative ${idx + 1}`,
         })),
       ]
     : [];
 
-  const totalWindows = result?.windows.count ?? 22;
+  const totalWindows = result?.windows.count ?? 0;
+  const currentResults = store.field && !running && !error && result;
+  const withoutExceedance = comparedPlans.filter(({ plan }) => plan.water.budgetExceededShare === 0);
+  const noBudgetFit = budgetNetMm > 0 && comparedPlans.length > 0 &&
+    comparedPlans.every(({ plan }) => (plan.water.budgetExceededShare ?? 0) > 0);
+  const agYears = result?.windows.agYears ?? [];
+  const formatMm = (mm: number | undefined) => mm == null ? "—" : `${n(mm, 0)} mm`;
 
-  // Evaluate per-year budget exceedance for each compared plan
-  const planDiagnostics = comparedPlans.map((entry) => {
-    const years = entry.plan.years.map((yr) =>
-      evaluateYearBudgetStatus(yr, budgetNetMm, totalWindows, lang),
-    );
-    const exceedingYears = years.filter((y) => y.exceeded);
-    const maxYearDeficitP50 = Math.max(0, ...years.map((y) => y.unmetDeficitP50Mm));
-    const maxYearDeficitP90 = Math.max(0, ...years.map((y) => y.unmetDeficitP90Mm));
-    const annualUnmetP50 = Math.round(entry.plan.water.unmetDeficitMmPerYr?.p50 ?? 0);
-    const annualUnmetP90 = Math.round(entry.plan.water.unmetDeficitMmPerYr?.p90 ?? 0);
-    const remainingDeficitMm = Math.max(annualUnmetP50, maxYearDeficitP50);
-    const remainingDeficitDryMm = Math.max(annualUnmetP90, maxYearDeficitP90);
-    const okWindows =
-      entry.role === "current"
-        ? (result?.alternatives[0]?.trade?.okWindowsCurrent ??
-          Math.round((1 - (entry.plan.water.budgetExceededShare ?? 0)) * totalWindows))
-        : (entry.plan.trade?.okWindowsPlan ??
-          Math.round((1 - (entry.plan.water.budgetExceededShare ?? 0)) * totalWindows));
-
-    return {
-      ...entry,
-      years,
-      exceedingYears,
-      hasExceedance: exceedingYears.length > 0 || remainingDeficitMm >= 10,
-      remainingDeficitMm,
-      remainingDeficitDryMm,
-      okWindows,
-    };
-  });
-
-  // Check if NO plan fits within the budget
-  const allPlansExceedBudget =
-    planDiagnostics.length > 0 && planDiagnostics.every((d) => d.hasExceedance);
-
-  // Active scenario description matching exact code in src/lib/engine/climate.ts
-  const scenarioCodeExplanation =
-    scenarioPreset === "dry"
-      ? lang === "tr"
-        ? "Kodda uygulanan yöntem (prepareClimate): 2001–2024 NASA POWER günlük yağış serisinin (PRECTOTCORR) her günü 0,75 ile çarpılır (−%25 yağış); günlük sıcaklık değişmez (ΔT = 0 °C) ve günlük su dengesi 22 tarihsel 3 yıllık dönemde yeniden oynatılır."
-        : "Method in code (prepareClimate): Every daily precipitation record (PRECTOTCORR) in the 2001–2024 NASA POWER series is multiplied by 0.75 (−25% rain) with ΔT = 0 °C, and the daily water balance is re-simulated across all 22 3-year windows."
-      : scenarioPreset === "hot_dry"
-        ? lang === "tr"
-          ? "Kodda uygulanan yöntem (prepareClimate): Günlük yağış 0,75 ile çarpılır (−%25 yağış) ve günlük Tmin/Tmax değerlerine +2 °C eklenir; bağıl nem, rüzgâr ve güneş radyasyonu sabit tutularak FAO-56 Penman–Monteith referans buharlaşması (ET₀) her gün için yeniden hesaplanır."
-          : "Method in code (prepareClimate): Daily precipitation is multiplied by 0.75 (−25% rain) and +2 °C is added to daily Tmin/Tmax; FAO-56 Penman–Monteith ET₀ is recomputed for every day with relative humidity, wind, and solar radiation held at observed values."
-        : scenarioPreset === "custom"
-          ? lang === "tr"
-            ? `Kodda uygulanan yöntem (prepareClimate): Günlük yağış ×${n(store.scenario.rainMultiplier, 2)} ve sıcaklık +${n(store.scenario.tempDeltaC, 1)} °C kaydırması ile FAO-56 Penman–Monteith ET₀ yeniden hesaplanır.`
-            : `Method in code (prepareClimate): Daily precipitation ×${n(store.scenario.rainMultiplier, 2)} and temperature +${n(store.scenario.tempDeltaC, 1)} °C shift with daily FAO-56 Penman–Monteith ET₀ recomputation.`
-          : lang === "tr"
-            ? "Kodda uygulanan yöntem (prepareClimate): 2001–2024 NASA POWER / MERRA-2 gözlenen günlük yağış (×1,00) ve sıcaklık (ΔT = 0 °C) serisi değiştirilmeden 22 tarihsel 3 yıllık dönemde gün gün oynatılır."
-            : "Method in code (prepareClimate): Observed 2001–2024 NASA POWER / MERRA-2 daily precipitation (×1.00) and temperature (ΔT = 0 °C) series replayed day-by-day across 22 historical 3-year windows.";
-
-  const activeScenarioLabel =
-    scenarioPreset === "dry"
-      ? lang === "tr"
-        ? "Kurak Senaryo (Yağış −%25)"
-        : "Drought Scenario (Rain −25%)"
-      : scenarioPreset === "hot_dry"
-        ? lang === "tr"
-          ? "Sıcak ve Kurak (+2 °C, Yağış −%25)"
-          : "Hot & Dry (+2 °C, Rain −25%)"
-        : scenarioPreset === "custom"
-          ? lang === "tr"
-            ? "Özel İklim Senaryosu"
-            : "Custom Climate Scenario"
-          : lang === "tr"
-            ? "Normal İklim (2001–2024)"
-            : "Typical Climate (2001–2024)";
-
-  const isKonyaSelected = store.field?.pilotId === "konya-cumra";
 
   return (
     <section
@@ -304,137 +196,73 @@ export function FieldShiftComparison({
           ? "Tarla Seç, Su Koşullarını Belirle ve Planları Karşılaştır"
           : "Select Parcel, Set Water Conditions, and Compare Plans"
       }
-      className="bento-card overflow-hidden border-2 border-[#1e6b34]/25 bg-surface shadow-sm"
+      className="fieldshift-decision"
     >
-      {/* ── COMPACT TOP BANNER: 3-Step Flow Spine + "Konya–Çumra örneğini aç" + Own Parcel Actions ── */}
-      <div className="border-b border-line bg-[#112e18] px-4 py-3.5 text-white sm:px-6">
-        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 text-[11.5px] font-semibold text-[#86efac]">
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 font-mono text-[11px] text-white">
-                NASA Space Apps · Field Shift
-              </span>
-              <span>
-                {lang === "tr"
-                  ? "1. Tarla seç → 2. Su koşullarını belirle → 3. Planları karşılaştır"
-                  : "1. Select parcel → 2. Set water conditions → 3. Compare plans"}
-              </span>
-            </div>
-            <h1 className="font-display text-[20px] font-semibold leading-snug text-white sm:text-[24px]">
-              {lang === "tr"
-                ? "Su Kısıtlı Tarlada 3 Yıllık Ekim Nöbeti ve Bütçe Aşımı Karşılaştırması"
-                : "3-Year Crop Rotation & Water Budget Exceedance Comparison"}
-            </h1>
-            <p className="max-w-3xl text-[13px] text-[#d5e8d8]">
-              {lang === "tr"
-                ? "Mevcut 3 yıllık ekim nöbetinizi iki geçerli alternatifle aynı ölçütlerle karşılaştırın. Su bütçesini düşürün veya kurak senaryoyu seçin; hangi planın hangi yılda bütçeyi aştığını ve nedenini görün."
-                : "Compare your current 3-year crop rotation against two valid alternatives using identical criteria. Lower the water budget or select the drought scenario to see which plan exceeds the budget in which year and why."}
-            </p>
-          </div>
-
-          {/* Primary First-Open CTA: "Konya–Çumra örneğini aç" + Own Field Actions */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              data-testid="open-konya-cumra-btn"
-              onClick={() => openKonyaCumraExample(["wheat_winter", "sugar_beet", "wheat_winter"])}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#86efac]/60 bg-[#22c55e] px-4 py-2 text-[13px] font-bold text-[#071f0d] shadow-sm transition-colors hover:bg-[#4ade80] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              <Icon name="sprout" size={17} />
-              <span>
-                {lang === "tr" ? "Konya–Çumra örneğini aç" : "Open Konya–Çumra example"}
-              </span>
-            </button>
-
-            {onDrawPolygon ? (
-              <button
-                type="button"
-                data-testid="draw-own-parcel-btn"
-                onClick={onDrawPolygon}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-white/20"
-              >
-                <Icon name="polygon" size={16} />
-                <span>{lang === "tr" ? "Kendi Tarlanı Çiz" : "Draw Your Parcel"}</span>
-              </button>
-            ) : (
-              <Link
-                href="/#harita-bolumu"
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-white/20"
-              >
-                <Icon name="polygon" size={16} />
-                <span>{lang === "tr" ? "Haritada Tarla Seç / Çiz" : "Select / Draw Parcel on Map"}</span>
-              </Link>
-            )}
-
-            {onOpenCoords && (
-              <button
-                type="button"
-                onClick={onOpenCoords}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-[12px] font-medium text-[#d5e8d8] hover:bg-white/15 hover:text-white"
-              >
-                <Icon name="keyboard" size={15} />
-                <span>{lang === "tr" ? "Koordinat Gir" : "Enter Coords"}</span>
-              </button>
-            )}
-          </div>
+      <header className="fieldshift-decision-heading">
+        <div>
+          <h1 className="display text-[28px] leading-tight text-ink sm:text-[36px]">
+            {children ? (tr ? "Tarla çalışma alanı" : "Field workspace") : (tr ? "Ekim planları" : "Crop plans")}
+          </h1>
+          {!needsField && <p className="mt-2 text-base text-ink-2">
+            {tr ? "Sulama bütçeni ve iklim koşullarını değiştir, her planın su açığını gör." : "Change the irrigation budget and climate conditions to see each plan’s water deficit."}
+          </p>}
         </div>
-      </div>
+        {!needsField && <div className="flex flex-wrap gap-2">
+          {onPinField && (
+            <button type="button" className="btn btn-primary min-h-11" onClick={onPinField}>
+              <Icon name="pin" size={17} /> {tr ? "Haritadan nokta seç" : "Choose a point on the map"}
+            </button>
+          )}
+          {onDrawPolygon ? (
+            <button type="button" data-testid="draw-own-parcel-btn" className="btn min-h-11" onClick={onDrawPolygon}>
+              {tr ? "Tarla çiz" : "Draw a field"}
+            </button>
+          ) : (
+            <Link href="/tarla#harita-bolumu" className="btn min-h-11">{tr ? "Tarla haritası" : "Field map"}</Link>
+          )}
+          {onOpenCoords && (
+            <button type="button" className="btn min-h-11" onClick={onOpenCoords}>
+              {tr ? "Koordinat gir" : "Enter coordinates"}
+            </button>
+          )}
+        </div>}
+      </header>
 
+      {needsField && (
+        <div className="field-desk">
+          <div className="field-desk-map">{children}</div>
+          <aside className="field-desk-guide" aria-labelledby="field-desk-title">
+            <Icon name="sprout" size={46} />
+            <h2 id="field-desk-title">{tr ? "Bir tarla seçerek başlayın" : "Start by selecting a field"}</h2>
+            <p>{tr ? "Konumu bulun, sınırı çizin veya bir nokta seçip alanı girin." : "Find a location, draw the boundary or select a point and enter the field area."}</p>
+            <div className="field-desk-actions">
+              <button type="button" className="btn btn-primary" onClick={onPinField}><Icon name="pin" size={19} />{tr ? "Haritada nokta seç" : "Choose a map point"}</button>
+              <button type="button" className="btn" onClick={onDrawPolygon}><Icon name="polygon" size={19} />{tr ? "Sınır çiz" : "Draw a boundary"}</button>
+              <button type="button" className="btn" onClick={onOpenCoords}><Icon name="pin" size={19} />{tr ? "Koordinat gir" : "Enter coordinates"}</button>
+            </div>
+          </aside>
+        </div>
+      )}
       {/* ── UNIFIED CONTROL BAR RIGHT ABOVE COMPARISON: 1. Seçili Tarla | 2. Yıllık Sulama Bütçesi | 3. İklim Senaryosu ── */}
-      <div className="grid grid-cols-1 gap-4 border-b border-line bg-bg/75 p-4 sm:px-6 lg:grid-cols-3">
+      {children && !needsField && <div className="fieldshift-decision-map">{children}</div>}
+      {store.field && <>
+      <div id="sulama-ayarlari" className="fieldshift-decision-controls grid scroll-mt-36 grid-cols-1 gap-3 lg:grid-cols-3">
         {/* BOX 1: 1. TARLA SEÇ & MEVCUT EKİM NÖBETİ */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-3.5 shadow-2xs">
+        <div className="flex flex-col justify-between min-w-0 rounded-xl border border-line bg-surface p-3.5">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#1e6b34]">
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#1e6b34] text-[11px] text-white">
-                  1
-                </span>
-                <span>{lang === "tr" ? "Seçili Tarla ve Mevcut Sıra" : "Selected Parcel & Current Sequence"}</span>
+                <span>{lang === "tr" ? "Tarla ve ürün senaryosu" : "Field and crop scenario"}</span>
               </span>
-              {isKonyaSelected && (
-                <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 font-mono text-[10px] font-bold text-[#166534]">
-                  {lang === "tr" ? "Çumra Demo Aktif" : "Çumra Demo Active"}
-                </span>
-              )}
+            </div>
+            <div className="mt-2 text-sm text-ink">
+              <strong>{store.field?.name ?? (tr ? "Henüz tarla seçilmedi" : "No field selected")}</strong>
+              {store.field && <p className="mt-1 text-ink-2">{n(effectiveAreaDa, 1)} da · {soilTextureLabel} · {provinceName}</p>}
             </div>
 
-            {/* Pilot Basin Selector + Parcel Stats */}
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <label htmlFor="field-shift-pilot-select" className="sr-only">
-                  {lang === "tr" ? "Tarla veya Örnek Havza Seç" : "Select Parcel or Pilot Basin"}
-                </label>
-                <select
-                  id="field-shift-pilot-select"
-                  aria-label={lang === "tr" ? "Seçili tarla havzası" : "Selected parcel basin"}
-                  value={store.field?.pilotId ?? "custom"}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "custom") return;
-                    const pf = pilotField(val, lang);
-                    if (pf) setField(pf);
-                  }}
-                  className="w-full rounded-xl border border-line bg-bg px-2.5 py-1.5 font-display text-[15px] font-semibold text-ink cursor-pointer"
-                >
-                  {PILOTS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {lang === "tr" ? p.nameTr : p.nameEn}
-                    </option>
-                  ))}
-                  {!store.field?.pilotId && (
-                    <option value="custom">
-                      {store.field?.name ?? (lang === "tr" ? "Özel Çizilen Tarla" : "Custom Drawn Parcel")}
-                    </option>
-                  )}
-                </select>
-              </div>
-              <div className="text-right font-mono text-[11.5px] text-ink-2">
-                <strong className="text-ink">{n(effectiveAreaDa, 0)} da</strong> · {soilTextureLabel}
-                <div className="text-[10.5px] text-ink-3">{provinceName}</div>
-              </div>
-            </div>
-
+            <p className="mt-2 text-xs text-ink-2">
+              {tr ? "Tarladaki ürünü biliyorsan aşağıda seç. Seçilen sıra hesapta senaryo olarak kullanılır." : "Choose the crops below if known. The rotation is used as a scenario input."}
+            </p>
             {/* Farmer's Current 3-Year Rotation Selectors */}
             <div className="mt-3">
               <div className="flex flex-wrap items-center justify-between gap-1">
@@ -488,7 +316,7 @@ export function FieldShiftComparison({
                       id={`cur-rot-yr-${yrIdx + 1}`}
                       value={store.inputs.rotation[yrIdx]}
                       onChange={(e) => assignCurrentCropYear(e.target.value as CropId, yrIdx)}
-                      className="mt-0.5 w-full truncate bg-transparent text-[12px] font-semibold text-ink outline-none cursor-pointer"
+                      className="mt-0.5 min-h-9 w-full truncate bg-transparent text-sm font-semibold text-ink cursor-pointer"
                     >
                       {CROP_IDS.map((cid) => (
                         <option key={cid} value={cid}>
@@ -504,13 +332,10 @@ export function FieldShiftComparison({
         </div>
 
         {/* BOX 2: 2. YILLIK SULAMA BÜTÇESİ VE YÖNTEMİ */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-3.5 shadow-2xs">
+        <div className="flex flex-col justify-between min-w-0 rounded-xl border border-line bg-surface p-3.5">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#0277bd]">
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#0277bd] text-[11px] text-white">
-                  2
-                </span>
                 <span>{lang === "tr" ? "Yıllık Sulama Bütçesi" : "Annual Irrigation Budget"}</span>
                 <TermTooltip termId="dn" />
               </span>
@@ -620,19 +445,14 @@ export function FieldShiftComparison({
         </div>
 
         {/* BOX 3: 3. İKLİM SENARYOSU VE KODDA UYGULANAN YÖNTEM */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-3.5 shadow-2xs">
+        <div className="flex flex-col justify-between min-w-0 rounded-xl border border-line bg-surface p-3.5">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#b45309]">
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#b45309] text-[11px] text-white">
-                  3
-                </span>
                 <span>{lang === "tr" ? "İklim Senaryosu" : "Climate Scenario"}</span>
                 <TermTooltip termId="et0" />
               </span>
-              <span className="rounded-full bg-[#fef3c7] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#92400e]">
-                {activeScenarioLabel}
-              </span>
+
             </div>
 
             {/* Scenario Preset Buttons */}
@@ -648,9 +468,9 @@ export function FieldShiftComparison({
                     rain: 1,
                     temp: 0,
                     tr: "Normal İklim",
-                    subTr: "2001–2024 Gözlem",
+                    subTr: "Tarihsel seri",
                     en: "Typical Climate",
-                    subEn: "2001–2024 Observed",
+                    subEn: "Historical series",
                   },
                   {
                     id: "dry" as ScenarioPreset,
@@ -705,546 +525,130 @@ export function FieldShiftComparison({
             </div>
           </div>
 
-          {/* Honest Code-Method Explanation Box */}
-          <div className="mt-2.5 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[11.5px] leading-relaxed text-[#78350f]">
-            {scenarioCodeExplanation}
-          </div>
         </div>
       </div>
 
-      {/* ── LIVE COMPUTING STATUS & UPDATED RESULT BAR ── */}
-      <div
-        role="status"
-        aria-live="polite"
-        data-testid="comparison-status-bar"
-        className={`flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5 text-[12.5px] transition-colors sm:px-6 ${
-          isBusy ? "bg-[#fef3c7] text-[#92400e]" : "bg-[#f0fdf4] text-[#14532d]"
-        }`}
-      >
-        <div className="flex items-center gap-2 font-medium">
-          {isBusy ? (
-            <>
-              <span className="size-2.5 animate-ping rounded-full bg-[#d97706]" />
-              <span data-testid="computing-indicator">
-                {lang === "tr"
-                  ? "Hesaplanıyor... Su bütçesi ve iklim senaryosu 22 tarihsel 3 yıllık dönemde yeniden simüle ediliyor."
-                  : "Computing... Re-simulating water budget and climate scenario across 22 historical 3-year windows."}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#16a34a] text-white">
-                <Icon name="check" size={13} />
-              </span>
-              <span data-testid="updated-result-indicator">
-                {lang === "tr"
-                  ? `Sonuç güncellendi · Tarla: ${store.field?.name ?? "Konya — Çumra"} (${n(effectiveAreaDa, 0)} da) · Yıllık Bütçe: ${budgetNetMm} mm/yıl · Senaryo: ${activeScenarioLabel}`
-                  : `Result updated · Parcel: ${store.field?.name ?? "Konya — Çumra"} (${n(effectiveAreaDa, 0)} da) · Annual Budget: ${budgetNetMm} mm/yr · Scenario: ${activeScenarioLabel}`}
-              </span>
-            </>
-          )}
+      <div id="field-shift-sonuclar" className="fieldshift-decision-results" aria-busy={running}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="display text-[24px] text-ink">
+            {tr ? "Su bütçene hangi plan uyuyor?" : "Which plan fits your water budget?"}
+          </h2>
+          <p role="status" data-testid="comparison-status-bar" className="text-sm text-ink-2">
+            {!store.field ? (tr ? "Başlamak için bir tarla seç." : "Select a field to get started.")
+              : error ? (tr ? "Analiz yüklenemedi." : "Could not load the analysis.")
+              : !currentResults ? (tr ? "Planlar hesaplanıyor…" : "Calculating plans…")
+              : tr ? `${totalWindows} tarihsel dönem` : `${totalWindows} historical periods`}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 font-mono text-[11.5px]">
-          {result && (
-            <span>
-              {lang === "tr"
-                ? `${result.optimizer.feasible} geçerli sıra tarandı · ${totalWindows} dönem (2001–2024)`
-                : `${result.optimizer.feasible} feasible sequences screened · ${totalWindows} windows (2001–2024)`}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── EXPLICIT ALERT WHEN NO PLAN FITS WITHIN THE WATER BUDGET ── */}
-      {allPlansExceedBudget && (
-        <div
-          role="alert"
-          data-testid="all-plans-exceed-budget-alert"
-          className="border-b border-[#fca5a5] bg-[#fef2f2] px-4 py-3.5 text-[#7f1d1d] sm:px-6"
-        >
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#dc2626] font-mono text-[13px] font-bold text-white">
-              !
-            </span>
-            <div className="space-y-1 text-[13px]">
-              <p className="font-display text-[15px] font-bold text-[#991b1b]">
-                {lang === "tr"
-                  ? `Hiçbir plan ${budgetNetMm} mm/yıl su bütçesine tam uymuyor — Kalan su açıkları:`
-                  : `No plan fits within the ${budgetNetMm} mm/yr water budget without deficit — Remaining water deficits:`}
+        {error && store.field && (
+          <button className="btn min-h-11" type="button" onClick={onRetry}>
+            {tr ? "Yeniden dene" : "Try again"}
+          </button>
+        )}
+        {currentResults && (
+          <>
+            {noBudgetFit && (
+              <p data-testid="all-plans-exceed-budget-alert" className="rounded-lg border border-line bg-bg p-3 text-sm font-semibold text-ink">
+                {tr ? "Gösterilen her planda bütçenin yetmediği dönemler var." : "Every displayed plan has periods when the budget fell short."}
               </p>
-              <p className="text-[12.5px] text-[#7f1d1d]">
-                {lang === "tr"
-                  ? "Seçtiğiniz su bütçesi ve iklim senaryosunda mevcut plan ve alternatiflerin tamamında en az bir yılda karşılanamayan su açığı (ETc − ETa) oluşmaktadır:"
-                  : "Under your selected water budget and climate scenario, both the current plan and the alternatives experience an unmet water deficit (ETc − ETa) in at least one year:"}
+            )}
+            {budgetNetMm > 0 && withoutExceedance.length > 0 && (
+              <p className="text-sm text-ink-2">
+                {tr ? "Tüm dönemlerde bütçeye uyan: " : "Within budget in every period: "}
+                <strong>{withoutExceedance.map((entry) => tr ? entry.badgeTr : entry.badgeEn).join(", ")}</strong>
               </p>
-              <ul className="mt-1.5 flex flex-wrap gap-2 font-mono text-[12px]">
-                {planDiagnostics.map((d) => (
-                  <li
-                    key={d.plan.id}
-                    className="rounded-lg border border-[#fca5a5] bg-white px-2.5 py-1 font-semibold text-[#991b1b]"
-                  >
-                    {lang === "tr" ? d.badgeTr : d.badgeEn} (
-                    {d.plan.crops.map((c) => L(CROPS[c].name).split(" (")[0]).join(" → ")}):{" "}
-                    {lang === "tr"
-                      ? `Yıllık kalan açık +${d.remainingDeficitMm} mm (kurak yıllarda +${d.remainingDeficitDryMm} mm)`
-                      : `Remaining deficit +${d.remainingDeficitMm} mm/yr (+${d.remainingDeficitDryMm} mm in dry years)`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 3-COLUMN SIDE-BY-SIDE PLAN COMPARISON: MEVCUT PLAN vs. ALTERNATİF 1 & ALTERNATİF 2 ── */}
-      <div className="p-4 sm:p-6">
-        {!result ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="skel h-96 rounded-2xl" />
-            <div className="skel h-96 rounded-2xl" />
-            <div className="skel h-96 rounded-2xl" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {planDiagnostics.map((diag, idx) => {
-              const { plan, role, badgeTr, badgeEn, years, exceedingYears, hasExceedance, okWindows } = diag;
-              const isCurrent = role === "current";
-              const isWhyOpen = !!expandedWhy[role];
-
-              const irrP50 = Math.round(plan.water.irrigationNetMmPerYr?.p50 ?? 0);
-              const reqP50 = Math.round(plan.water.requirementMmPerYr?.p50 ?? 0);
-              const unmetP50 = Math.round(plan.water.unmetDeficitMmPerYr?.p50 ?? 0);
-              const unmetP90 = Math.round(plan.water.unmetDeficitMmPerYr?.p90 ?? 0);
-
-              const marginP50 = Math.round(plan.economics.grossMarginTLPerDaPerYr?.p50 ?? 0);
-              const marginP10 = Math.round(plan.economics.grossMarginTLPerDaPerYr?.p10 ?? 0);
-              const marginP90 = Math.round(plan.economics.grossMarginTLPerDaPerYr?.p90 ?? 0);
-
-              const soilScore = Math.round(plan.soilHealth.score);
-              const bareDays = Math.round(plan.soilHealth.bareDaysPerYear);
-              const nLow = plan.nitrogen ? (plan.nitrogen.balanceKgHaYr.low / 10).toFixed(1) : "0.0";
-              const nHigh = plan.nitrogen ? (plan.nitrogen.balanceKgHaYr.high / 10).toFixed(1) : "0.0";
-
-              // Build structured "Bu plan neden öne çıktı?" (1. Outcome sentence -> 2. Data source -> 3. Assumption)
-              const cropNamesJoined = plan.crops.map((c) => L(CROPS[c].name)).join(" → ");
-              const curIrrP50 = Math.round(result.current.water.irrigationNetMmPerYr?.p50 ?? 0);
-              const curMarginP50 = Math.round(result.current.economics.grossMarginTLPerDaPerYr?.p50 ?? 0);
-              const waterDiff = irrP50 - curIrrP50;
-              const marginDiff = marginP50 - curMarginP50;
-
-              const singleSentenceOutcome = isCurrent
-                ? lang === "tr"
-                  ? `Mevcut ekim nöbetiniz (${cropNamesJoined}), ${budgetNetMm} mm/yıl su bütçesi ve ${activeScenarioLabel} altında yılda medyan ${irrP50} mm sulama suyu kullanır; ${
-                      exceedingYears.length > 0
-                        ? `${exceedingYears.map((y) => `${y.year}. yılda (${y.cropName})`).join(" ve ")} su bütçesini aşar`
-                        : `hiçbir yılda su bütçesini aşmaz`
-                    } ve dekar başına medyan ${n(marginP50, 0)} ₺/yıl brüt kâr üretir.`
-                  : `Your current rotation (${cropNamesJoined}) uses a median ${irrP50} mm/yr of irrigation under the ${budgetNetMm} mm/yr budget and ${activeScenarioLabel}, ${
-                      exceedingYears.length > 0
-                        ? `exceeding the water budget in ${exceedingYears.map((y) => `Year ${y.year} (${y.cropName})`).join(" and ")}`
-                        : `staying within the water budget in all 3 years`
-                    }, and yields a median gross margin of ${n(marginP50, 0)} TL/da/yr.`
-                : lang === "tr"
-                  ? `Bu alternatif plan (${cropNamesJoined}), mevcut ekim nöbetinize göre yılda ${
-                      waterDiff <= 0 ? `${Math.abs(waterDiff)} mm daha az` : `${waterDiff} mm daha fazla`
-                    } su kullanarak ${totalWindows} tarihsel dönemin ${okWindows}'inde bütçe içinde kalır ve dekar başına yılda ${
-                      marginDiff >= 0 ? `+${n(marginDiff, 0)} ₺ daha yüksek` : `${n(marginDiff, 0)} ₺ farkla`
-                    } medyan senaryo çıktısı (${n(marginP50, 0)} ₺/da/yıl) ile ${soilScore}/100 toprak sağlığı model göstergesi sağlar.`
-                  : `This alternative plan (${cropNamesJoined}) uses ${
-                      waterDiff <= 0 ? `${Math.abs(waterDiff)} mm/yr less` : `${waterDiff} mm/yr more`
-                    } water than your current rotation, stays within budget in ${okWindows} of ${totalWindows} historical windows, and delivers ${
-                      marginDiff >= 0 ? `+${n(marginDiff, 0)} TL/da/yr higher` : `${n(marginDiff, 0)} TL/da/yr difference in`
-                    } median scenario output (${n(marginP50, 0)} TL/da/yr) with a ${soilScore}/100 soil health model indicator.`;
-
-              const dataSourceText =
-                lang === "tr"
-                  ? "NASA POWER / MERRA-2 günlük meteoroloji serisi (2001–2024: T2M, PRECTOTCORR, RH2M, WS2M, ALLSKY_SFC_SW_DWN ve GWETROOT yeniden analiz kök nemi — doğrudan SMAP parsel ölçümü değildir), ISRIC SoilGrids 250m (0–200 cm 6 katmanlı kil/kum/silt/pH/SOC), NASA SRTM 30m DEM arazi eğimi/rakımı, FAO-56 / TAGEM ürün katsayıları (Kc, Ky) ve 2025/2026 TMO–TÜİK referans alım fiyatları."
-                  : "NASA POWER / MERRA-2 daily meteorology (2001–2024: T2M, PRECTOTCORR, RH2M, WS2M, ALLSKY_SFC_SW_DWN, and GWETROOT reanalysis root-zone wetness — not a direct SMAP parcel sensor measurement), ISRIC SoilGrids 250m (0–200 cm 6-layer clay/sand/silt/pH/SOC), NASA SRTM 30m DEM slope/elevation, FAO-56 / TAGEM crop coefficients (Kc, Ky), and 2025/2026 TMO–TÜİK reference prices.";
-
-              const assumptionText =
-                lang === "tr"
-                  ? `FAO-56 Penman–Monteith günlük ET₀ ve 1,5 m kök kolonunda Saxton–Rawls (2006) su dengesi; sulama randımanı %${Math.round(
-                      METHOD_EFF[store.inputs.method] * 100,
-                    )}; iklim senaryosu: ${
-                      scenarioPreset === "dry"
-                        ? "günlük yağış ×0,75 (−%25), ΔT = 0 °C"
-                        : scenarioPreset === "hot_dry"
-                          ? "günlük yağış ×0,75 (−%25), Tmin/Tmax +2 °C ve sabit bağıl nemde yeniden hesaplanan ET₀"
-                          : "2001–2024 gözlenen günlük seri (×1,00)"
-                    }. Ekonomik P10–P90 aralıkları 22 dönemin senaryo çıktısıdır; toprak sağlığı puanı (0–100) ise baklagil payı, kök derinliği çeşitliliği, çıplak gün ve azot dengesinden oluşan bir model göstergesidir.`
-                  : `FAO-56 Penman–Monteith daily ET₀ and 1.5 m root-zone Saxton–Rawls (2006) water balance; irrigation efficiency ${Math.round(
-                      METHOD_EFF[store.inputs.method] * 100,
-                    )}%; climate scenario: ${
-                      scenarioPreset === "dry"
-                        ? "daily rain ×0.75 (−25%), ΔT = 0 °C"
-                        : scenarioPreset === "hot_dry"
-                          ? "daily rain ×0.75 (−25%), Tmin/Tmax +2 °C with recomputed ET₀ at constant relative humidity"
-                          : "observed 2001–2024 daily series (×1.00)"
-                    }. Economic P10–P90 ranges are scenario outputs across 22 windows; the soil health score (0–100) is a model indicator combining legume share, root-depth diversity, bare-soil days, and N balance.`;
-
-              return (
-                <article
-                  key={plan.id}
-                  data-testid={`comparison-card-${role}`}
-                  className={`flex flex-col justify-between rounded-2xl border-2 p-4 transition-all sm:p-5 ${
-                    idx === 1
-                      ? "border-[#1e6b34] bg-[#f8fdf9] shadow-sm"
-                      : isCurrent
-                        ? "border-line-strong bg-surface"
-                        : "border-line bg-surface"
-                  }`}
-                >
-                  <div className="space-y-4">
-                    {/* Card Header: Plan Role + Explicit Text Budget Status Badge */}
-                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-line pb-3">
-                      <div>
-                        <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold ${
-                            isCurrent
-                              ? "bg-surface-2 text-ink"
-                              : idx === 1
-                                ? "bg-[#1e6b34] text-white"
-                                : "bg-[#e6f4ea] text-[#1e6b34]"
-                          }`}
-                        >
-                          {lang === "tr" ? badgeTr : badgeEn}
-                        </span>
-                        <h3 className="mt-1.5 font-display text-[17px] font-semibold text-ink">
-                          {plan.crops.map((c) => L(CROPS[c].name).split(" (")[0]).join(" → ")}
-                        </h3>
-                      </div>
-
-                      {/* Text-Based Budget Exceedance Badge (Never color alone!) */}
-                      <span
-                        data-testid={`plan-budget-badge-${role}`}
-                        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-mono text-[11px] font-bold ${
-                          hasExceedance
-                            ? "border-[#fca5a5] bg-[#fef2f2] text-[#991b1b]"
-                            : "border-[#86efac] bg-[#dcfce7] text-[#166534]"
-                        }`}
-                      >
-                        <span>{hasExceedance ? "⚠️" : "✓"}</span>
-                        <span>
-                          {hasExceedance
-                            ? exceedingYears.length > 0
-                              ? lang === "tr"
-                                ? `BÜTÇE AŞIMI: ${exceedingYears.map((y) => `${y.year}. Yıl`).join(", ")}`
-                                : `OVER BUDGET: Yr ${exceedingYears.map((y) => y.year).join(", ")}`
-                              : lang === "tr"
-                                ? `SU AÇIĞI: +${unmetP50} mm`
-                                : `DEFICIT: +${unmetP50} mm`
-                            : lang === "tr"
-                              ? "BÜTÇEYE UYGUN (3 Yıl)"
-                              : "WITHIN BUDGET (All 3 Yrs)"}
-                        </span>
-                      </span>
+            )}
+            <div className="fieldshift-decision-plans">
+              {comparedPlans.map(({ role, plan, badgeTr, badgeEn }) => {
+                const years = plan.years.map((year) => evaluateYearBudgetStatus(year, budgetNetMm, totalWindows, lang));
+                const exceedingYears = years.filter((year) => year.exceeded);
+                const status = exceedingYears.length
+                  ? (tr ? `Aşım: ${exceedingYears.map((year) => `${year.year}. yıl`).join(", ")}`
+                    : `Over budget: ${exceedingYears.map((year) => `Year ${year.year}`).join(", ")}`)
+                  : plan.water.budgetExceededShare == null
+                    ? (tr ? "Veri yok" : "No data")
+                    : budgetNetMm === 0 ? (tr ? "Kuru tarım" : "Rainfed")
+                      : (tr ? "Bütçe aşımı yok" : "No budget exceedance");
+                return (
+                  <article key={role} data-testid={`comparison-card-${role}`}
+                    data-budget-fit={budgetNetMm > 0 && plan.water.budgetExceededShare === 0}
+                    className="fieldshift-decision-plan min-w-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className="display text-xl text-ink">{tr ? badgeTr : badgeEn}</h3>
+                      <span data-testid={`plan-budget-badge-${role}`} className="text-xs font-semibold text-ink-2">{status}</span>
                     </div>
-
-                    {/* CRITERION 1: 3-Year Crop Sequence & Per-Year Irrigation + Exceedance Badge */}
-                    <div>
-                      <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-2">
-                        {lang === "tr"
-                          ? "1. Üç Yıllık Ürün Sırası ve Yıllık Su Durumu"
-                          : "1. 3-Year Crop Sequence & Annual Water Status"}
-                      </p>
-                      <ol className="mt-2 space-y-2">
-                        {years.map((y) => (
-                          <li
-                            key={y.year}
-                            data-testid={`plan-${role}-year-${y.year}`}
-                            className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[12.5px] ${
-                              y.exceeded
-                                ? "border-[#fca5a5] bg-[#fef2f2]/80"
-                                : "border-line bg-bg/70"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="font-mono text-[11px] font-bold text-ink-2 shrink-0">
-                                {y.year}. {lang === "tr" ? "Yıl" : "Yr"}
-                              </span>
-                              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface">
-                                <CropArt crop={y.cropId} size={22} />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold text-ink">{y.cropName}</p>
-                                <p className="font-mono text-[11px] text-ink-2">
-                                  {lang === "tr" ? "Sulama:" : "Irrig.:"} <strong>{y.irrigatedMm} mm</strong>
-                                  {y.unmetDeficitP50Mm > 0 || y.unmetDeficitP90Mm > 0
-                                    ? ` · ${lang === "tr" ? "Açık" : "Deficit"}: +${Math.max(y.unmetDeficitP50Mm, y.unmetDeficitP90Mm)} mm`
-                                    : ""}
-                                </p>
-                              </div>
-                            </div>
-
-                            <span
-                              className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-bold ${
-                                y.exceeded
-                                  ? "bg-[#dc2626] text-white"
-                                  : "bg-[#dcfce7] text-[#166534]"
-                              }`}
-                            >
-                              {y.statusBadge}
-                            </span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-
-                    {/* CRITERION 2: Bütçe Aşımı Olan Yıllar ve Nedeni (Explicit Text Explanation) */}
-                    <div
-                      data-testid={`plan-${role}-exceedance-reason`}
-                      className={`rounded-xl border p-3 text-[12px] leading-relaxed ${
-                        hasExceedance
-                          ? "border-[#fca5a5] bg-[#fff5f5] text-[#7f1d1d]"
-                          : "border-[#bbf7d0] bg-[#f0fdf4] text-[#14532d]"
-                      }`}
-                    >
-                      <p className="font-mono text-[11px] font-bold uppercase">
-                        {hasExceedance
-                          ? lang === "tr"
-                            ? "2. Bütçe Aşımı Olan Yıllar ve Nedeni"
-                            : "2. Budget-Exceeding Years & Reason"
-                          : lang === "tr"
-                            ? "2. Su Bütçesi Uyumu ve Nedeni"
-                            : "2. Water Budget Compliance & Reason"}
-                      </p>
-                      {exceedingYears.length > 0 ? (
-                        <ul className="mt-1.5 space-y-1.5">
-                          {exceedingYears.map((ey) => (
-                            <li key={ey.year} className="flex items-start gap-1.5">
-                              <span className="font-bold">•</span>
-                              <span>{ey.reasonText}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : hasExceedance ? (
-                        <p className="mt-1">
-                          {lang === "tr"
-                            ? `Yıllık ortalama +${unmetP50} mm (kurak yıllarda +${unmetP90} mm) karşılanamayan su açığı oluşmaktadır (${okWindows}/${totalWindows} dönemde bütçe yetti).`
-                            : `An average unmet deficit of +${unmetP50} mm/yr (+${unmetP90} mm in dry years) occurs (${okWindows}/${totalWindows} windows within budget).`}
-                        </p>
-                      ) : (
-                        <p className="mt-1">
-                          {lang === "tr"
-                            ? `1., 2. ve 3. yıllarda ürünlerin net sulama suyu talebi (${irrP50} mm/yıl), belirlediğiniz ${budgetNetMm} mm/yıl bütçenin altında kalır; ${totalWindows} tarihsel dönemin ${okWindows}'inde bütçe aşımı yaşanmaz.`
-                            : `Across Years 1, 2, and 3, net crop irrigation demand (${irrP50} mm/yr) stays within your ${budgetNetMm} mm/yr budget; ${okWindows} of ${totalWindows} historical windows have zero budget exceedance.`}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* CRITERION 3, 4 & 5: Metrics Grid (Water Demand | Rotation & Soil Model Indicator | Scenario Economic Output) */}
-                    <dl className="grid grid-cols-1 gap-2 rounded-xl border border-line bg-bg/60 p-3 text-[12px] sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                      {/* Sulama İhtiyacı */}
-                      <div className="rounded-lg bg-surface p-2.5 border border-line/60">
-                        <dt className="text-[11px] font-medium text-ink-2 flex items-center justify-between">
-                          <span>{lang === "tr" ? "Sulama İhtiyacı" : "Irrigation Need"}</span>
-                          <TermTooltip termId="dn" />
-                        </dt>
-                        <dd className="numeral mt-1 text-[17px] font-bold text-[#0277bd]">
-                          {irrP50} <span className="text-[12px] font-normal">mm/yıl</span>
-                        </dd>
-                        <dd className="mt-0.5 font-mono text-[10.5px] text-ink-2">
-                          {lang === "tr"
-                            ? `Toplam talep: ${reqP50} mm · ${okWindows}/${totalWindows} dönem güvenli`
-                            : `Total req: ${reqP50} mm · ${okWindows}/${totalWindows} windows safe`}
-                        </dd>
-                      </div>
-
-                      {/* Rotasyon & Toprak Sağlığı (Model Göstergesi) */}
-                      <div className="rounded-lg bg-surface p-2.5 border border-line/60">
-                        <dt className="text-[11px] font-medium text-ink-2 flex items-center justify-between">
-                          <span>{lang === "tr" ? "Toprak & Rotasyon" : "Soil & Rotation"}</span>
-                          <TermTooltip termId="soil_health" />
-                        </dt>
-                        <dd className="numeral mt-1 text-[17px] font-bold text-[#1e6b34]">
-                          {soilScore} / 100
-                        </dd>
-                        <dd className="mt-0.5 font-mono text-[10.5px] text-ink-2">
-                          <span className="font-semibold text-[#1e6b34]">
-                            {lang === "tr" ? "Model göstergesi" : "Model indicator"}
-                          </span>{" "}
-                          · ΔN {nLow}..{nHigh} kg/da · {bareDays}g açık
-                        </dd>
-                      </div>
-
-                      {/* Ekonomik Aralık (Senaryo Çıktısı P10-P90) */}
-                      <div className="rounded-lg bg-surface p-2.5 border border-line/60">
-                        <dt className="text-[11px] font-medium text-ink-2 flex items-center justify-between">
-                          <span>{lang === "tr" ? "Brüt Kâr (Medyan)" : "Gross Margin (P50)"}</span>
-                          <TermTooltip termId="p10_p50_p90" />
-                        </dt>
-                        <dd className="numeral mt-1 text-[17px] font-bold text-ink">
-                          {n(marginP50, 0)} <span className="text-[12px] font-normal">₺/da/yıl</span>
-                        </dd>
-                        <dd className="mt-0.5 font-mono text-[10.5px] text-ink-2">
-                          <span className="font-semibold text-[#b45309]">
-                            {lang === "tr" ? "Senaryo çıktısı" : "Scenario output"}
-                          </span>{" "}
-                          P10–P90: {n(marginP10, 0)}–{n(marginP90, 0)} ₺
-                        </dd>
-                      </div>
-                    </dl>
-
-                    {/* EXPANDABLE "BU PLAN NEDEN ÖNE ÇIKTI?" (1. Outcome Sentence -> 2. Data Source -> 3. Assumption) */}
-                    <div className="rounded-xl border border-line bg-bg/50">
-                      <button
-                        type="button"
-                        data-testid={`why-plan-toggle-${role}`}
-                        aria-expanded={isWhyOpen}
-                        onClick={() =>
-                          setExpandedWhy((prev) => ({ ...prev, [role]: !prev[role] }))
-                        }
-                        className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[13px] font-semibold text-accent-ink hover:bg-surface-2/60"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Icon name="evidence" size={16} />
-                          <span>
-                            {lang === "tr"
-                              ? "Bu plan neden öne çıktı? (Sonuç, Veri Kaynağı ve Varsayım)"
-                              : "Why did this plan stand out? (Outcome, Data Source & Assumption)"}
+                    <ol className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface">
+                      {years.map((year) => (
+                        <li key={year.year} data-testid={`plan-${role}-year-${year.year}`}
+                          className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-2 text-sm">
+                          <span className="min-w-10 text-xs text-ink-2">{tr ? `${year.year}. yıl` : `Year ${year.year}`}</span>
+                          <CropArt crop={year.cropId} size={24} />
+                          <span className="flex-1 font-medium">{year.cropName}</span>
+                          <span className="text-xs text-ink-2">
+                            {year.exceeded
+                              ? (tr ? `${year.exceededWindows}/${totalWindows} dönemde aşım` : `Shortfall in ${year.exceededWindows}/${totalWindows} periods`)
+                              : year.statusBadge}
                           </span>
-                        </span>
-                        <Icon
-                          name="chevron-down"
-                          size={16}
-                          className={`transition-transform ${isWhyOpen ? "rotate-180" : ""}`}
-                        />
-                      </button>
-
-                      {isWhyOpen && (
-                        <div
-                          data-testid={`why-plan-content-${role}`}
-                          className="space-y-2.5 border-t border-line bg-surface px-3.5 py-3 text-[12px] leading-relaxed"
-                        >
-                          {/* 1. Single Outcome Sentence First */}
-                          <div className="rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] p-2.5 text-[#14532d]">
-                            <p className="font-mono text-[10.5px] font-bold uppercase text-[#166534]">
-                              {lang === "tr" ? "1. Sonuç Özeti (Tek Cümle)" : "1. Outcome Summary (Single Sentence)"}
-                            </p>
-                            <p className="mt-0.5 font-medium">{singleSentenceOutcome}</p>
-                          </div>
-
-                          {/* 2. Data Source */}
-                          <div className="rounded-lg border border-line bg-bg/70 p-2.5 text-ink">
-                            <p className="font-mono text-[10.5px] font-bold uppercase text-[#0277bd]">
-                              {lang === "tr" ? "2. Veri Kaynağı" : "2. Data Source"}
-                            </p>
-                            <p className="mt-0.5 text-ink-2">{dataSourceText}</p>
-                          </div>
-
-                          {/* 3. Assumption */}
-                          <div className="rounded-lg border border-line bg-bg/70 p-2.5 text-ink">
-                            <p className="font-mono text-[10.5px] font-bold uppercase text-[#b45309]">
-                              {lang === "tr" ? "3. Varsayım ve Hesap Yöntemi" : "3. Assumption & Calculation Method"}
-                            </p>
-                            <p className="mt-0.5 text-ink-2">{assumptionText}</p>
-                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                    <dl className="mt-3 divide-y divide-line text-sm">
+                      {[
+                        [tr ? "Yıllık net su ihtiyacı" : "Annual net irrigation need", formatMm(plan.water.requirementMmPerYr?.p50)],
+                        [tr ? "Yıllık kalan su açığı" : "Annual unmet water deficit", formatMm(plan.water.unmetDeficitMmPerYr?.p50)],
+                        [tr ? "Toprak sağlığı göstergesi" : "Soil health indicator", `${n(plan.soilHealth.score, 0)}/100`],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex justify-between gap-2 py-2">
+                          <dt className="text-ink-2">{label}</dt><dd className="shrink-0 font-semibold">{value}</dd>
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Card Footer: Apply Plan + Reachability Links to Profitability, Map Layers & Formulas */}
-                  <div className="mt-4 space-y-2 border-t border-line pt-3">
-                    {!isCurrent && (
-                      <button
-                        type="button"
-                        onClick={() => setInputs({ rotation: [...plan.crops] })}
-                        className="btn btn-primary btn-sm w-full justify-center"
-                      >
-                        <Icon name="check" size={15} />
-                        <span>
-                          {lang === "tr"
-                            ? "Bu Planı Mevcut Sıram Olarak Uygula"
-                            : "Apply as My Current Rotation"}
-                        </span>
+                      ))}
+                    </dl>
+                    <details className="mt-2 rounded-lg border border-line bg-surface">
+                      <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-semibold">
+                        {tr ? "Planın gerekçesi" : "Plan rationale"}
+                      </summary>
+                      <div className="space-y-2 border-t border-line px-3 py-3 text-sm text-ink-2">
+                        <ul className="space-y-2">
+                          {years.map((year) => <li key={year.year}>{year.reasonText}</li>)}
+                        </ul>
+                        <p>{tr ? "Toprak sağlığı puanı ekim nöbetinden hesaplanan model göstergesidir." : "The soil health score is a model indicator derived from the rotation."}</p>
+                      </div>
+                    </details>
+                    {role !== "current" && (
+                      <button type="button" className="btn mt-3 min-h-11 w-full justify-center"
+                        onClick={() => setInputs({ rotation: [...plan.crops] })}>
+                        {tr ? "Mevcut plan olarak kullan" : "Use as current plan"}
                       </button>
                     )}
-
-                    {/* Direct Links to Profitability, Detailed Map Layers, and Formulas */}
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11.5px]">
-                      {onJumpToProfitability ? (
-                        <button
-                          type="button"
-                          onClick={onJumpToProfitability}
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-ink-2 hover:border-accent hover:text-ink"
-                        >
-                          💰 {lang === "tr" ? "Kârlılık Tablosu" : "Profitability"}
-                        </button>
-                      ) : (
-                        <a
-                          href="#analiz-grafikler"
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-ink-2 hover:border-accent hover:text-ink"
-                        >
-                          💰 {lang === "tr" ? "Kârlılık" : "Profitability"}
-                        </a>
-                      )}
-
-                      {onJumpToMap ? (
-                        <button
-                          type="button"
-                          onClick={onJumpToMap}
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-ink-2 hover:border-accent hover:text-ink"
-                        >
-                          🛰️ {lang === "tr" ? "Harita Katmanları" : "Map Layers"}
-                        </button>
-                      ) : (
-                        <Link
-                          href="/#harita-bolumu"
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-ink-2 hover:border-accent hover:text-ink"
-                        >
-                          🛰️ {lang === "tr" ? "Harita Katmanları" : "Map Layers"}
-                        </Link>
-                      )}
-
-                      {onJumpToFormulas ? (
-                        <button
-                          type="button"
-                          onClick={onJumpToFormulas}
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-accent-ink hover:border-accent"
-                        >
-                          📐 {lang === "tr" ? "Formüller & Dayanak" : "Formulas"}
-                        </button>
-                      ) : (
-                        <Link
-                          href="/dayanak"
-                          className="rounded-lg border border-line bg-bg px-2.5 py-1 font-semibold text-accent-ink hover:border-accent"
-                        >
-                          📐 {lang === "tr" ? "Formüller & Dayanak" : "Formulas"}
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-
-            {/* HONEST MISSING-ALTERNATIVE CARD: Never fabricate a plan if the engine produced fewer than 2 */}
+                  </article>
+                );
+              })}
+            </div>
             {validAlternatives.length < 2 && (
-              <div
-                data-testid="honest-missing-alternative-notice"
-                className="flex flex-col justify-center rounded-2xl border-2 border-dashed border-line-strong bg-bg/50 p-5 text-[13px] text-ink-2"
-              >
-                <p className="font-display text-[16px] font-semibold text-ink">
-                  {lang === "tr"
-                    ? validAlternatives.length === 0
-                      ? "Motor Geçerli Bir Alternatif Üretemedi"
-                      : "Motor Yalnızca 1 Geçerli Alternatif Üretebildi"
-                    : validAlternatives.length === 0
-                      ? "Engine Could Not Produce a Valid Alternative"
-                      : "Engine Produced Only 1 Valid Alternative"}
-                </p>
-                <p className="mt-2 leading-relaxed">
-                  {lang === "tr"
-                    ? "Seçili ürün kısıtları, iklim uygunluğu ve münavebe kuralları altında ikinci bir geçerli alternatif bulunamadı. Bilimsel dürüstlük ilkesi gereği eksik plan uydurulmamıştır. Hariç tutulan ürünleri azaltarak yeni alternatifler tarayabilirsiniz."
-                    : "Under the active crop exclusions, climate suitability, and rotation rules, no second valid alternative met all constraints. In accordance with scientific integrity rules, no missing plan is fabricated. Remove crop exclusions to scan more alternatives."}
-                </p>
-              </div>
+              <p data-testid="honest-missing-alternative-notice" className="text-sm text-ink-2">
+                {tr ? "Bu koşullarda iki geçerli alternatif bulunamadı." : "Fewer than two alternatives satisfy these conditions."}
+              </p>
             )}
-          </div>
+          </>
         )}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-bg/50 p-3 text-sm">
+          <p className="text-ink-2">
+            {tr ? "Yağış: NASA POWER" : "Rainfall: NASA POWER"}
+            {scenarioPreset === "typical" ? (tr ? " · Tipik senaryo" : " · Typical scenario")
+              : ` · ×${n(store.scenario.rainMultiplier, 2)} · ΔT ${n(store.scenario.tempDeltaC, 1)} °C`}
+            {currentResults && agYears.length > 0 && ` · ${agYears[0]}–${agYears.at(-1)}`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {onJumpToMap && <button type="button" className="btn min-h-11" onClick={onJumpToMap}>{tr ? "Harita" : "Map"}</button>}
+            {onJumpToProfitability && <button type="button" className="btn min-h-11" onClick={onJumpToProfitability}>{tr ? "Ekonomik senaryo" : "Economic scenario"}</button>}
+            {onJumpToFormulas
+              ? <button type="button" className="btn min-h-11" onClick={onJumpToFormulas}>{tr ? "Veri ve yöntem" : "Data and methods"}</button>
+              : <Link href="/dayanak" className="btn min-h-11">{tr ? "Veri ve yöntem" : "Data and methods"}</Link>}
+          </div>
+        </div>
       </div>
+      </>}
     </section>
   );
 }

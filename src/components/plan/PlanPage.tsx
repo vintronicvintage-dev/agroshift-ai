@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { CROP_IDS, CROPS } from "@/lib/engine";
 import type { AnalysisResult, CropId, PlanResult, RotationSequence } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { pilotField, setField, setInputs, useHydrated, useStore } from "@/lib/ui/fieldStore";
+import { setInputs, useHydrated, useStore } from "@/lib/ui/fieldStore";
 import { describeRing } from "@/lib/ui/geo";
 import { monthlyTemps } from "@/lib/ui/derive";
 import {
@@ -17,9 +17,10 @@ import {
 } from "@/lib/data/turkiyeAgroMaster";
 import { useFieldData } from "@/components/data/FieldData";
 import { CropArt } from "@/components/brand/CropArt";
-import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
+import { SourceVisualCardsGrid } from "@/components/brand/SourceVisualCards";
 import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { FieldShiftComparison, evaluateYearBudgetStatus } from "@/components/tarla/FieldShiftComparison";
 import { Verdict } from "./Verdict";
 import { Timeline, bareLines } from "./Timeline";
@@ -77,7 +78,7 @@ export function PlanPage() {
   if (!hydrated)
     return (
       <div className="mx-auto max-w-[1440px] px-4 py-8">
-        <div className="skel h-64" />
+        <Skeleton className="h-64" />
       </div>
     );
 
@@ -88,13 +89,10 @@ export function PlanPage() {
         <h1 className="display mt-4 text-[34px]">{t("pl.noField")}</h1>
         <p className="mt-2 text-[15px] text-ink-2">{t("pl.noFieldLead")}</p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link href="/" className="btn btn-primary">
+          <Link href="/tarla" className="btn btn-primary">
             <Icon name="polygon" size={18} />
             {t("pl.toField")}
           </Link>
-          <button type="button" className="btn" onClick={() => setField(pilotField("konya-cumra", lang))}>
-            {t("empty.example", { name: "Konya-Çumra" })}
-          </button>
         </div>
       </div>
     );
@@ -126,16 +124,24 @@ export function PlanPage() {
   return (
     <div className="mx-auto max-w-[1480px] space-y-5 px-4 py-5 sm:px-6">
       <div className="no-print space-y-5">
+        <nav className="plan-route-nav" aria-label={lang === "tr" ? "Ekim planı bölümleri" : "Crop plan sections"}>
+          <a href="#field-shift-sonuclar">{lang === "tr" ? "Su bütçesi ve sonuçlar" : "Water budget and results"}</a>
+          <a href="#plan-studio" onClick={() => setStudioTab("overview")}>{lang === "tr" ? "Plan ve takvim" : "Plans and calendar"}</a>
+          <a href="#plan-studio" onClick={() => setStudioTab("custom_builder")}>{lang === "tr" ? "Kendi planını kur" : "Build your own plan"}</a>
+          <Link href="/yontem">{lang === "tr" ? "Veri ve yöntem" : "Data and methods"}</Link>
+        </nav>
         {/* ── UNIFIED 3-STEP FIELD SHIFT CONTROLS & COMPARISON AT TOP OF /PLAN ── */}
         <FieldShiftComparison
           result={r ?? null}
           running={d.analysis.running}
+          error={Boolean(d.analysis.error || d.climate.status === "error")}
+          onRetry={() => d.retry("climate")}
           effectiveAreaDa={area}
           soilTextureLabel={prov.toprak_profili_0_30cm_soilgrids.toprak_dokusu_sinifi}
           provinceName={`${kc.il_adi} (${kc.tagem_iklim_kodu})`}
           onJumpToProfitability={() => {
             setStudioTab("overview");
-            document.getElementById("planlar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            requestAnimationFrame(() => document.getElementById("plan-studio")?.scrollIntoView({ block: "start" }));
           }}
         />
 
@@ -143,55 +149,28 @@ export function PlanPage() {
 
         {!r && <Waiting />}
 
-        {r && best && (
+        <div id="plan-studio" className="plan-studio">
+        {r && (
           <>
-            {/* ── STUDIO VIEW SWITCHER TABS (Declutters the page into 3 focused modes) ── */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {(
-                  [
-                    {
-                      id: "overview",
-                      icon: "plan" as const,
-                      tr: "1. Ürün Seçimi, Takvim ve Plan Karşılaştırma",
-                      en: "1. Crop Selection, Timeline & Plans",
-                    },
-                    {
-                      id: "custom_builder",
-                      icon: "layers" as const,
-                      tr: "2. Kendin Kur Stüdyosu & Pareto Denge",
-                      en: "2. Custom Rotation Builder & Pareto",
-                    },
-                    {
-                      id: "sources",
-                      icon: "satellite" as const,
-                      tr: `3. Hesaplama Parametreleri & Fotoğraflı Kaynaklar (${SCIENTIFIC_SOURCE_CARDS.length})`,
-                      en: `3. Parameters & Photo Source Cards (${SCIENTIFIC_SOURCE_CARDS.length})`,
-                    },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setStudioTab(tab.id)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold transition-all ${
-                      studioTab === tab.id
-                        ? "bg-[#1e6b34] text-white shadow-sm"
-                        : "border border-line bg-bg text-ink-2 hover:border-accent/40 hover:text-ink"
-                    }`}
-                  >
-                    <Icon name={tab.icon} size={16} />
-                    <span>{lang === "tr" ? tab.tr : tab.en}</span>
-                  </button>
-                ))}
-              </div>
+            <header className="plan-studio-heading">
+              <h2>{lang === "tr" ? "Plan stüdyosu" : "Plan studio"}</h2>
               <ShareBar result={r} />
+            </header>
+            <div className="plan-studio-tabs" role="group" aria-label={lang === "tr" ? "Plan görünümü" : "Plan view"}>
+              {([
+                ["overview", "Plan ve takvim", "Plans and calendar"],
+                ["custom_builder", "Plan oluştur ve karşılaştır", "Build and compare"],
+                ["sources", "Kaynak kütüphanesi", "Source library"],
+              ] as const).map(([id, tr, en]) => (
+                <button key={id} type="button" aria-pressed={studioTab === id} onClick={() => setStudioTab(id)}>
+                  {lang === "tr" ? tr : en}
+                </button>
+              ))}
             </div>
-
             {/* ═════════════════════════════════════════════════════════════════════════
                 TAB 1: CROP SELECTION, 36-MONTH TIMELINE & CLEAN PLAN COMPARISON
                ═════════════════════════════════════════════════════════════════════════ */}
-            {studioTab === "overview" && (
+            {studioTab === "overview" && best && (
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
                 <div className="min-w-0 space-y-6">
                   {/* DECISIVE CROP SELECTION & PROVINCE ROTATION DECK */}
@@ -364,10 +343,11 @@ export function PlanPage() {
                                   <CropArt crop={cid} size={38} />
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <label className="block text-[11px] font-medium text-ink-2">
+                                  <label htmlFor={`studio-crop-year-${yrIdx + 1}`} className="block text-[11px] font-medium text-ink-2">
                                     {lang === "tr" ? `${yrIdx + 1}. Yıl Ürünü Seçin:` : `Select Year ${yrIdx + 1} Crop:`}
                                   </label>
                                   <select
+                                    id={`studio-crop-year-${yrIdx + 1}`}
                                     value={cid}
                                     onChange={(e) => assignYearCrop(e.target.value as CropId, yrIdx)}
                                     className="mt-0.5 w-full rounded-xl border border-line bg-bg px-2.5 py-1.5 font-display text-[14.5px] font-semibold text-ink cursor-pointer"
@@ -507,6 +487,11 @@ export function PlanPage() {
             {/* ═════════════════════════════════════════════════════════════════════════
                 TAB 2: CUSTOM ROTATION BUILDER, PARETO & HISTORICAL WINDOWS
                ═════════════════════════════════════════════════════════════════════════ */}
+            {studioTab === "overview" && !best && (
+              <p className="text-sm text-ink-2" role="status">
+                {lang === "tr" ? "Bu koşullarda geçerli alternatif bulunamadı. Kendi planını oluşturup inceleyebilirsin." : "No eligible alternative was found. You can still build and inspect your own plan."}
+              </p>
+            )}
             {studioTab === "custom_builder" && (
               <div className="space-y-6">
                 <section id="kurucu" className="bento-card p-5">
@@ -573,6 +558,7 @@ export function PlanPage() {
             )}
           </>
         )}
+        </div>
       </div>
       {r && <PrintReport result={r} frost={frost} />}
     </div>

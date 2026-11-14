@@ -5,7 +5,6 @@ import { useI18n, type DictKey } from "@/lib/i18n";
 import { climateEvidence, CROPS, usdaTextureClass } from "@/lib/engine";
 import type { ClimateSeries, CropId, SoilLayer } from "@/lib/types";
 import { useTheme } from "@/lib/ui/theme";
-import { PILOTS } from "@/lib/data/pilots";
 import { renameField, setInputs, setStore, TON_PER_IRRIGATION, useHydrated, useStore } from "@/lib/ui/fieldStore";
 import { describeRing } from "@/lib/ui/geo";
 import { frostStats, isoLabel, moistureNow, monthNames, monthlyTemps, ndviYears, doyLabel } from "@/lib/ui/derive";
@@ -19,7 +18,6 @@ const MODIS_PIXEL_HA = 6.25;
 interface Props {
   onDraw: () => void;
   onPin: () => void;
-  onPilot: (id: string) => void;
   onSave: () => void;
   onOpenSaved: (id: string) => void;
   onRemoveSaved: (id: string) => void;
@@ -43,8 +41,8 @@ export function FieldPanel(props: Props) {
 }
 
 // ── empty state ─────────────────────────────────────────────────────────
-function EmptyPanel({ onDraw, onPin, onPilot, onOpenSaved, onRemoveSaved, onImport }: Props) {
-  const { t, n, lang } = useI18n();
+function EmptyPanel({ onDraw, onPin, onOpenSaved, onRemoveSaved, onImport }: Props) {
+  const { t, n } = useI18n();
   const s = useStore();
   return (
     <div className="px-4 py-5">
@@ -67,10 +65,6 @@ function EmptyPanel({ onDraw, onPin, onPilot, onOpenSaved, onRemoveSaved, onImpo
         <button type="button" className="btn" onClick={onPin}>
           <Icon name="pin" size={18} />
           {t("empty.pin")}
-        </button>
-        <button type="button" className="btn" onClick={() => onPilot(PILOTS[0].id)}>
-          <Icon name="field" size={18} />
-          {t("empty.example", { name: lang === "tr" ? PILOTS[0].nameTr : PILOTS[0].nameEn })}
         </button>
         <button type="button" className="btn btn-quiet" onClick={onImport}>
           <Icon name="upload" size={18} />

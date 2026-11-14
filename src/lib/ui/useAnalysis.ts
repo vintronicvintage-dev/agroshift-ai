@@ -61,6 +61,19 @@ export function useAnalysis(climate: ClimateSeries | null, climateKey: string, r
         // worker failed to load: fall back to the main thread for the rest of the session
         w?.terminate();
         workerRef.current = null;
+        const id = seqRef.current;
+        const meta = pending.get(id);
+        pending.clear();
+        if (!meta) return;
+        void import("@/lib/engine").then(({ analyze }) => {
+          if (id !== seqRef.current) return;
+          const t0 = performance.now();
+          const result = analyze({ ...meta.request, climate: meta.climate });
+          setDone({ result, error: null, ms: performance.now() - t0, forClimate: meta.climate, forRequest: meta.request });
+        }).catch((error: unknown) => {
+          if (id !== seqRef.current) return;
+          setDone((previous) => ({ ...previous, error: String(error), forClimate: meta.climate, forRequest: meta.request }));
+        });
       };
     }
     return () => {

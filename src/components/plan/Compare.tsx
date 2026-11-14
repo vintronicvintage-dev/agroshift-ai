@@ -1,9 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import type { AnalysisResult, Dist, PlanResult } from "@/lib/types";
 import { useI18n, type DictKey } from "@/lib/i18n";
 import { outOf, TON_PER_IRRIGATION_LABEL } from "./units";
 import { planLabel, planTitle } from "./planKit";
+
 
 const SHAPES = ["circle", "square", "diamond", "triangle", "circle", "square"] as const;
 
@@ -29,103 +31,124 @@ interface Metric {
   label: DictKey;
   unit: string;
   better: "low" | "high";
-  get: (p: PlanResult) => { d: Dist | null; v: number | null };
-  digits?: number;
+  get: (plan: PlanResult) => Dist | number | null;
+  bounded?: boolean;
+  water?: boolean;
 }
 
-/**
- * Comparison as small multiples: one row block per metric, every plan as a dot (typical year,
- * P50) with a whisker over 8 of 10 periods (P10–P90), all on one shared scale per metric.
- * "Benim planım" is always first and drawn as an open marker with a dashed reference line.
- */
+function metricValue(value: Dist | number | null) {
+  return typeof value === "number" ? value : value?.p50 ?? null;
+}
+
+function metricScale(metric: Metric, plans: PlanResult[]) {
+  const values = plans.flatMap((plan) => {
+    const value = metric.get(plan);
+    if (value === null) return [];
+    return typeof value === "number" ? [value] : [value.p10, value.p50, value.p90];
+  });
+  const low = metric.bounded ? 0 : Math.min(0, ...values);
+  const high = metric.bounded ? 100 : Math.max(1, ...values);
+  return (value: number) => `${((value - low) / (high - low)) * 100}%`;
+}
+
+const budgetCopy = {
+  tr: { title: "Yıllık sulama bütçesi", subtitle: "Suyun yetmediği dönemler", years: ["1. yıl", "2. yıl", "3. yıl"], selected: "Seçili", range: "Geçmiş dönemlerin %80 aralığı" },
+  en: { title: "Annual irrigation budget", subtitle: "Periods with insufficient water", years: ["Year 1", "Year 2", "Year 3"], selected: "Selected", range: "Range for 80% of past periods" },
+};
+
 export function Compare({ result, plans, selectedId, onSelect }: { result: AnalysisResult; plans: PlanResult[]; selectedId: string | null; onSelect: (id: string) => void }) {
   const { t, n, lang } = useI18n();
+  const copy = budgetCopy[lang];
   const metrics: Metric[] = [
-    { key: "need", label: "cmp.need", unit: t("u.tonDa"), better: "low", get: (p) => ({ d: p.water.requirementMmPerYr, v: p.water.requirementMmPerYr?.p50 ?? null }) },
-    { key: "unmet", label: "cmp.unmet", unit: t("u.tonDa"), better: "low", get: (p) => ({ d: p.water.unmetDeficitMmPerYr, v: p.water.unmetDeficitMmPerYr?.p50 ?? null }) },
-    { key: "margin", label: "cmp.margin", unit: t("u.tlDa"), better: "high", get: (p) => ({ d: p.economics.grossMarginTLPerDaPerYr, v: p.economics.grossMarginTLPerDaPerYr?.p50 ?? null }) },
-    { key: "soil", label: "cmp.soil", unit: "/100", better: "high", get: (p) => ({ d: null, v: p.soilHealth.score }) },
-    { key: "risk", label: "cmp.risk", unit: "/100", better: "low", get: (p) => ({ d: null, v: p.risk.score * 100 }) },
+    { key: "need", label: "cmp.need", unit: t("u.tonDa"), better: "low", water: true, get: (p) => p.water.requirementMmPerYr },
+    { key: "unmet", label: "cmp.unmet", unit: t("u.tonDa"), better: "low", water: true, get: (p) => p.water.unmetDeficitMmPerYr },
+    { key: "margin", label: "cmp.margin", unit: t("u.tlDa"), better: "high", get: (p) => p.economics.grossMarginTLPerDaPerYr },
+    { key: "soil", label: "cmp.soil", unit: "/100", better: "high", bounded: true, get: (p) => p.soilHealth.score },
+    { key: "risk", label: "cmp.risk", unit: "/100", better: "low", bounded: true, get: (p) => p.risk.score * 100 },
   ];
-  const W = 900, L = 8, R = 8;
-  const rowH = 26;
+  const baseline = plans.find((plan) => plan.kind === "current");
+  const scales = metrics.map((metric) => ({
+    metric,
+    position: metricScale(metric, plans),
+    reference: baseline ? metricValue(metric.get(baseline)) : null,
+  }));
+
+  if (plans.length === 0) return null;
+
   return (
-    <div>
-      <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]" aria-label={t("cmp.legend")}>
-        {plans.map((p, i) => (
-          <li key={p.id}>
-            <button type="button" className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 ${selectedId === p.id ? "bg-surface-2 font-semibold" : ""}`} aria-pressed={selectedId === p.id} onClick={() => onSelect(p.id)}>
-              <MarkerIcon i={i} />
-              <span>{planTitle(p, result, t)}</span>
-              <span className="text-ink-2">({planLabel(p, lang)})</span>
-            </button>
-          </li>
+    <div className="plan-compare-comparison">
+      <div className="plan-compare-heading" aria-hidden="true">
+        <span>{t("win.plan")}</span>
+        {metrics.map((metric) => (
+          <div key={metric.key}>
+            <span>{t(metric.label)}</span>
+            <small>{t(metric.better === "low" ? "cmp.lowBetter" : "cmp.highBetter")}</small>
+          </div>
         ))}
-      </ul>
-      <div className="space-y-5">
-        {metrics.map((m) => {
-          const vals = plans.flatMap((p) => {
-            const g = m.get(p);
-            return g.d ? [g.d.p10, g.d.p90] : g.v !== null ? [g.v] : [];
-          });
-          let lo = Math.min(0, ...vals);
-          let hi = Math.max(1, ...vals);
-          const pad = (hi - lo) * 0.06;
-          lo -= m.key === "soil" || m.key === "risk" ? 0 : lo < 0 ? pad : 0;
-          hi += pad;
-          if (m.key === "soil" || m.key === "risk") {
-            lo = 0;
-            hi = 100;
-          }
-          const x = (v: number) => L + ((v - lo) / (hi - lo)) * (W - L - R);
-          const cur = m.get(plans[0]).v;
-          const H = plans.length * rowH + 30;
+        <div>
+          <span>{copy.title}</span>
+          <small>{copy.subtitle}</small>
+        </div>
+      </div>
+      <ul role="list" aria-label={t("cmp.legend")} className="plan-compare-plans">
+        {plans.map((plan, index) => {
+          const selected = selectedId === plan.id;
+          const title = planTitle(plan, result, t);
           return (
-            <section key={m.key} aria-labelledby={`cmp-${m.key}`}>
-              <h4 id={`cmp-${m.key}`} className="flex flex-wrap items-baseline justify-between gap-2 text-[14px] font-semibold">
-                <span>
-                  {t(m.label)} <span className="font-normal text-ink-2">({m.unit})</span>
-                </span>
-                <span className="text-[12px] font-normal text-ink-2">{m.better === "low" ? t("cmp.lowBetter") : t("cmp.highBetter")}</span>
-              </h4>
-              <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 h-auto w-full" role="img" aria-label={plans.map((p) => `${planTitle(p, result, t)}: ${m.get(p).v !== null ? n(m.get(p).v!) : "–"} ${m.unit}`).join("; ")}>
-                {lo < 0 && <line x1={x(0)} x2={x(0)} y1={0} y2={H - 18} stroke="var(--axis)" />}
-                {cur !== null && <line x1={x(cur)} x2={x(cur)} y1={0} y2={H - 18} stroke="var(--ref)" strokeDasharray="4 3" />}
-                {plans.map((p, i) => {
-                  const g = m.get(p);
-                  const y = 20 + i * rowH;
-                  const sel = selectedId === p.id;
+            <li key={plan.id} className="plan-compare-plan" data-selected={selected} data-baseline={plan.kind === "current"}>
+              <button type="button" className="plan-compare-selection" aria-pressed={selected} onClick={() => onSelect(plan.id)}>
+                <span className="plan-compare-plan-name"><MarkerIcon i={index} />{title}</span>
+                <span className="plan-compare-crop-names">{planLabel(plan, lang)}</span>
+                {selected ? <span aria-hidden="true" className="plan-compare-selected">{copy.selected}</span> : null}
+              </button>
+              <dl className="plan-compare-metrics">
+                {scales.map(({ metric, position, reference }) => {
+                  const value = metric.get(plan);
+                  const median = metricValue(value);
+                  const range = typeof value === "object" ? value : null;
                   return (
-                    <g key={p.id} opacity={selectedId && !sel && i !== 0 ? 0.55 : 1}>
-                      <line x1={L} x2={W - R} y1={y} y2={y} stroke="var(--grid)" strokeWidth="0.6" />
-                      {g.d && (
-                        <>
-                          <line x1={x(g.d.p10)} x2={x(g.d.p90)} y1={y} y2={y} stroke="var(--ink-2)" strokeWidth={sel ? 3 : 2} />
-                          <line x1={x(g.d.p10)} x2={x(g.d.p10)} y1={y - 4} y2={y + 4} stroke="var(--ink-2)" strokeWidth="1.4" />
-                          <line x1={x(g.d.p90)} x2={x(g.d.p90)} y1={y - 4} y2={y + 4} stroke="var(--ink-2)" strokeWidth="1.4" />
-                        </>
-                      )}
-                      {g.v !== null && <Marker shape={SHAPES[i % SHAPES.length]} x={x(g.v)} y={y} filled={i !== 0} />}
-                      {g.v !== null && (
-                        <text x={x(g.v) > W - 70 ? x(g.v) - 10 : x(g.v) + 10} y={y - 5} textAnchor={x(g.v) > W - 70 ? "end" : "start"} fontSize="11.5" fontWeight={sel ? 700 : 500} fill="var(--ink)">
-                          {n(g.v, m.key === "risk" || m.key === "soil" ? 0 : 0)}
-                        </text>
-                      )}
-                    </g>
+                    <div className="plan-compare-metric" key={metric.key} data-water={metric.water}>
+                      <dt className="plan-compare-metric-name">{t(metric.label)}</dt>
+                      <dd className="plan-compare-metric-value">
+                        <strong>{n(median)}</strong>
+                        {median !== null ? <small>{metric.unit}</small> : null}
+                      </dd>
+                      {median !== null ? (
+                        <dd className="plan-compare-track" aria-hidden="true">
+                          {range ? (
+                            <span className="plan-compare-whisker" style={{ "--from": position(range.p10), "--to": position(range.p90) } as CSSProperties} />
+                          ) : null}
+                          {reference !== null ? <span className="plan-compare-reference" style={{ left: position(reference) }} /> : null}
+                          <span className="plan-compare-median" style={{ left: position(median) }} />
+                        </dd>
+                      ) : null}
+                      {range ? <dd className="plan-compare-interval" aria-label={`${copy.range}: ${n(range.p10)}–${n(range.p90)} ${metric.unit}`}>{n(range.p10)}–{n(range.p90)}</dd> : null}
+                    </div>
                   );
                 })}
-                <text x={L} y={H - 4} fontSize="11" fill="var(--ink-2)">
-                  {n(lo)}
-                </text>
-                <text x={W - R} y={H - 4} textAnchor="end" fontSize="11" fill="var(--ink-2)">
-                  {n(hi)}
-                </text>
-              </svg>
-            </section>
+                <div className="plan-compare-budget">
+                  <dt className="plan-compare-metric-name">{copy.title} <small>{copy.subtitle}</small></dt>
+                  <dd>
+                    <ul role="list" aria-label={`${copy.title} · ${copy.subtitle}`} className="plan-compare-budget-years">
+                      {copy.years.map((year, slot) => {
+                        const share = plan.water.budgetExceededShareByYear?.[slot] ?? null;
+                        const count = share === null || result.windows.count === 0 ? null : Math.round(share * result.windows.count);
+                        return (
+                          <li key={year} data-exceeded={count !== null && count > 0}>
+                            <span>{year}</span>
+                            <strong>{count === null ? "—" : `${n(count)}/${n(result.windows.count)}`}</strong>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </dd>
+                </div>
+              </dl>
+            </li>
           );
         })}
-      </div>
-      <p className="mt-3 text-[12px] text-ink-2">{t("cmp.gloss", { w: result.windows.count, k: TON_PER_IRRIGATION_LABEL })}</p>
+      </ul>
+      <p className="plan-compare-gloss">{t("cmp.gloss", { w: result.windows.count, k: TON_PER_IRRIGATION_LABEL })}</p>
     </div>
   );
 }

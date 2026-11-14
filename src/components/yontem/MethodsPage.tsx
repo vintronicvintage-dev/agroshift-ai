@@ -13,13 +13,9 @@ import { IMAGES, IMAGE_LIST, IMAGES_RETRIEVED } from "@/lib/ui/images";
 import { useFieldData } from "@/components/data/FieldData";
 import { ImageCredit } from "@/components/ui/ImageCredit";
 import { useL } from "@/components/plan/planKit";
-import { Mod16ValidationCard } from "@/components/yontem/Mod16ValidationCard";
-import { TarsimValidationCard } from "@/components/yontem/TarsimValidationCard";
 
 const SECTIONS: { id: string; key: DictKey }[] = [
   { id: "veri", key: "m.data" },
-  { id: "mod16", key: "y.val.mod16" },
-  { id: "tarsim", key: "y.val.tarsim" },
   { id: "harita", key: "y.tiles" },
   { id: "formuller", key: "m.formulas" },
   { id: "varsayimlar", key: "y.assumptions" },
@@ -59,13 +55,13 @@ export function MethodsPage() {
   }, []);
   const assumptions: AssumptionItem[] | null = d.analysis.result?.assumptions ?? last?.assumptions ?? null;
   const formulas: DictKey[] = ["m.f.et0", "m.f.wb", "m.f.soil", "m.f.irr", "m.f.yield", "m.f.replay", "m.f.trend", "m.f.opt"];
-  const dataItems: DictKey[] = ["y.d.power", "y.d.srtm", "y.d.soilgrids", "y.d.modis", "y.d.mod16", "y.d.tarsim", "y.d.era5", "y.d.gibs", "y.d.eox", "y.d.osm"];
+  const dataItems: DictKey[] = ["y.d.power", "y.d.srtm", "y.d.soilgrids", "y.d.modis", "y.d.era5", "y.d.gibs", "y.d.eox", "y.d.osm"];
   const limits: DictKey[] = ["m.limit.1", "m.limit.2", "m.limit.3", "m.limit.4", "m.limit.5", "m.limit.6", "y.limit.7", "y.limit.8"];
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 pt-6 sm:px-6">
-      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label={t("y.index")} className="sticky top-14 z-20 -mx-4 border-b border-line bg-bg px-4 py-2 lg:top-20 lg:mx-0 lg:self-start lg:border-b-0 lg:bg-transparent lg:p-0">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <nav aria-label={t("y.index")} className="reading-index sticky top-24 z-20 min-w-0 lg:self-start">
           <p className="label hidden lg:block">{t("y.index")}</p>
           <ol className="flex gap-1.5 overflow-x-auto scroll-thin lg:mt-2 lg:block lg:overflow-visible">
             {SECTIONS.map((s) => (
@@ -78,12 +74,12 @@ export function MethodsPage() {
           </ol>
         </nav>
         <div className="min-w-0 max-w-[78ch] space-y-10">
-          <header>
-            <h1 className="display text-[36px] sm:text-[44px]">{t("m.title")}</h1>
-            <p className="lead mt-3 text-[16px]">{t("y.lead")}</p>
-            <figure className="mt-6 grid items-end gap-4 sm:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-              <div className="relative aspect-[1400/1662] overflow-hidden rounded-[10px] border border-line">
-                <Image src={IMAGES.harranPlain.src} alt={Lraw(IMAGES.harranPlain.alt)} fill sizes="(min-width: 640px) 288px, calc(100vw - 2rem)" placeholder="blur" blurDataURL={IMAGES.harranPlain.blurDataURL} className="object-cover" />
+          <header className="fieldshift-reading-header">
+            <h1 className="display">{t("m.title")}</h1>
+            <p className="mt-3 text-base">{t("y.lead")}</p>
+            <figure className="mt-5 w-full space-y-3">
+              <div className="relative aspect-[16/8] overflow-hidden rounded-xl border border-line">
+                <Image src={IMAGES.harranPlain.src} alt={Lraw(IMAGES.harranPlain.alt)} fill sizes="(min-width: 1024px) 720px, calc(100vw - 2rem)" placeholder="blur" blurDataURL={IMAGES.harranPlain.blurDataURL} className="object-cover object-[center_72%]" />
                 <ImageCredit text={IMAGES.harranPlain.creditShort} className="absolute bottom-2 left-2" />
               </div>
               <figcaption className="text-[14px] text-ink-2">{t("m.hero.caption")}</figcaption>
@@ -91,6 +87,20 @@ export function MethodsPage() {
           </header>
 
           <Sec id="veri" title={t("m.data")}>
+            <div className="parcel-identity mb-5">
+              <h3>{lang === "tr" ? "Veri doğruluğu ve hesap sınırları" : "Data accuracy and model limits"}</h3>
+              <ul className="space-y-2 text-sm text-ink-2">
+                <li>{lang === "tr"
+                  ? "Beş kayıtlı veri kesitinde ERA5 / NASA POWER yıllık yağış oranı 0,47–1,41. Bu iki modelin karşılaştırmasıdır. IMERG çapraz kontrolü beşinde de tamamlanmadı."
+                  : "Across five archived datasets, the annual ERA5 / NASA POWER rainfall ratio is 0.47–1.41. This compares two models. IMERG cross-checking was incomplete for all five."}</li>
+                <li>{lang === "tr"
+                  ? "SoilGrids 250 m çözünürlüklü toprak tahmini sağlar. MODIS NDVI 250 m çözünürlükte bitki örtüsü sinyali verir. Bu veri ürün türünü belirlemez."
+                  : "SoilGrids provides soil estimates at 250 m. MODIS NDVI describes vegetation at 250 m and does not identify crop species."}</li>
+                <li>{lang === "tr"
+                  ? "FAO-56 yönteminde referans evapotranspirasyon ürün katsayısıyla ölçeklenir. Günlük su dengesiyle hesaplanan üç yıllık dönemler tarihsel senaryolardır. Kurak senaryoda yağış %25 azaltılır."
+                  : "FAO-56 reference evapotranspiration is scaled by crop coefficients. The three-year windows use a daily water balance and represent historical scenarios. The dry scenario reduces rainfall by 25%."}</li>
+              </ul>
+            </div>
             <ul className="space-y-2">
               {dataItems.map((k) => (
                 <li key={k} className="border-l-2 border-line-strong pl-3">
@@ -112,14 +122,6 @@ export function MethodsPage() {
                 ))}
               </ul>
             )}
-          </Sec>
-
-          <Sec id="mod16" title={t("y.val.mod16")}>
-            <Mod16ValidationCard />
-          </Sec>
-
-          <Sec id="tarsim" title={t("y.val.tarsim")}>
-            <TarsimValidationCard />
           </Sec>
 
           <Sec id="harita" title={t("y.tiles")}>

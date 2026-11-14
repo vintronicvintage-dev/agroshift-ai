@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Geist_Mono, Instrument_Sans } from "next/font/google";
+import { Inter, Manrope } from "next/font/google";
 import { I18nProvider } from "@/lib/i18n";
 import { LANG_BOOT_SCRIPT, THEME_BOOT_SCRIPT } from "@/lib/ui/bootScripts";
 import { TraceProvider } from "@/components/trace/TraceProvider";
@@ -7,12 +7,17 @@ import { FieldDataProvider } from "@/components/data/FieldData";
 import { CropPatternDefs } from "@/components/brand/CropPatternDefs";
 import "./globals.css";
 
-/** Display and numerals: condensed width axis for hero numerals and plan names. */
-const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin", "latin-ext"], axes: ["wdth"] });
-/** UI and body. */
-const instrument = Instrument_Sans({ variable: "--font-instrument", subsets: ["latin", "latin-ext"] });
-/** Readouts only: units, coordinates, dates, source ids. Never sentences. */
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
+const manrope = Manrope({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://agroshift.app"),
@@ -38,11 +43,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="tr" data-theme="light" suppressHydrationWarning className={`${archivo.variable} ${instrument.variable} ${geistMono.variable}`}>
+    <html lang="tr" data-theme="light" className={`${manrope.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: [THEME_BOOT_SCRIPT, LANG_BOOT_SCRIPT].join(";") }} />
       </head>
-      <body>
+      <body className="font-sans antialiased">
         <div hidden aria-hidden="true" dangerouslySetInnerHTML={{ __html: IMPECCABLE_CONTRACT }} />
         <CropPatternDefs />
         <I18nProvider>

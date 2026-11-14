@@ -1,10 +1,5 @@
-import { AppShell } from "@/components/shell/AppShell";
-import { FieldWorkspace } from "@/components/tarla/FieldWorkspace";
+import { FieldShiftHome } from "@/components/home/FieldShiftHome";
 
 export default function Home() {
-  return (
-    <AppShell>
-      <FieldWorkspace />
-    </AppShell>
-  );
+  return <FieldShiftHome />;
 }

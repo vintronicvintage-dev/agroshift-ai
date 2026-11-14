@@ -97,20 +97,9 @@ export const DEFAULT_INPUTS: PlanInputs = {
 
 export const DEFAULT_SCENARIO: ScenarioState = { preset: "typical", rainMultiplier: 1, tempDeltaC: 0, priceMultiplier: 1 };
 
-const INITIAL_PILOT_RING = rectangleRing({ lat: PILOTS[0].lat, lon: PILOTS[0].lon }, 400, 300);
-const INITIAL_FIELD: ActiveField = {
-  id: "pilot-konya-cumra",
-  name: PILOTS[0].nameTr,
-  kind: "rectangle",
-  ring: INITIAL_PILOT_RING,
-  areaDa: describeRing(INITIAL_PILOT_RING).areaDa,
-  pilotId: PILOTS[0].id,
-  createdAt: "2026-11-14T00:00:00.000Z",
-};
-
 const DEFAULT: StoreState = {
   v: 3,
-  field: INITIAL_FIELD,
+  field: null,
   saved: [],
   inputs: DEFAULT_INPUTS,
   precip: { mode: "none" },
@@ -134,7 +123,7 @@ function load(): StoreState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<StoreState>;
-      if (p && p.v === 3) s = { ...DEFAULT, ...p, inputs: { ...DEFAULT.inputs, ...p.inputs }, scenario: { ...DEFAULT.scenario, ...p.scenario } };
+      if (p && p.v === 3) s = { ...DEFAULT, ...p, field: p.field?.pilotId ? null : p.field ?? null, inputs: { ...DEFAULT.inputs, ...p.inputs }, scenario: { ...DEFAULT.scenario, ...p.scenario } };
     }
   } catch {
     s = DEFAULT;
@@ -201,7 +190,9 @@ export function makeField(ring: Ring, kind: ShapeKind, name: string, extra: Part
 }
 
 export function setField(f: ActiveField | null) {
-  setStore((s) => ({ field: f, inputs: f && s.field?.id !== f.id ? { ...s.inputs, areaOverrideDa: null } : s.inputs }));
+  setStore((s) => f?.id === s.field?.id
+    ? { field: f }
+    : { field: f, soil: null, precip: { mode: "none" }, inputs: { ...s.inputs, areaOverrideDa: null } });
 }
 
 export function updateFieldRing(ring: Ring, kind?: ShapeKind) {

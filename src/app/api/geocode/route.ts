@@ -2,7 +2,7 @@
  * Place search proxy for the field map (Nominatim, OpenStreetMap). Follows the Nominatim usage
  * policy (operations.osmfoundation.org/policies/nominatim): an identifying User-Agent and Referer,
  * at most one upstream request per second for the whole server (requests queue), results cached,
- * no autocomplete (the UI only searches on submit), Türkiye only, at most 5 results.
+ * no autocomplete (the UI only searches on submit), at most 5 results.
  * Results carry the ODbL attribution the UI must show.
  */
 import { createPoliteQueue } from "@/lib/data/terrain";
@@ -35,7 +35,6 @@ export async function GET(request: Request): Promise<Response> {
       u.searchParams.set("q", q);
       u.searchParams.set("format", "jsonv2");
       u.searchParams.set("limit", "5");
-      u.searchParams.set("countrycodes", "tr");
       u.searchParams.set("accept-language", lang);
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 10_000);

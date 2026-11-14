@@ -64,4 +64,21 @@ describe("FieldShiftComparison — evaluateYearBudgetStatus", () => {
     expect(res.irrigatedMm).toBe(0);
     expect(res.statusBadge).toContain("UYGUN");
   });
+
+  it("reports rainfed water deficit without inventing budget-exceedance windows", () => {
+    const result = evaluateYearBudgetStatus({ ...sampleWheatYear, budgetExceededShare: 0 }, 0, 22, "tr");
+    expect(result.exceeded).toBe(false);
+    expect(result.exceededWindows).toBe(0);
+    expect(result.statusBadge).toContain("Su açığı");
+  });
+
+  it("reports even one historical budget exceedance", () => {
+    const result = evaluateYearBudgetStatus({
+      ...sampleWheatYear,
+      unmetDeficitMm: null,
+      budgetExceededShare: 1 / 30,
+    }, 200, 30, "en");
+    expect(result.exceeded).toBe(true);
+    expect(result.exceededWindows).toBe(1);
+  });
 });

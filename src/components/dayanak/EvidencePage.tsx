@@ -13,6 +13,7 @@ import { CropArt } from "@/components/brand/CropArt";
 import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { TermTooltip } from "@/components/ui/TermTooltip";
 import { JudgmentNote } from "@/components/shell/AppShell";
 import { MiniTable } from "@/components/tarla/CardKit";
@@ -77,7 +78,7 @@ export function EvidencePage() {
   if (!hydrated)
     return (
       <div className="mx-auto max-w-[1380px] px-4 py-8">
-        <div className="skel h-64" />
+        <Skeleton className="h-64" />
       </div>
     );
 
@@ -87,7 +88,7 @@ export function EvidencePage() {
         <SpotArt name={s.field ? "loading-data" : "no-field"} width={220} className="text-ink-3" />
         <h1 className="display mt-4 text-[34px]">{t("ev.title")}</h1>
         <p className="mt-2 text-[15px] text-ink-2">{s.field ? t("ev.waiting") : t("ev.noField")}</p>
-        <Link href={s.field ? "/plan" : "/"} className="btn btn-primary mt-5">
+        <Link href={s.field ? "/plan" : "/tarla"} className="btn btn-primary mt-5">
           {s.field ? t("nav.plan") : t("pl.toField")}
         </Link>
       </div>
@@ -110,36 +111,22 @@ export function EvidencePage() {
 
   const idx = Math.max(0, claims.findIndex((c) => c.id === cur));
   const active = claims[idx];
-  const kc = matched.province.kimlik_ve_cografya;
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-5 px-4 py-5 sm:px-6">
-      {/* ── TOP HEADER BANNER ── */}
-      <header className="bento-card flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
+      <header className="fieldshift-reading-header">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#1e6b34] px-3 py-0.5 font-mono text-[11px] font-bold text-white">
-              Kanıt & Parametre Şeffaflığı · {kc.plaka} {kc.il_adi}
-            </span>
-            <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
-              Önerilen Sıra: {planLabel(best, lang)}
-            </span>
-          </div>
-          <h1 className="mt-2 font-display text-[26px] font-semibold text-ink sm:text-[32px]">
-            {lang === "tr"
-              ? "Bilimsel Dayanaklar, Hesaplama Parametreleri ve Veri Kaynakları"
-              : "Scientific Evidence, Calculation Parameters & Data Sources"}
-          </h1>
-          <p className="mt-0.5 max-w-[78ch] text-[14px] text-ink-2">
+          <h1 className="display">{lang === "tr" ? "Planın dayanağı" : "Evidence behind the plan"}</h1>
+          <p className="mt-3 max-w-[68ch] text-base text-ink-2">
             {t("ev.lead", { seq: planLabel(best, lang), name: s.field.name })}
           </p>
         </div>
-
         {/* Right Controls: Page Mode + Farmer/Engineer Toggle + CSV */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-xl border border-line bg-bg p-1 text-[12.5px] font-semibold">
+          <div className="flex flex-wrap rounded-xl border border-line bg-bg p-1 text-[12.5px] font-semibold">
             <button
               type="button"
+              aria-pressed={pageMode === "claims"}
               onClick={() => setPageMode("claims")}
               className={`rounded-lg px-3 py-1.5 transition-colors ${
                 pageMode === "claims" ? "bg-[#1e6b34] text-white shadow-2xs" : "text-ink-2 hover:text-ink"
@@ -149,6 +136,7 @@ export function EvidencePage() {
             </button>
             <button
               type="button"
+              aria-pressed={pageMode === "all_sources"}
               onClick={() => setPageMode("all_sources")}
               className={`rounded-lg px-3 py-1.5 transition-colors ${
                 pageMode === "all_sources" ? "bg-[#1e6b34] text-white shadow-2xs" : "text-ink-2 hover:text-ink"
@@ -182,7 +170,7 @@ export function EvidencePage() {
           MODE 1: STEP-BY-STEP CLAIMS WITH EXPLICIT PARAMETERS & PHOTO SOURCE CARDS
          ═══════════════════════════════════════════════════════════════════════════ */}
       {pageMode === "claims" && (
-        <div className="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[245px_minmax(0,1fr)]">
           {/* Left Navigation Cards */}
           <nav aria-label={t("ev.claims")} className="lg:sticky lg:top-20 lg:self-start">
             <label className="lg:hidden">
@@ -196,9 +184,9 @@ export function EvidencePage() {
               </select>
             </label>
 
-            <div className="bento-card hidden p-3 lg:block">
+            <div className="reading-index hidden lg:block">
               <p className="px-2 pb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-ink-2">
-                {lang === "tr" ? "Doğrulanan İddialar" : "Verified Claims"}
+                {lang === "tr" ? "İncelenen başlıklar" : "Topics"}
               </p>
               <ol className="space-y-1.5">
                 {claims.map((c, i) => {

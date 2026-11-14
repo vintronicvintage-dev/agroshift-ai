@@ -51,7 +51,7 @@ function Field({ id, label, error, children, hint }: { id: string; label: string
 }
 
 function PasswordInput({ id, value, onChange, autoComplete, invalid, describedBy }: { id: string; value: string; onChange: (v: string) => void; autoComplete: string; invalid?: boolean; describedBy?: string }) {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -59,6 +59,7 @@ function PasswordInput({ id, value, onChange, autoComplete, invalid, describedBy
         id={id}
         name={id}
         type={show ? "text" : "password"}
+        placeholder={lang === "tr" ? "Şifrenizi girin" : "Enter your password"}
         spellCheck={false}
         className="field-input pr-12"
         autoComplete={autoComplete}
@@ -122,6 +123,7 @@ function Submit({ busy, children, primary = true, onClick, type = "submit" }: { 
   return (
     <button type={type} onClick={onClick} className={`btn btn-lg w-full justify-center ${primary ? "btn-primary" : ""}`} disabled={!AUTH_ENABLED || busy} aria-busy={busy || undefined}>
       {busy ? t("auth.busy") : children}
+      {primary && !busy && <Icon name="arrow" size={17} />}
     </button>
   );
 }
@@ -206,7 +208,7 @@ export function SignInForm() {
     <form noValidate onSubmit={withPassword} className="space-y-4">
       <fieldset disabled={!AUTH_ENABLED} className="space-y-4">
         <Field id={`${ids}-e`} label={t("auth.email")} error={emailBad ? t("auth.v.email") : null}>
-          <input id={`${ids}-e`} type="email" name="email" inputMode="email" autoComplete="email" spellCheck={false} autoCapitalize="none" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => email && setTouched(true)} aria-invalid={emailBad || undefined} aria-describedby={emailBad ? `${ids}-e-err` : undefined} required />
+          <input id={`${ids}-e`} type="email" name="email" inputMode="email" autoComplete="email" placeholder="ornek@example.com" spellCheck={false} autoCapitalize="none" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => email && setTouched(true)} aria-invalid={emailBad || undefined} aria-describedby={emailBad ? `${ids}-e-err` : undefined} required />
         </Field>
         <Field id={`${ids}-p`} label={t("auth.password")}>
           <PasswordInput id={`${ids}-p`} value={password} onChange={setPassword} autoComplete="current-password" invalid={touched && !password} />

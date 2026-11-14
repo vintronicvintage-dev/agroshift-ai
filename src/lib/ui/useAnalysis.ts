@@ -29,7 +29,12 @@ const DEBOUNCE_MS = 120;
 export function useAnalysis(climate: ClimateSeries | null, climateKey: string, request: AnalysisRequest | null): AnalysisState {
   const [done, setDone] = useState<Done>({ result: null, error: null, ms: null, forClimate: null, forRequest: null });
   const workerRef = useRef<Worker | null>(null);
-  const sentKeyRef = useRef<string | null>(null);
+  const sentSiteRef = useRef<{
+    key: string;
+    climate: ClimateSeries;
+    soilLayers: AnalysisRequest["field"]["soilLayers"];
+    precipCheck: AnalysisRequest["precipCheck"];
+  } | null>(null);
   const seqRef = useRef(0);
   const pendingRef = useRef(new Map<number, { climate: ClimateSeries; request: AnalysisRequest }>());
 
@@ -41,7 +46,7 @@ export function useAnalysis(climate: ClimateSeries | null, climateKey: string, r
       w = null;
     }
     workerRef.current = w;
-    sentKeyRef.current = null;
+    sentSiteRef.current = null;
     const pending = pendingRef.current;
     if (w) {
       w.onmessage = (e: MessageEvent<WorkerResponse>) => {
@@ -72,11 +77,37 @@ export function useAnalysis(climate: ClimateSeries | null, climateKey: string, r
       const w = workerRef.current;
       if (w) {
         pendingRef.current.set(id, { climate, request });
-        if (sentKeyRef.current !== climateKey) {
-          w.postMessage({ type: "climate", key: climateKey, climate });
-          sentKeyRef.current = climateKey;
+        const sent = sentSiteRef.current;
+        const soilLayers = request.field.soilLayers;
+        const precipCheck = request.precipCheck;
+        if (
+          !sent ||
+          sent.key !== climateKey ||
+          sent.climate !== climate ||
+          sent.soilLayers !== soilLayers ||
+          sent.precipCheck !== precipCheck
+        ) {
+          w.postMessage({
+            type: "climate",
+            key: climateKey,
+            climate,
+            soilLayers: soilLayers ?? null,
+            precipCheck: precipCheck ?? null,
+          });
+          sentSiteRef.current = { key: climateKey, climate, soilLayers, precipCheck };
         }
-        w.postMessage({ type: "run", id, key: climateKey, input: request });
+        const { soilLayers: _sl, ...fieldRest } = request.field;
+        const { precipCheck: _pc, ...reqRest } = request;
+        void _sl;
+        void _pc;
+        w.postMessage({
+          type: "run",
+          id,
+          key: climateKey,
+          input: { ...reqRest, field: fieldRest },
+          useSiteSoilLayers: !!soilLayers,
+          useSitePrecipCheck: !!precipCheck,
+        });
         return;
       }
       void import("@/lib/engine").then(({ analyze }) => {

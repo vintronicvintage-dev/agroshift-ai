@@ -56,10 +56,10 @@
 - Modify: `agroshift/src/lib/ui/useAnalysis.ts`
 - Test: `agroshift/src/lib/data/fieldParts.test.ts`
 
-- [ ] **Step 1: `FieldData` parça ayrıştırma ve pilot snapshot kısa devre mantığı için birim testi yaz**
-- [ ] **Step 2: Testi çalıştır ve RED durumunu kanıtla**
-- [ ] **Step 3: `FieldData.tsx` içinde `soilPart` ve `precip` isteklerini `siteKey` değişimine bağla; pilot bölgelerde gömülü `soilLayers` ve `precipCheck` mevcutsa gereksiz ağ isteklerini atla**
-- [ ] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
+- [x] **Step 1: `FieldData` parça ayrıştırma ve pilot snapshot kısa devre mantığı için birim testi yaz**
+- [x] **Step 2: Testi çalıştır ve RED durumunu kanıtla**
+- [x] **Step 3: `FieldData.tsx` içinde `soilPart` ve `precip` isteklerini `siteKey` değişimine bağla; pilot bölgelerde gömülü `soilLayers` ve `precipCheck` mevcutsa gereksiz ağ isteklerini atla**
+- [x] **Step 4: Testleri çalıştır, GREEN durumunu kanıtla ve commit al**
 
 ---
 

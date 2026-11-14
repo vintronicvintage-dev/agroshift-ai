@@ -99,6 +99,62 @@ export function econToInput(d: EconDraft): AnalysisInput["economics"] {
   return Object.keys(out).length ? out : undefined;
 }
 
+/**
+ * Pure decision helper: which parts need an immediate HTTP fetch when `ringKey` changes?
+ * - When `prevSiteKey === nextSiteKey` (polygon vertex moved within the same 0.0001° centroid cell),
+ *   only polygon-dependent terrain (`"field"`) is refetched; site-bound parts (`soilPart`, `precip`,
+ *   `climate`, `ndvi`) depend solely on the centroid.
+ * - When moving to a new `siteKey` that matches a bundled pilot snapshot (`hasSnapshotEntry`),
+ *   only `"field"` is fetched immediately while `loadSnapshot` resolves the site-bound parts locally.
+ * - When moving to a new non-pilot `siteKey`, all 5 parts are fetched once.
+ */
+export function partsForRingChange(prevSiteKey: string, nextSiteKey: string, hasSnapshotEntry: boolean): PartName[] {
+  if (prevSiteKey === nextSiteKey || hasSnapshotEntry) return ["field"];
+  return ["field", "soilPart", "precip", "climate", "ndvi"];
+}
+
+/**
+ * Extract site-bound `Part` states directly from a bundled pilot `Snapshot` so no redundant
+ * `/api/field?parts=soil` or `/api/field?parts=precip` calls are made when snapshot data exists.
+ */
+export function snapshotToParts(
+  snap: Snapshot,
+  ring: { lat: number; lon: number }[],
+): {
+  climate?: Part<ClimateSeries>;
+  ndvi?: Part<NdviSeries>;
+  soilPart?: Part<FieldResponse>;
+  precip?: Part<{ precipCheck: FieldResponse["precipCheck"] }>;
+  missing: PartName[];
+} {
+  const missing: PartName[] = [];
+  const climate: Part<ClimateSeries> | undefined = snap.climate
+    ? { status: "ok", data: snap.climate, from: "snapshot" }
+    : (missing.push("climate"), undefined);
+  const ndvi: Part<NdviSeries> | undefined = snap.ndvi.points.length
+    ? { status: "ok", data: snap.ndvi, from: "snapshot" }
+    : (missing.push("ndvi"), undefined);
+  const soilPart: Part<FieldResponse> | undefined = snap.soilLayers?.length && snap.soil.origin !== "default"
+    ? {
+        status: "ok",
+        data: {
+          geometry: describeRing(ring),
+          terrain: snap.terrain ?? null,
+          soil: snap.soil,
+          soilLayers: snap.soilLayers,
+          precipCheck: snap.precipCheck ?? null,
+          ...(snap.wrb ? { wrb: snap.wrb } : {}),
+          notes: ["Soil layers from the bundled pilot snapshot."],
+        },
+        from: "snapshot",
+      }
+    : (missing.push("soilPart"), undefined);
+  const precip: Part<{ precipCheck: FieldResponse["precipCheck"] }> | undefined = snap.precipCheck
+    ? { status: "ok", data: { precipCheck: snap.precipCheck }, from: "snapshot" }
+    : (missing.push("precip"), undefined);
+  return { climate, ndvi, soilPart, precip, missing };
+}
+
 export function FieldDataProvider({ children }: { children: ReactNode }) {
   const store = useStore();
   const { lang } = useI18n();
@@ -149,7 +205,7 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
       if (!fld || !centroid) return;
       const site = siteRef.current;
       const set = (p: Part<unknown>) => {
-        if (part === "field" || part === "soilPart" || part === "precip" ? gen !== genRef.current : site !== siteRef.current) return;
+        if (part === "field" ? gen !== genRef.current : site !== siteRef.current) return;
         setParts((s) => ({ ...s, [part]: p }));
       };
       set({ status: "loading", startedAt: Date.now() });
@@ -161,7 +217,7 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
       } else void getJson(`/api/${part}?${q}`, undefined, TIMEOUT[part], signal).then(set);
   };
 
-  // site-level data (climate, NDVI, snapshot): refetch only when the centroid moves to another site
+  // site-level data (climate, NDVI, soilPart, precip, snapshot): refetch only when the centroid moves to another site
   const siteRef = useRef("");
   useEffect(() => {
     if (!f || !centroid) {
@@ -171,7 +227,8 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (!pilots) return;
-    const sameSite = siteRef.current === siteKey;
+    const prevSite = siteRef.current;
+    const sameSite = prevSite === siteKey;
     if (!sameSite) {
       siteRef.current = siteKey;
       abortRef.current?.abort();
@@ -180,38 +237,38 @@ export function FieldDataProvider({ children }: { children: ReactNode }) {
     const gen = ++genRef.current;
     const signal = abortRef.current!.signal;
     const now = Date.now();
+    const id = !sameSite ? matchSnapshotId(pilots, centroid.lat, centroid.lon) : null;
+    const entry = id ? pilots.find((p) => p.id === id) ?? null : null;
     if (!sameSite) {
-      const id = matchSnapshotId(pilots, centroid.lat, centroid.lon);
-      const entry = id ? pilots.find((p) => p.id === id) ?? null : null;
       setParts({ key: ringKey, field: { status: "loading", startedAt: now }, soilPart: { status: "loading", startedAt: now }, precip: { status: "loading", startedAt: now }, climate: { status: "loading", startedAt: now }, ndvi: { status: "loading", startedAt: now }, snapshot: null });
       if (entry) {
+        const ringSnap = f.ring;
         loadSnapshot(entry.id)
           .then((snap) => {
-            if (gen !== genRef.current && siteRef.current !== siteKey) return;
+            if (siteRef.current !== siteKey) return;
             if (!snap) throw new Error("missing");
+            const resolved = snapshotToParts(snap, ringSnap);
             setParts((s) => ({
               ...s,
               snapshot: { entry, snap },
-              climate: snap.climate ? { status: "ok", data: snap.climate, from: "snapshot" } : s.climate,
-              ndvi: snap.ndvi.points.length ? { status: "ok", data: snap.ndvi, from: "snapshot" } : s.ndvi,
+              climate: resolved.climate ?? s.climate,
+              ndvi: resolved.ndvi ?? s.ndvi,
+              soilPart: resolved.soilPart ?? s.soilPart,
+              precip: resolved.precip ?? s.precip,
             }));
-            if (!snap.climate) fetchPart(genRef.current, "climate", signal);
-            if (!snap.ndvi.points.length) fetchPart(genRef.current, "ndvi", signal);
+            for (const mp of resolved.missing) fetchPart(genRef.current, mp, signal);
           })
           .catch(() => {
-            fetchPart(genRef.current, "climate", signal);
-            fetchPart(genRef.current, "ndvi", signal);
+            if (siteRef.current !== siteKey) return;
+            for (const mp of ["soilPart", "precip", "climate", "ndvi"] as const) fetchPart(genRef.current, mp, signal);
           });
-      } else {
-        fetchPart(gen, "climate", signal);
-        fetchPart(gen, "ndvi", signal);
       }
     } else {
       setParts((s) => ({ ...s, key: ringKey }));
     }
-    fetchPart(gen, "field", signal);
-    fetchPart(gen, "soilPart", signal);
-    fetchPart(gen, "precip", signal);
+    for (const p of partsForRingChange(prevSite, siteKey, !!entry)) {
+      fetchPart(gen, p, signal);
+    }
     // ringKey drives refetch of the polygon-specific part
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ringKey, pilots]);

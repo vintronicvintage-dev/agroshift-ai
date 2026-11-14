@@ -52,7 +52,6 @@ const SRC_BREAK = "Direction/order of magnitude: Angus et al. 2015 (Crop Pasture
 const SRC_ASM = "Assumption (agronomic rule of thumb; verify with local trials)";
 
 const isLegume = (g: RotationGroup) => g === "grain_legume" || g === "forage_legume";
-const isCereal = (g: RotationGroup) => g === "small_grain" || g === "maize";
 
 const cache = new Map<string, PreCropEffect>();
 

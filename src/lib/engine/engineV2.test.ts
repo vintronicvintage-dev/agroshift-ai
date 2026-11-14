@@ -288,3 +288,19 @@ describe("units", () => {
     expect(outOf(8, 10, "en")).toBe("in 8 of 10 periods");
   });
 });
+
+describe("implausible inputs are capped and flagged", () => {
+  it("SOC above 30 g/kg is capped for the pedotransfer and flagged", () => {
+    const h = soilHydraulics({ ...LOAM_SOIL, soc: 52 });
+    const c = soilHydraulics({ ...LOAM_SOIL, soc: 30 });
+    expect(h.socCapped).toBe(true);
+    expect(h.tawMmPerM).toBeCloseTo(c.tawMmPerM, 9);
+    expect(soilHydraulics(LOAM_SOIL).socCapped).toBe(false);
+  });
+  it("measured θ with θWP ≥ θFC falls back to Saxton–Rawls", () => {
+    const l = layerHydraulics([{ top: 0, bottom: 30, sand: 15, silt: 30, clay: 55, soc: 8, ph: 7.5, cec: null, nitrogen: null, bulkDensity: null, coarseFragments: null, thetaFC: 0.305, thetaWP: 0.306 }], LOAM_SOIL);
+    expect(l[0].method).toBe("saxton-rawls");
+    expect(l[0].measuredRejected).toBe(true);
+    expect(l[0].tawMmPerM).toBeGreaterThan(80);
+  });
+});

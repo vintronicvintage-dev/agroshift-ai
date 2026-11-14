@@ -22,7 +22,8 @@ const KONYA_RAIN_FACTOR = 320 / 551;
 function run(snap: ReturnType<typeof load>, budget: number, plan: RotationSequence, adj?: number): PlanResult {
   const input: AnalysisInput = {
     climate: snap.climate!,
-    field: { areaDa: 100, soil: snap.soil, irrigationBudgetMm: budget, irrigationEfficiency: 0.7, currentRotation: plan },
+    field: { areaDa: 100, soil: snap.soil, irrigationBudgetMm: budget, irrigationEfficiency: 0.7, currentRotation: plan, soilLayers: snap.soilLayers ?? undefined, terrain: snap.terrain ?? undefined },
+    precipCheck: snap.precipCheck ?? undefined,
     options: { robust: false, sensitivity: false },
     ...(adj ? { precipAdjustment: { mode: "annual" as const, factorAnnual: adj, provenance: "benchmark: approximate station climatology" } } : {}),
   };
@@ -59,7 +60,8 @@ describe("benchmark vs approximate provincial yields (real snapshots, wide toler
 describe("performance on the real Konya snapshot", () => {
   const input: AnalysisInput = {
     climate: konya.climate!,
-    field: { areaDa: 100, soil: konya.soil, irrigationBudgetMm: 300, irrigationEfficiency: 0.7, currentRotation: ["wheat_winter", "fallow", "wheat_winter"] },
+    field: { areaDa: 100, soil: konya.soil, irrigationBudgetMm: 300, irrigationEfficiency: 0.7, currentRotation: ["wheat_winter", "fallow", "wheat_winter"], soilLayers: konya.soilLayers ?? undefined, terrain: konya.terrain ?? undefined },
+    precipCheck: konya.precipCheck ?? undefined,
   };
   it("analyze (incl. robust ranking and sensitivity sweep) < 1.5 s", () => {
     analyze({ ...input, scenario: { tempDeltaC: 0.5 } }); // warm other ET₀ caches differently
@@ -79,5 +81,25 @@ describe("performance on the real Konya snapshot", () => {
       expect(c.plan.windows!.length).toBeGreaterThan(10);
       expect(ms).toBeLessThan(150);
     }
+  });
+});
+
+describe("real snapshot v2 inputs (layers, terrain, ERA5 check)", () => {
+  const r = analyze({
+    climate: urfa.climate!, precipCheck: urfa.precipCheck ?? undefined,
+    field: { areaDa: 100, soil: urfa.soil, irrigationBudgetMm: 0, irrigationEfficiency: 0.7, currentRotation: ["wheat_winter", "chickpea", "barley_winter"], soilLayers: urfa.soilLayers ?? undefined, terrain: urfa.terrain ?? undefined },
+  });
+  it("uses the SRTM site elevation, rejects implausible SoilGrids water contents, reports rainfall uncertainty", () => {
+    expect(r.terrain!.siteElevation).toBeCloseTo(urfa.terrain!.elevationMean, 6);
+    expect(r.terrain!.gridElevation).toBeGreaterThan(r.terrain!.siteElevation);
+    expect(r.soil.layers!.some((l) => l.measuredRejected)).toBe(true);
+    expect(r.soil.tawMmPerM).toBeGreaterThan(60);
+    const pu = r.precipUncertainty!;
+    expect(pu.sources.map((s) => s.id)).toEqual(["power", "reference", "chosen"]);
+    expect(pu.rangeMm[0]).toBeLessThan(pu.rangeMm[1]);
+    expect(pu.alternativeTop3!.length).toBeGreaterThan(0);
+    expect(typeof pu.sensitive).toBe("boolean");
+    for (const a of r.alternatives) expect(a.rainSource).toBeTruthy();
+    expect(r.current.explanation.evidence.some((e) => e.key === "evidence.siteElevation")).toBe(true);
   });
 });

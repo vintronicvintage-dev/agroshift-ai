@@ -138,6 +138,13 @@ export function capSoc(soc: number | null | undefined): number | null {
   return Math.min(SOC_PLAUSIBLE_MAX_GKG, Math.max(0, soc));
 }
 
+/**
+ * Plausibility guard for measured (e.g. SoilGrids wv0033/wv1500) water contents: the pair is used
+ * only if θ33 − θ1500 ≥ 0.05 m³/m³ AND ≥ 0.5 × the Saxton–Rawls estimate for the same layer
+ * (assumption; SoilGrids gives θ1500 ≥ θ33 in some high-clay subsoils, e.g. Harran).
+ */
+export const MIN_MEASURED_AWC = 0.05;
+
 /** OM % from SOC g/kg (van Bemmelen 1.724), SOC capped at SOC_PLAUSIBLE_MAX_GKG. */
 export function omFromSoc(soc: number | null | undefined): number | null {
   const c = capSoc(soc);
@@ -159,14 +166,23 @@ export function layerHydraulics(layers: readonly SoilLayer[], fallback: SoilProf
     const rv = Math.min(0.9, Math.max(0, (l.coarseFragments ?? 0) / 100));
     const om = omFromSoc(l.soc) ?? omFromSoc(fallback.soc) ?? DEFAULT_OM_PCT;
     let fc: number, wp: number, method: SoilLayerHydraulics["method"], df: number | null = null;
-    if (l.thetaFC != null && l.thetaWP != null && Number.isFinite(l.thetaFC) && Number.isFinite(l.thetaWP) && l.thetaFC > l.thetaWP && l.thetaFC < 0.8) {
-      fc = l.thetaFC; wp = l.thetaWP; method = "measured";
-    } else if (l.sand != null && l.clay != null && Number.isFinite(l.sand) && Number.isFinite(l.clay)) {
-      const silt = l.silt ?? Math.max(0, 100 - l.sand - l.clay);
-      const tot = l.sand + silt + l.clay || 1;
-      const sr = saxtonRawls((l.sand / tot) * 100, (l.clay / tot) * 100, om);
+    let rejected = false;
+    const hasTexture = l.sand != null && l.clay != null && Number.isFinite(l.sand) && Number.isFinite(l.clay);
+    let srFc: number | null = null, srWp: number | null = null;
+    if (hasTexture) {
+      const silt = l.silt ?? Math.max(0, 100 - (l.sand as number) - (l.clay as number));
+      const tot = (l.sand as number) + silt + (l.clay as number) || 1;
+      const sr = saxtonRawls(((l.sand as number) / tot) * 100, ((l.clay as number) / tot) * 100, om);
       const d = densityAdjust(sr, l.bulkDensity);
-      fc = d.thetaFC; wp = d.thetaWP; df = d.df; method = "saxton-rawls";
+      srFc = d.thetaFC; srWp = d.thetaWP; df = d.df;
+    }
+    const measured = l.thetaFC != null && l.thetaWP != null && Number.isFinite(l.thetaFC) && Number.isFinite(l.thetaWP) && l.thetaFC < 0.8;
+    const awcM = measured ? (l.thetaFC as number) - (l.thetaWP as number) : -1;
+    const plausible = measured && awcM >= MIN_MEASURED_AWC && (srFc === null || awcM >= 0.5 * (srFc - (srWp as number)));
+    if (measured && plausible) {
+      fc = l.thetaFC as number; wp = l.thetaWP as number; method = "measured"; df = null;
+    } else if (srFc !== null) {
+      fc = srFc; wp = srWp as number; method = "saxton-rawls"; rejected = measured;
     } else if (prev) {
       const f = 1 - prev.coarseFragmentsPct / 100;
       fc = prev.thetaFC / f; wp = prev.thetaWP / f; method = "extrapolated";
@@ -179,6 +195,7 @@ export function layerHydraulics(layers: readonly SoilLayer[], fallback: SoilProf
     const h: SoilLayerHydraulics = {
       top: l.top, bottom: l.bottom, thetaFC, thetaWP, tawMmPerM: Math.max(20, 1000 * (thetaFC - thetaWP)),
       method, densityFactor: df, coarseFragmentsPct: rv * 100, organicMatterPct: om, ph: l.ph ?? null,
+      ...(rejected ? { measuredRejected: true } : {}),
     };
     out.push(h);
     prev = h;

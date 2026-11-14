@@ -714,6 +714,8 @@ export interface SoilLayerHydraulics {
   thetaFC: number; thetaWP: number; // m³/m³, bulk soil (coarse fragments removed)
   tawMmPerM: number;
   method: "measured" | "saxton-rawls" | "extrapolated";
+  /** Engine v2: measured θ33/θ1500 were present but implausible (AWC < 0.05 or < 0.5 × Saxton–Rawls) and were replaced. */
+  measuredRejected?: boolean;
   densityFactor: number | null;
   coarseFragmentsPct: number;
   organicMatterPct: number;

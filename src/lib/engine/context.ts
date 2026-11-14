@@ -304,6 +304,10 @@ export function v2Explanation(ctx: AnalysisContext, p: PlanResult, raws: RawWind
   if (ctx.siteElevation !== ctx.gridElevation) evidence.push(it("evidence.siteElevation", { site: Math.round(ctx.siteElevation), grid: Math.round(ctx.gridElevation) },
     `Tarla rakımı ${Math.round(ctx.siteElevation)} m (SRTM) kullanıldı; POWER hücre rakımı ${Math.round(ctx.gridElevation)} m. ET₀'daki hava basıncı ve bölge tipi tarla rakımıyla hesaplandı.`,
     `Field elevation ${Math.round(ctx.siteElevation)} m (SRTM) was used; the POWER cell elevation is ${Math.round(ctx.gridElevation)} m. Air pressure in ET₀ and the zone type use the field elevation.`, ["NASA SRTM"]));
+  const rej = ctx.soil.layers?.filter((l) => l.measuredRejected) ?? [];
+  if (rej.length) gaps.push(it("gap.measuredSoilRejected", { n: rej.length },
+    `${rej.length} toprak katmanında SoilGrids su tutma değerleri inandırıcı değil (kullanılabilir su çok düşük, ör. ${rej.map((l) => `${l.top}–${l.bottom} cm`).join(", ")}); bu katmanlarda Saxton & Rawls tahmini kullanıldı.`,
+    `In ${rej.length} soil layers the SoilGrids water-retention values are implausible (available water far too low, e.g. ${rej.map((l) => `${l.top}–${l.bottom} cm`).join(", ")}); Saxton & Rawls estimates were used there.`, ["SoilGrids v2.0", "Saxton & Rawls 2006"]));
   if (ctx.soil.socCapped) gaps.push(it("gap.socCapped", {},
     "Toprak organik karbonu (SOC) bazı katmanlarda inanılmayacak kadar yüksek (> 30 g/kg); hesaplarda 30 g/kg ile sınırlandı. Toprak analiziyle doğrula.",
     "Soil organic carbon is implausibly high in some layers (> 30 g/kg); it was capped at 30 g/kg in the calculations. Check with a soil test."));

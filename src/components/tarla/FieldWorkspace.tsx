@@ -107,7 +107,6 @@ export function FieldWorkspace() {
       }
       const savedMode = localStorage.getItem(UI_MODE_KEY);
       if (savedMode === "simple" || savedMode === "detailed") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUiMode(savedMode);
       }
     } catch {
@@ -1030,7 +1029,7 @@ export function FieldWorkspace() {
             )}
 
             {/* Top Overlay inside Map: 81-Province SearchBox + Locate + Advanced Layer Settings */}
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-[1000] flex flex-wrap items-start justify-between gap-2">
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-[1020] flex flex-wrap items-start justify-between gap-2">
               <div className="pointer-events-auto flex w-full max-w-[28rem] items-start gap-1.5">
                 <SearchBox
                   onPlace={(p, bbox, zoom) => {
@@ -1058,7 +1057,7 @@ export function FieldWorkspace() {
             </div>
 
             {/* Floating "NASA Uydu Katmanları" Checklist on Left of Map matching the user's reference mockup */}
-            <div className="pointer-events-auto absolute left-3 top-[4.25rem] z-[1000] max-w-[240px]">
+            <div className="pointer-events-auto absolute left-3 top-[4.25rem] z-[990] max-w-[240px]">
               <div className="overflow-hidden rounded-2xl border border-white/20 bg-[#102816]/90 text-white shadow-xl backdrop-blur-md">
                 <div className="flex items-center justify-between border-b border-white/15 px-3.5 py-2.5">
                   <span className="text-[13px] font-semibold text-white">
@@ -1735,8 +1734,8 @@ export function FieldWorkspace() {
                     key={card.roleId}
                     className={`flex flex-col justify-between rounded-2xl border p-4 transition-colors ${
                       isSelected
-                        ? "border-[#1e6b34] bg-[#f4fbf6] shadow-xs"
-                        : "border-line bg-bg/60 hover:border-[#86efac]"
+                        ? "border-[var(--accent)] bg-[var(--surface-2)] ring-2 ring-[var(--accent)]/25 shadow-xs"
+                        : "border-line bg-bg/60 hover:border-[var(--accent)]/60"
                     }`}
                   >
                     <div>
@@ -1766,7 +1765,7 @@ export function FieldWorkspace() {
                         {card.plan.crops.map((cid, idx) => (
                           <div
                             key={`${card.roleId}-${cid}-${idx}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-[var(--surface)] px-2.5 py-1.5"
                           >
                             <CropArt crop={cid} size={22} />
                             <span className="text-[12px] font-semibold text-ink">
@@ -1777,12 +1776,12 @@ export function FieldWorkspace() {
                       </div>
 
                       {/* Su Tasarrufu & Net Kazanç */}
-                      <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-white p-2.5">
+                      <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-[var(--surface)] p-2.5">
                         <div>
                           <p className="text-[10.5px] font-semibold text-ink-2">
                             {lang === "tr" ? "Su Tasarrufu / İhtiyaç" : "Water Savings / Need"}
                           </p>
-                          <p className="numeral text-[13.5px] font-bold text-[#0277bd]">
+                          <p className="numeral text-[13.5px] font-bold text-[var(--rain)]">
                             {card.savedMm > 0
                               ? `${n(card.savedMm, 0)} m³/da/yıl tasarruf`
                               : `${n(card.plan.water.requirementMmPerYr?.p50 ?? 0, 0)} mm/yıl`}
@@ -1792,7 +1791,7 @@ export function FieldWorkspace() {
                           <p className="text-[10.5px] font-semibold text-ink-2">
                             {lang === "tr" ? "Net Kazanç" : "Net Profit"}
                           </p>
-                          <p className="numeral text-[13.5px] font-bold text-[#1e6b34]">
+                          <p className="numeral text-[13.5px] font-bold text-[var(--good)]">
                             {n(card.margin, 0)} ₺/da/yıl
                           </p>
                         </div>

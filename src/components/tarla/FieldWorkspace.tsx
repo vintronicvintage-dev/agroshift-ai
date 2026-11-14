@@ -46,6 +46,12 @@ import { SearchBox } from "./SearchBox";
 import { LayerMenu, useLayerDates } from "./LayerMenu";
 import { FieldPanel, texName } from "./FieldPanel";
 import { CoordDialog, PinDialog } from "./Dialogs";
+import {
+  HistoricalWindowStrip,
+  MonthlyWaterBalanceChart,
+  YieldProfitabilityPanel,
+} from "./DashboardCharts";
+import { EvidenceFoundations } from "./EvidenceFoundations";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
@@ -73,6 +79,7 @@ export function FieldWorkspace() {
   const [nasaPanelOpen, setNasaPanelOpen] = useState(true);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [heroCollapsed, setHeroCollapsed] = useState(false);
+  const [selectedAltIdx, setSelectedAltIdx] = useState<0 | 1 | 2>(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tileErr, setTileErr] = useState<string | null>(null);
   const [pinAt, setPinAt] = useState<LonLat | null>(null);
@@ -343,8 +350,13 @@ export function FieldWorkspace() {
   }, [climate]);
 
   const res = data.analysis.result;
-  const best = res?.alternatives[0] ?? res?.current ?? null;
+  const best = res?.alternatives[selectedAltIdx] ?? res?.alternatives[0] ?? res?.current ?? null;
   const currentPlan = res?.current ?? null;
+
+  const scrollToEvidence = useCallback(() => {
+    const el = document.getElementById("kanit-ve-dayanaklar");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Compute Top 3 distinct recommended crops and their real suitability % from engine candidates
   const topCropRecommendations = computeTopCropRecommendations(res);
@@ -654,6 +666,156 @@ export function FieldWorkspace() {
         </div>
       )}
 
+      {/* ── 3-STEP GUIDED WORKFLOW STRIP (Kullanımı Basitleştir + NASA Visuals) ── */}
+      <section
+        aria-label={lang === "tr" ? "3 Adımda Hızlı Kullanım Rehberi" : "3-Step Quick Start Workflow"}
+        className="grid grid-cols-1 gap-3.5 md:grid-cols-3"
+      >
+        {/* Step 1 */}
+        <div className="bento-card flex items-center gap-3.5 p-3.5">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
+            <Image
+              src={IMAGES.gsField.src}
+              alt={L(IMAGES.gsField.alt)}
+              fill
+              sizes="56px"
+              placeholder="blur"
+              blurDataURL={IMAGES.gsField.blurDataURL}
+              className="object-cover"
+            />
+            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#1e6b34] text-[11px] text-white shadow">
+              1
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[14.5px] font-semibold text-ink">
+              {lang === "tr" ? "1. Arazini Seç veya Çiz" : "1. Select or Draw Your Parcel"}
+            </p>
+            <p className="mt-0.5 text-[11.5px] text-ink-2">
+              {lang === "tr"
+                ? "81 ilde köy/ova arayın, örnek havza seçin veya haritada sınır çizin."
+                : "Search across 81 provinces, pick a pilot basin, or draw your boundary."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <a
+                href="#harita-bolumu"
+                onClick={() => setMode("polygon")}
+                className="rounded-md bg-[#e6f4ea] px-2 py-0.5 text-[11px] font-semibold text-[#1e6b34] hover:bg-[#bbf7d0]"
+              >
+                {lang === "tr" ? "Poligon Çiz" : "Draw Polygon"}
+              </a>
+              <button
+                type="button"
+                onClick={() => setCoordOpen(true)}
+                className="rounded-md border border-line bg-bg px-2 py-0.5 text-[11px] font-medium text-ink-2 hover:text-ink"
+              >
+                {lang === "tr" ? "Koordinat Gir" : "Enter Coords"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2 */}
+        <div className="bento-card flex items-center gap-3.5 p-3.5">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
+            <Image
+              src={IMAGES.gsWater.src}
+              alt={L(IMAGES.gsWater.alt)}
+              fill
+              sizes="56px"
+              placeholder="blur"
+              blurDataURL={IMAGES.gsWater.blurDataURL}
+              className="object-cover"
+            />
+            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#0277bd] text-[11px] text-white shadow">
+              2
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[14.5px] font-semibold text-ink">
+              {lang === "tr" ? "2. Su ve Mevcut Ürününü Belirle" : "2. Set Water & Current Crop"}
+            </p>
+            <p className="mt-0.5 text-[11.5px] text-ink-2">
+              {lang === "tr"
+                ? "Aşağıdaki kartlardan mevcut ürününüzü ve sulama bütçenizi (mm) seçin."
+                : "Choose your current crop and irrigation budget (mm) in the cards below."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setInputs({ rainfed: true })}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                  store.inputs.rainfed ? "bg-[#fef3c7] text-[#b45309]" : "border border-line bg-bg text-ink-2"
+                }`}
+              >
+                {lang === "tr" ? "Kuru Tarım (0 mm)" : "Rainfed (0 mm)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputs({ rainfed: false, budget: 250, method: "sprinkler" })}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                  !store.inputs.rainfed && store.inputs.budget === 250 ? "bg-[#e0f2fe] text-[#0277bd]" : "border border-line bg-bg text-ink-2"
+                }`}
+              >
+                {lang === "tr" ? "Kısıtlı Su (250 mm)" : "Limited (250 mm)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputs({ rainfed: false, budget: 450, method: "drip" })}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                  !store.inputs.rainfed && store.inputs.budget === 450 ? "bg-[#e0f2fe] text-[#0277bd]" : "border border-line bg-bg text-ink-2"
+                }`}
+              >
+                {lang === "tr" ? "Tam Sulama (450 mm)" : "Full Drip (450 mm)"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div className="bento-card flex items-center gap-3.5 p-3.5">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
+            <Image
+              src={IMAGES.gsCompare.src}
+              alt={L(IMAGES.gsCompare.alt)}
+              fill
+              sizes="56px"
+              placeholder="blur"
+              blurDataURL={IMAGES.gsCompare.blurDataURL}
+              className="object-cover"
+            />
+            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#d97706] text-[11px] text-white shadow">
+              3
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[14.5px] font-semibold text-ink">
+              {lang === "tr" ? "3. Kârı, Grafikleri ve Kanıtları İncele" : "3. Review Profit, Charts & Evidence"}
+            </p>
+            <p className="mt-0.5 text-[11.5px] text-ink-2">
+              {lang === "tr"
+                ? "3 yıllık rotasyonu, gelir-maliyet tablosunu ve bilimsel formülleri inceleyin."
+                : "Inspect the 3-year rotation, revenue-cost table, and scientific equations."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <a
+                href="#analiz-grafikler"
+                className="rounded-md bg-[#fef3c7] px-2 py-0.5 text-[11px] font-semibold text-[#b45309] hover:bg-[#fde68a]"
+              >
+                {lang === "tr" ? "Verim & Kâr Tablosu" : "Yield & Profit"}
+              </a>
+              <button
+                type="button"
+                onClick={scrollToEvidence}
+                className="rounded-md bg-[#e6f4ea] px-2 py-0.5 text-[11px] font-semibold text-[#1e6b34] hover:bg-[#bbf7d0]"
+              >
+                {lang === "tr" ? "Hesaplama Kanıtları →" : "Formulas & Evidence →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── ROW 1: 5 KPI Summary Cards matching top row of Kontrol Paneli ── */}
       <section aria-label={lang === "tr" ? "Temel Arazi Göstergeleri" : "Key Parcel Indicators"} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
         {/* KPI 1: Arazi Alanı */}
@@ -703,7 +865,7 @@ export function FieldWorkspace() {
           </div>
         </div>
 
-        {/* KPI 3: Su Kaynağı ve Bütçesi */}
+        {/* KPI 3: Su Kaynağı ve Bütçesi (with inline budget slider & method selector) */}
         <div className="bento-card flex items-center gap-3.5 p-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0277bd]">
             <Icon name="drop" size={24} />
@@ -721,29 +883,46 @@ export function FieldWorkspace() {
                   : lang === "tr" ? "Kuru Tarıma Geç" : "Switch to Rainfed"}
               </button>
             </div>
-            <p className="mt-0.5 truncate font-display text-[18px] font-semibold text-ink">
+            <p className="mt-0.5 truncate font-display text-[17.5px] font-semibold text-ink">
               {store.inputs.rainfed ? (
-                <span className="text-[#b76e00]">{lang === "tr" ? "Kuru Tarım (Yağışa Bağlı)" : "Rainfed Only"}</span>
+                <span className="text-[#b76e00]">{lang === "tr" ? "Kuru Tarım (0 mm)" : "Rainfed (0 mm)"}</span>
               ) : (
-                <span className="text-[#c0392b]">
-                  {lang === "tr" ? "Sınırlı" : "Limited"}{" "}
-                  <span className="font-sans text-[13.5px] font-medium text-ink-2">
-                    ({n(store.inputs.budget, 0)} mm · %{Math.round(METHOD_EFF[store.inputs.method] * 100)} verim)
+                <span className="text-[#0277bd]">
+                  {n(store.inputs.budget, 0)} mm{" "}
+                  <span className="font-sans text-[12.5px] font-medium text-ink-2">
+                    (%{Math.round(METHOD_EFF[store.inputs.method] * 100)} verim)
                   </span>
                 </span>
               )}
             </p>
-            <p className="readout mt-0.5 truncate text-[11.5px]">
-              {store.inputs.rainfed
-                ? lang === "tr" ? "Sulama bütçesi: 0 m³/da" : "Irrigation budget: 0 m³/da"
-                : `${
-                    store.inputs.method === "drip"
-                      ? lang === "tr" ? "Damla sulama" : "Drip irrigation"
-                      : store.inputs.method === "sprinkler"
-                        ? lang === "tr" ? "Yağmurlama" : "Sprinkler"
-                        : lang === "tr" ? "Karık/Salma" : "Furrow"
-                  } · ${n(store.inputs.budget, 0)} m³/da/yıl`}
-            </p>
+            {!store.inputs.rainfed ? (
+              <div className="mt-1 flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min={50}
+                  max={600}
+                  step={25}
+                  aria-label={lang === "tr" ? "Yıllık sulama suyu bütçesi (mm)" : "Annual irrigation budget (mm)"}
+                  value={store.inputs.budget}
+                  onChange={(e) => setInputs({ budget: Number(e.target.value) })}
+                  className="h-1.5 w-full cursor-pointer accent-[#0284c7]"
+                />
+                <select
+                  aria-label={lang === "tr" ? "Sulama yöntemi" : "Irrigation method"}
+                  value={store.inputs.method}
+                  onChange={(e) => setInputs({ method: e.target.value as typeof store.inputs.method })}
+                  className="rounded border border-line bg-bg px-1 py-0.5 text-[10.5px] font-medium text-ink"
+                >
+                  <option value="drip">{lang === "tr" ? "Damla" : "Drip"}</option>
+                  <option value="sprinkler">{lang === "tr" ? "Yağmurlama" : "Sprinkler"}</option>
+                  <option value="furrow">{lang === "tr" ? "Karık" : "Furrow"}</option>
+                </select>
+              </div>
+            ) : (
+              <p className="readout mt-0.5 truncate text-[11.5px]">
+                {lang === "tr" ? "Sadece doğal yağış (0 m³/da)" : "Rain-only (0 m³/da)"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -1441,13 +1620,13 @@ export function FieldWorkspace() {
                 topCropRecommendations.map((item, idx) => (
                   <li
                     key={item.cropId}
-                    className="flex items-center gap-3.5 rounded-2xl border border-line bg-bg/65 px-3.5 py-3"
+                    className="flex items-center gap-3 rounded-2xl border border-line bg-bg/65 px-3.5 py-3 transition-colors hover:border-accent/50"
                   >
                     <span className="numeral flex size-7 shrink-0 items-center justify-center rounded-full bg-[#e6f4ea] text-[14px] text-[#1e6b34]">
                       {idx + 1}
                     </span>
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-[#1e6b34]">
-                      <CropArt crop={item.cropId} size={28} />
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-line bg-surface shadow-xs">
+                      <CropArt crop={item.cropId} size={34} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -1464,12 +1643,14 @@ export function FieldWorkspace() {
                           style={{ width: `${item.suitabilityPct}%` }}
                         />
                       </div>
-                      <p className="readout mt-1 text-[11px]">
-                        {lang === "tr" ? "Tahmini brüt kâr" : "Est. margin"}: {n(item.marginTLPerDa, 0)} TL/da ·{" "}
-                        {item.def.family === "fabaceae"
-                          ? lang === "tr" ? "Azot bağlayıcı baklagil" : "N-fixing legume"
-                          : lang === "tr" ? "Su-verim dengeli" : "Water-yield balanced"}
-                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                        <span className="font-mono text-ink-2">
+                          {lang === "tr" ? "Verim" : "Yield"}: <strong className="text-ink">{n(item.yieldKgDa, 0)} kg/da</strong> · {n(item.def.priceTLPerKg.value, 1)} ₺/kg
+                        </span>
+                        <span className="font-mono font-semibold text-[#1e6b34]">
+                          +{n(item.marginTLPerDa, 0)} ₺/da {lang === "tr" ? "kâr" : "profit"}
+                        </span>
+                      </div>
                     </div>
                   </li>
                 ))
@@ -1479,10 +1660,17 @@ export function FieldWorkspace() {
             </ol>
           </div>
 
-          <div className="mt-4 pt-2">
-            <Link href="/plan" className="btn w-full justify-center">
+          <div className="mt-4 flex items-center justify-between gap-2 pt-2">
+            <button
+              type="button"
+              onClick={scrollToEvidence}
+              className="text-[12px] font-semibold text-accent-ink hover:underline"
+            >
+              {lang === "tr" ? "Puanlama Dayanağı →" : "Scoring Basis →"}
+            </button>
+            <Link href="/plan" className="btn btn-sm">
               <span>{lang === "tr" ? "Tüm Alternatifleri Gör" : "View All Alternatives"}</span>
-              <Icon name="arrow" size={16} />
+              <Icon name="arrow" size={15} />
             </Link>
           </div>
         </article>
@@ -1490,7 +1678,7 @@ export function FieldWorkspace() {
         {/* COL 2: Üç Yıllık Ürün Rotasyon Planı */}
         <article className="bento-card flex flex-col justify-between p-5">
           <div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
                   <Icon name="plan" size={18} />
@@ -1499,9 +1687,26 @@ export function FieldWorkspace() {
                   {lang === "tr" ? "Üç Yıllık Ürün Rotasyon Planı" : "Three-Year Crop Rotation Plan"}
                 </h2>
               </div>
-              <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
-                {lang === "tr" ? "Sürdürülebilir Plan" : "Sustainable Plan"}
-              </span>
+              {res && res.alternatives.length > 1 ? (
+                <div className="inline-flex rounded-lg border border-line bg-bg p-0.5 text-[11px] font-semibold">
+                  {res.alternatives.slice(0, 3).map((alt, i) => (
+                    <button
+                      key={alt.id}
+                      type="button"
+                      onClick={() => setSelectedAltIdx(i as 0 | 1 | 2)}
+                      className={`rounded-md px-2 py-0.5 transition-colors ${
+                        selectedAltIdx === i ? "bg-accent text-on-accent" : "text-ink-2 hover:text-ink"
+                      }`}
+                    >
+                      {i + 1}. {lang === "tr" ? "Öneri" : "Plan"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
+                  {lang === "tr" ? "Sürdürülebilir Plan" : "Sustainable Plan"}
+                </span>
+              )}
             </div>
             <p className="mt-1.5 text-[13px] text-ink-2">
               {lang === "tr"
@@ -1515,6 +1720,8 @@ export function FieldWorkspace() {
                 {best.crops.map((cid, idx) => {
                   const def = CROPS[cid];
                   const yr = best.years[idx];
+                  const yKgDa = Math.round((yr?.yieldTHa?.p50 ?? 0) * 100);
+                  const mTLDa = Math.round(yr?.grossMarginTLPerDa?.p50 ?? 0);
                   const roleText =
                     def.family === "fabaceae"
                       ? lang === "tr" ? "(Toprak azotu artırır)" : "(Fixes soil nitrogen)"
@@ -1531,17 +1738,20 @@ export function FieldWorkspace() {
                       <span className="text-[12.5px] font-semibold text-ink-2">
                         {idx + 1}. {lang === "tr" ? "Yıl" : "Year"}
                       </span>
-                      <span className="my-2.5 flex size-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#e6f4ea] text-[#1e6b34] shadow-sm">
-                        <CropArt crop={cid} size={32} />
+                      <span className="my-2 flex size-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-surface shadow-sm">
+                        <CropArt crop={cid} size={36} />
                       </span>
                       <div>
                         <p className="font-display text-[15px] font-semibold text-ink">{L(def.name)}</p>
-                        <p className="mt-0.5 text-[11px] leading-tight text-ink-2">{roleText}</p>
+                        <p className="mt-0.5 text-[10.5px] leading-tight text-ink-2">{roleText}</p>
                         {yr?.yieldTHa && (
-                          <p className="readout mt-1.5 text-[11px] font-semibold text-[#1e6b34]">
-                            {n(yr.yieldTHa.p50 / 10, 2)} t/da
+                          <p className="readout mt-1.5 text-[11px] font-semibold text-ink">
+                            {yKgDa} kg/da ({n(yr.yieldTHa.p50 / 10, 2)} t/da)
                           </p>
                         )}
+                        <p className={`font-mono text-[11px] font-semibold ${mTLDa >= 0 ? "text-[#1e6b34]" : "text-bad"}`}>
+                          {mTLDa >= 0 ? "+" : ""}{n(mTLDa, 0)} ₺/da
+                        </p>
                       </div>
                     </div>
                   );
@@ -1552,89 +1762,90 @@ export function FieldWorkspace() {
             )}
           </div>
 
-          {/* 3 Bottom Impact Pills matching the reference mockup */}
-          {rotationDeltas && (
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-line pt-3.5">
-              <div className="rounded-xl bg-[#e6f4ea]/70 px-2.5 py-2 text-center">
-                <p className="text-[11px] font-medium text-ink-2">
-                  {lang === "tr" ? "Toprak verimliliği" : "Soil health"}
-                </p>
-                <p className="numeral mt-0.5 text-[17px] text-[#1e6b34]">
-                  {rotationDeltas.soilDeltaPct >= 0
-                    ? `+%${Math.max(4, rotationDeltas.soilDeltaPct)}`
-                    : `${n(rotationDeltas.soilBest, 0)}/100`}
-                </p>
-              </div>
-              <div className="rounded-xl bg-[#e0f2fe]/70 px-2.5 py-2 text-center">
-                <p className="text-[11px] font-medium text-ink-2">
-                  {lang === "tr" ? "Su kullanımı" : "Water demand"}
-                </p>
-                <p className="numeral mt-0.5 text-[17px] text-[#0277bd]">
-                  {rotationDeltas.waterDeltaPct <= 0
-                    ? `${rotationDeltas.waterDeltaPct}%`
-                    : `${n(rotationDeltas.waterBest, 0)} mm`}
-                </p>
-              </div>
-              <div className="rounded-xl bg-[#fef3c7]/80 px-2.5 py-2 text-center">
-                <p className="text-[11px] font-medium text-ink-2">
-                  {lang === "tr" ? "Uzun vadeli kârlılık" : "Long-term margin"}
-                </p>
-                <p className="numeral mt-0.5 text-[17px] text-[#b76e00]">
-                  {rotationDeltas.marginDeltaPct >= 0
-                    ? `+%${Math.max(3, rotationDeltas.marginDeltaPct)}`
-                    : `${n(rotationDeltas.marginBest, 0)} TL`}
-                </p>
-              </div>
-            </div>
-          )}
-        </article>
-
-        {/* COL 3: Verim ve Kârlılık Analizi (Dual-Axis SVG Combo Chart) */}
-        <article id="analiz-grafikler" className="bento-card flex flex-col justify-between p-5">
+          {/* 3 Bottom Impact Pills + 1-Click Apply Button */}
           <div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
-                  <Icon name="chart" size={18} />
-                </span>
-                <h2 className="font-display text-[18px] font-semibold text-ink">
-                  {lang === "tr" ? "Verim ve Kârlılık Analizi" : "Yield & Profitability Analysis"}
-                </h2>
+            {rotationDeltas && (
+              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-line pt-3.5">
+                <div className="rounded-xl bg-[#e6f4ea]/70 px-2.5 py-2 text-center">
+                  <p className="text-[11px] font-medium text-ink-2">
+                    {lang === "tr" ? "Toprak verimliliği" : "Soil health"}
+                  </p>
+                  <p className="numeral mt-0.5 text-[17px] text-[#1e6b34]">
+                    {rotationDeltas.soilDeltaPct >= 0
+                      ? `+%${Math.max(4, rotationDeltas.soilDeltaPct)}`
+                      : `${n(rotationDeltas.soilBest, 0)}/100`}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#e0f2fe]/70 px-2.5 py-2 text-center">
+                  <p className="text-[11px] font-medium text-ink-2">
+                    {lang === "tr" ? "Su kullanımı" : "Water demand"}
+                  </p>
+                  <p className="numeral mt-0.5 text-[17px] text-[#0277bd]">
+                    {rotationDeltas.waterDeltaPct <= 0
+                      ? `${rotationDeltas.waterDeltaPct}%`
+                      : `${n(rotationDeltas.waterBest, 0)} mm`}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#fef3c7]/80 px-2.5 py-2 text-center">
+                  <p className="text-[11px] font-medium text-ink-2">
+                    {lang === "tr" ? "Uzun vadeli kârlılık" : "Long-term margin"}
+                  </p>
+                  <p className="numeral mt-0.5 text-[17px] text-[#b76e00]">
+                    {rotationDeltas.marginDeltaPct >= 0
+                      ? `+%${Math.max(3, rotationDeltas.marginDeltaPct)}`
+                      : `${n(rotationDeltas.marginBest, 0)} TL`}
+                  </p>
+                </div>
               </div>
-            </div>
-
-            {/* Chart Legend */}
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-[12px] text-ink-2">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-4 rounded-sm bg-[#2e7d32]" />
-                <span>{lang === "tr" ? "Beklenen Verim (ton/dönüm)" : "Expected Yield (t/da)"}</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-1 w-4 rounded-full bg-[#d97706]" />
-                <span className="inline-block size-2 rounded-full bg-[#d97706]" />
-                <span>{lang === "tr" ? "Tahmini Kâr (TL/dönüm)" : "Est. Margin (TL/da)"}</span>
-              </span>
-            </div>
-
-            {best ? (
-              <YieldMarginComboChart years={best.years} lang={lang} n={n} L={L} />
-            ) : (
-              <div className="skel mt-4 h-52" />
+            )}
+            {best && (
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInputs({ rotation: [...best.crops] })}
+                  className="btn btn-primary btn-sm w-full justify-center"
+                >
+                  <Icon name="check" size={15} />
+                  <span>
+                    {lang === "tr"
+                      ? "Bu 3 Yıllık Planı Arazime Uygula"
+                      : "Apply This 3-Year Plan to My Parcel"}
+                  </span>
+                </button>
+              </div>
             )}
           </div>
+        </article>
 
-          {best && (
-            <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-[12.5px]">
-              <span className="text-ink-2">
-                {lang === "tr" ? "3 Yıllık Toplam Arazi Kazancı (P50):" : "3-Year Total Parcel Margin (P50):"}
-              </span>
-              <span className="numeral text-[17px] text-[#1e6b34]">
-                {n(best.economics.fieldTotal3yrTL?.p50 ?? 0, 0)} TL
-              </span>
-            </div>
+        {/* COL 3: Verim ve Kârlılık Analizi (Upgraded Real Data + P10-P90 Chart + Breakdown Table + Price Calibration) */}
+        <article id="analiz-grafikler" className="bento-card p-5">
+          {res && best && currentPlan ? (
+            <YieldProfitabilityPanel
+              res={res}
+              best={best}
+              currentPlan={currentPlan}
+              effectiveAreaDa={effectiveAreaDa}
+              lang={lang}
+              n={n}
+              L={L}
+              onOpenEvidence={scrollToEvidence}
+            />
+          ) : (
+            <div className="skel h-80" />
           )}
         </article>
       </section>
+
+      {/* ── ROW 3.5: Monthly Water Balance Climograph & 24-Year Historical Performance Strip ── */}
+      {climateSum && best && (
+        <section
+          aria-label={lang === "tr" ? "Aylık Su Dengesi ve Tarihsel İklim Performansı" : "Monthly Water Balance & Historical Climate Performance"}
+          className="bento-card p-5"
+        >
+          <MonthlyWaterBalanceChart climateSum={climateSum} best={best} lang={lang} n={n} />
+          <HistoricalWindowStrip best={best} lang={lang} n={n} />
+        </section>
+      )}
 
       {/* ── ROW 4: Risk Simülasyonları (Left ~58%) + Açıklanabilir Karar Dayanağı XAI (Right ~42%) ── */}
       <section
@@ -1646,9 +1857,17 @@ export function FieldWorkspace() {
         <article className="bento-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-[#e6f4ea] text-[#1e6b34]">
-                <Icon name="shield" size={18} />
-              </span>
+              <div className="relative hidden size-10 shrink-0 overflow-hidden rounded-xl border border-line sm:block">
+                <Image
+                  src={IMAGES.gsScenario.src}
+                  alt={L(IMAGES.gsScenario.alt)}
+                  fill
+                  sizes="40px"
+                  placeholder="blur"
+                  blurDataURL={IMAGES.gsScenario.blurDataURL}
+                  className="object-cover"
+                />
+              </div>
               <div>
                 <h2 className="font-display text-[18px] font-semibold text-ink">
                   {lang === "tr" ? "Risk Simülasyonları" : "Climate & Market Risk Simulations"}
@@ -1660,6 +1879,19 @@ export function FieldWorkspace() {
                 </p>
               </div>
             </div>
+            {(store.scenario.rainMultiplier !== 1 || store.scenario.tempDeltaC !== 0 || store.scenario.priceMultiplier !== 1) && (
+              <button
+                type="button"
+                onClick={() =>
+                  setStore({
+                    scenario: { preset: "typical", rainMultiplier: 1, tempDeltaC: 0, priceMultiplier: 1 },
+                  })
+                }
+                className="rounded-lg border border-accent bg-[#e6f4ea] px-2.5 py-1 text-[11.5px] font-semibold text-[#1e6b34]"
+              >
+                {lang === "tr" ? "Normal Senaryoya Dön" : "Reset to Baseline"}
+              </button>
+            )}
           </div>
 
           {riskSimulationData ? (
@@ -1722,27 +1954,45 @@ export function FieldWorkspace() {
 
               {/* Right Horizontal Bar Comparison: Senaryo Karşılaştırması (3 Yıllık Toplam Kâr) */}
               <div className="flex flex-col justify-between rounded-xl border border-line bg-bg/60 p-4">
-                <p className="text-[13.5px] font-semibold text-ink">
-                  {lang === "tr"
-                    ? "Senaryo Karşılaştırması (3 Yıllık Toplam Kâr)"
-                    : "Scenario Comparison (3-Year Total Margin)"}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[13.5px] font-semibold text-ink">
+                    {lang === "tr"
+                      ? "Senaryo Karşılaştırması (3 Yıllık Toplam Kâr)"
+                      : "Scenario Comparison (3-Year Total Margin)"}
+                  </p>
+                  <span className="font-mono text-[10.5px] text-ink-2">
+                    {n(effectiveAreaDa, 0)} da × 3 yıl
+                  </span>
+                </div>
                 <div className="mt-3 space-y-2.5">
                   {(() => {
                     const maxVal = Math.max(1, ...riskSimulationData.bars.map((b) => Math.abs(b.totalTL)));
+                    const baseVal = Math.max(0, riskSimulationData.bars[0]?.totalTL ?? 0);
+                    const basePct = Math.min(100, Math.round((baseVal / maxVal) * 100));
                     return riskSimulationData.bars.map((b) => {
                       const wPct = Math.max(12, Math.min(100, Math.round((Math.max(0, b.totalTL) / maxVal) * 100)));
+                      const perDaYr = Math.round(b.totalTL / Math.max(1, effectiveAreaDa * 3));
                       return (
                         <div key={b.id} className="space-y-1">
                           <div className="flex items-center justify-between text-[12px]">
                             <span className="font-medium text-ink-2">{lang === "tr" ? b.labelTr : b.labelEn}</span>
-                            <span className="numeral text-[13.5px] text-ink">{n(b.totalTL, 0)} ₺</span>
+                            <span className="font-mono text-[12px] text-ink">
+                              <strong className="numeral text-[13.5px]">{n(b.totalTL, 0)} ₺</strong>{" "}
+                              <span className="text-[10.5px] text-ink-2">({n(perDaYr, 0)} ₺/da/yıl)</span>
+                            </span>
                           </div>
-                          <div className="h-3.5 w-full overflow-hidden rounded-md bg-surface-2">
+                          <div className="relative h-3.5 w-full overflow-hidden rounded-md bg-surface-2">
                             <div
                               className="h-full rounded-md transition-all duration-300"
                               style={{ width: `${wPct}%`, backgroundColor: b.color }}
                             />
+                            {basePct > 15 && basePct < 98 && (
+                              <div
+                                className="pointer-events-none absolute inset-y-0 w-0.5 bg-ink/40"
+                                style={{ left: `${basePct}%` }}
+                                title={lang === "tr" ? "Önerilen Plan Referansı" : "Recommended Plan Baseline"}
+                              />
+                            )}
                           </div>
                         </div>
                       );
@@ -1785,12 +2035,19 @@ export function FieldWorkspace() {
                   .map((item, idx) => (
                     <li
                       key={`${item.key}-${idx}`}
-                      className="flex items-start gap-2.5 rounded-xl border border-line bg-bg/70 px-3.5 py-2.5 text-[13.5px] leading-snug text-ink"
+                      className="flex items-start gap-2.5 rounded-xl border border-line bg-bg/70 px-3.5 py-2.5 text-[13px] leading-snug text-ink"
                     >
                       <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white">
                         <Icon name="check" size={13} />
                       </span>
-                      <span>{L(item.text)}</span>
+                      <div className="min-w-0 flex-1">
+                        <p>{L(item.text)}</p>
+                        {item.sources && item.sources.length > 0 && (
+                          <p className="mt-1 font-mono text-[10.5px] text-ink-2">
+                            {lang === "tr" ? "Dayanak:" : "Source:"} {item.sources.join(" · ")}
+                          </p>
+                        )}
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -1799,14 +2056,26 @@ export function FieldWorkspace() {
             )}
           </div>
 
-          <div className="mt-4 pt-2">
-            <Link href="/dayanak" className="btn w-full justify-center">
-              <Icon name="evidence" size={17} />
-              <span>{lang === "tr" ? "Detaylı Bilimsel Gerekçe" : "Detailed Scientific Evidence"}</span>
+          <div className="mt-4 flex flex-wrap items-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={scrollToEvidence}
+              className="btn btn-primary flex-1 justify-center"
+            >
+              <Icon name="evidence" size={16} />
+              <span>{lang === "tr" ? "Formülleri ve Dayanakları Aç" : "Show Formulas & Foundations"}</span>
+            </button>
+            <Link href="/dayanak" className="btn justify-center">
+              <span>{lang === "tr" ? "Tam Rapor" : "Full Report"}</span>
             </Link>
           </div>
         </article>
       </section>
+
+      {/* ── ROW 5: Kanıtlar, Formüller ve Hesaplama Dayanakları (Live Equations & Provenance) ── */}
+      {res && best && currentPlan && (
+        <EvidenceFoundations res={res} best={best} currentPlan={currentPlan} lang={lang} n={n} L={L} />
+      )}
 
       {/* ── ROW 5: Detailed Field & Sensor Diagnostics (Preserves all 11 granular FieldPanel cards) ── */}
       <section className="bento-card overflow-hidden">
@@ -1896,192 +2165,70 @@ export function FieldWorkspace() {
   );
 }
 
-/** Dual-axis SVG combo chart matching "Verim ve Kârlılık Analizi" in the user's reference mockup. */
-function YieldMarginComboChart({
-  years,
-  lang,
-  n,
-  L,
-}: {
-  years: NonNullable<ReturnType<typeof useFieldData>["analysis"]["result"]>["current"]["years"];
-  lang: "tr" | "en";
-  n: (v: number, d?: number) => string;
-  L: (v: { tr: string; en: string }) => string;
-}) {
-  const items = years.slice(0, 3).map((y, idx) => {
-    const yieldTonDa = (y.yieldTHa?.p50 ?? 0) / 10;
-    const marginTLDa = y.grossMarginTLPerDa?.p50 ?? 0;
-    return {
-      year: idx + 1,
-      cropName: L(CROPS[y.cropId].name),
-      yieldTonDa,
-      marginTLDa,
-    };
-  });
-
-  const maxYield = Math.max(0.5, ...items.map((i) => i.yieldTonDa)) * 1.22;
-  const maxMargin = Math.max(1000, ...items.map((i) => Math.max(0, i.marginTLDa))) * 1.25;
-  const minMargin = Math.min(0, ...items.map((i) => i.marginTLDa));
-  const marginSpan = Math.max(1000, maxMargin - minMargin);
-
-  const W = 360;
-  const H = 195;
-  const padL = 36;
-  const padR = 46;
-  const padT = 18;
-  const padB = 34;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
-
-  const xCenter = (idx: number) => padL + (plotW / 3) * (idx + 0.5);
-  const yForYield = (v: number) => padT + plotH - Math.max(0, Math.min(1, v / maxYield)) * plotH;
-  const yForMargin = (m: number) => padT + plotH - Math.max(0, Math.min(1, (m - minMargin) / marginSpan)) * plotH;
-
-  const linePts = items.map((it, i) => `${xCenter(i).toFixed(1)},${yForMargin(it.marginTLDa).toFixed(1)}`).join(" ");
-
-  return (
-    <div className="mt-3">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full overflow-visible"
-        role="img"
-        aria-label={lang === "tr" ? "3 Yıllık Verim ve Brüt Kâr Grafiği" : "3-Year Yield and Gross Margin Chart"}
-      >
-        {/* Horizontal grid lines */}
-        {[0, 0.33, 0.66, 1].map((f, i) => {
-          const y = padT + plotH * (1 - f);
-          const yVal = maxYield * f;
-          const mVal = minMargin + marginSpan * f;
-          return (
-            <g key={i}>
-              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--grid)" strokeWidth="1" />
-              <text x={padL - 5} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="var(--ink-3)" fontFamily="var(--font-mono)">
-                {n(yVal, 1)}
-              </text>
-              <text x={W - padR + 5} y={y + 3.5} textAnchor="start" fontSize="9.5" fill="#d97706" fontFamily="var(--font-mono)">
-                {n(mVal, 0)}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Yield Bars */}
-        {items.map((it, i) => {
-          const cx = xCenter(i);
-          const bw = 46;
-          const topY = yForYield(it.yieldTonDa);
-          const bh = Math.max(14, padT + plotH - topY);
-          return (
-            <g key={it.year}>
-              <rect
-                x={cx - bw / 2}
-                y={ padT + plotH - bh}
-                width={bw}
-                height={bh}
-                rx="6"
-                fill="#2e7d32"
-              />
-              <text
-                x={cx}
-                y={padT + plotH - 6}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill="#ffffff"
-                fontFamily="var(--font-mono)"
-              >
-                {n(it.yieldTonDa, 2)}
-              </text>
-              <text
-                x={cx}
-                y={H - 15}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="600"
-                fill="var(--ink)"
-              >
-                {it.year}. {lang === "tr" ? "Yıl" : "Yr"}
-              </text>
-              <text
-                x={cx}
-                y={H - 3}
-                textAnchor="middle"
-                fontSize="9.5"
-                fill="var(--ink-2)"
-              >
-                {it.cropName}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Gross Margin Line + Nodes */}
-        <polyline
-          fill="none"
-          stroke="#d97706"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={linePts}
-        />
-        {items.map((it, i) => {
-          const cx = xCenter(i);
-          const cy = yForMargin(it.marginTLDa);
-          return (
-            <g key={`m-${it.year}`}>
-              <circle cx={cx} cy={cy} r="4.5" fill="#ffffff" stroke="#d97706" strokeWidth="2.5" />
-              <text
-                x={cx}
-                y={Math.max(11, cy - 8)}
-                textAnchor="middle"
-                fontSize="10"
-                fontWeight="700"
-                fill="#b45309"
-                fontFamily="var(--font-mono)"
-              >
-                {n(it.marginTLDa, 0)} ₺
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-/** Pure helper computing top 3 distinct crop recommendations from engine output. */
+/** Pure helper computing top 3 distinct crop recommendations from engine output, weighted by water-yield fit, composite score, and positive margin. */
 function computeTopCropRecommendations(
   res: ReturnType<typeof useFieldData>["analysis"]["result"],
 ) {
   if (!res) return [];
-  const byCrop = new Map<CropId, { score: number; margin: number; water: number; count: number }>();
+  const byCrop = new Map<
+    CropId,
+    { score: number; margin: number; water: number; yieldKgDa: number; count: number }
+  >();
   const pool = [...res.alternatives, ...res.userPlans, res.current];
   for (const pl of pool) {
     for (const yr of pl.years) {
       if (yr.cropId === "fallow") continue;
-      const yrRatio = yr.yieldRatio?.p50 ?? 0.7;
+      const yrRatio = yr.yieldRatio?.p50 ?? 0.75;
       const comp = pl.score.composite / 100;
-      const suit = Math.min(98, Math.max(45, Math.round((yrRatio * 0.62 + comp * 0.38) * 100)));
+      const margin = Math.round(yr.grossMarginTLPerDa?.p50 ?? 0);
+      const yieldKgDa = Math.round((yr.yieldTHa?.p50 ?? CROPS[yr.cropId].refYieldTHa.value.rainfed) * 100);
+      const marginNorm = Math.max(0, Math.min(1, (margin + 500) / 6500));
+      const suit = Math.min(
+        97,
+        Math.max(52, Math.round((yrRatio * 0.45 + comp * 0.35 + marginNorm * 0.2) * 100)),
+      );
       const prev = byCrop.get(yr.cropId);
-      const margin = yr.grossMarginTLPerDa?.p50 ?? 0;
       const water = yr.irrigationNetMm?.p50 ?? 0;
-      if (!prev || suit > prev.score) {
-        byCrop.set(yr.cropId, { score: suit, margin, water, count: (prev?.count ?? 0) + 1 });
+      if (!prev || (margin > 0 && suit > prev.score) || (prev.margin <= 0 && margin > prev.margin)) {
+        byCrop.set(yr.cropId, {
+          score: suit,
+          margin,
+          water,
+          yieldKgDa,
+          count: (prev?.count ?? 0) + 1,
+        });
       }
     }
   }
   if (byCrop.size < 4 && res.candidates.length > 0) {
-    const sorted = [...res.candidates].sort((a, b) => b.composite - a.composite).slice(0, 25);
+    const sorted = [...res.candidates]
+      .filter((c) => c.grossMarginTLPerDaPerYr > 0)
+      .sort((a, b) => b.composite - a.composite)
+      .slice(0, 30);
     for (const c of sorted) {
       for (const cid of c.crops) {
         if (cid === "fallow" || byCrop.has(cid)) continue;
-        const suit = Math.min(95, Math.max(50, Math.round(c.composite)));
-        byCrop.set(cid, { score: suit, margin: c.grossMarginTLPerDaPerYr, water: c.requirementMmPerYr, count: 1 });
+        const def = CROPS[cid];
+        const suit = Math.min(94, Math.max(55, Math.round(c.composite)));
+        const estYieldKgDa = Math.round(
+          (res.scenario.budgetNetMm > 0 ? def.refYieldTHa.value.irrigated * 0.82 : def.refYieldTHa.value.rainfed) * 100,
+        );
+        byCrop.set(cid, {
+          score: suit,
+          margin: Math.round(c.grossMarginTLPerDaPerYr),
+          water: c.requirementMmPerYr,
+          yieldKgDa: estYieldKgDa,
+          count: 1,
+        });
       }
     }
   }
   return [...byCrop.entries()]
-    .sort((a, b) => b[1].score - a[1].score)
+    .sort((a, b) => {
+      // Always rank positive-margin crops ahead of non-positive ones
+      if ((a[1].margin > 0) !== (b[1].margin > 0)) return b[1].margin > 0 ? 1 : -1;
+      return b[1].score - a[1].score;
+    })
     .slice(0, 3)
     .map(([cropId, info]) => ({
       cropId,
@@ -2089,6 +2236,7 @@ function computeTopCropRecommendations(
       suitabilityPct: info.score,
       marginTLPerDa: info.margin,
       waterMm: info.water,
+      yieldKgDa: info.yieldKgDa,
     }));
 }
 

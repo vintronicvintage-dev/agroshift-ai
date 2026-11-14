@@ -15,7 +15,7 @@ const FAO56_T12 = "FAO-56 Table 12 (Allen et al. 1998)";
 const FAO56_T22 = "FAO-56 Table 22 (Allen et al. 1998)";
 const FAO33 = "FAO-33 Table 24 (Doorenbos & Kassam 1979) / FAO-66 (Steduto et al. 2012)";
 const TR55 = "USDA-NRCS TR-55 Table 2-2b";
-const ECON = "Scenario assumption (2025/26 TL order of magnitude) — edit for your farm";
+const ECON = "Scenario assumption calibrated to 2025/2026 TMO, Trakya Birlik, Türkşeker & Commodity Exchange reference prices (TL) — edit for your farm";
 const YIELD = "Assumption, TÜİK national-average order of magnitude";
 const SPEC = "AgroShift spec §4.6 rotation rule";
 const RF_CEILING = "Assumption: water-unlimited yield under typical rainfed management (lower N rate, seed rate and inputs than irrigated fields) — about a good rainfed year; Ym of a crop-year moves from this value to the irrigated value with irrigation intensity";
@@ -67,8 +67,8 @@ export const CROPS: Record<CropId, CropDef> = {
     rainfedCeilingTHa: asm(4.0, RF_CEILING),
     phRange: asm({ min: 5.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(22, N_REMOVAL),
-    priceTLPerKg: asm(14, ECON),
-    varCostTLPerDa: asm(5000, ECON),
+    priceTLPerKg: asm(14.5, `${ECON} (TMO 2025/26 wheat base 13.50 TL/kg + quality/support premium)`),
+    varCostTLPerDa: asm(4800, ECON),
     maxConsecutive: lit(2, SPEC),
   },
   barley_winter: {
@@ -92,12 +92,12 @@ export const CROPS: Record<CropId, CropDef> = {
     },
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("high", "Assumption: straw residue class"),
-    refYieldTHa: asm({ irrigated: 4.5, rainfed: 2.5 }, YIELD),
-    rainfedCeilingTHa: asm(3.5, RF_CEILING),
+    refYieldTHa: asm({ irrigated: 5.0, rainfed: 2.8 }, YIELD),
+    rainfedCeilingTHa: asm(3.6, RF_CEILING),
     phRange: asm({ min: 6.0, max: 8.5 }, PH),
     nRemovalKgPerT: asm(18, N_REMOVAL),
-    priceTLPerKg: asm(11, ECON),
-    varCostTLPerDa: asm(4500, ECON),
+    priceTLPerKg: asm(13.52, `${ECON} (TMO 2025/26 barley 11.00 TL/kg + 2.52 TL/kg support = 13.52 TL/kg)`),
+    varCostTLPerDa: asm(3800, ECON),
     maxConsecutive: lit(2, SPEC),
   },
   chickpea: {
@@ -126,8 +126,8 @@ export const CROPS: Record<CropId, CropDef> = {
     phRange: asm({ min: 6.0, max: 9.0 }, PH),
     nRemovalKgPerT: asm(35, N_REMOVAL),
     nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
-    priceTLPerKg: asm(40, ECON),
-    varCostTLPerDa: asm(3500, ECON),
+    priceTLPerKg: asm(38, `${ECON} (2025/26 Commodity Exchange chickpea 28–38 TL/kg)`),
+    varCostTLPerDa: asm(3400, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
   },
   lentil_red: {
@@ -156,7 +156,7 @@ export const CROPS: Record<CropId, CropDef> = {
     phRange: asm({ min: 5.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(40, N_REMOVAL),
     nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
-    priceTLPerKg: asm(30, ECON),
+    priceTLPerKg: asm(34, `${ECON} (2025/26 Commodity Exchange red lentil 22–42 TL/kg)`),
     varCostTLPerDa: asm(3000, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
   },
@@ -185,7 +185,7 @@ export const CROPS: Record<CropId, CropDef> = {
     rainfedCeilingTHa: asm(35, RF_CEILING),
     phRange: asm({ min: 6.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(1.8, N_REMOVAL),
-    priceTLPerKg: asm(3.4, ECON),
+    priceTLPerKg: asm(3.4, `${ECON} (Türkşeker 2025/26 sugar beet reference incl. polar/quota bonus)`),
     varCostTLPerDa: asm(12000, ECON),
     maxConsecutive: lit(1, SPEC),
   },
@@ -214,8 +214,8 @@ export const CROPS: Record<CropId, CropDef> = {
     rainfedCeilingTHa: asm(6.0, RF_CEILING),
     phRange: asm({ min: 5.5, max: 8.0 }, PH),
     nRemovalKgPerT: asm(15, N_REMOVAL),
-    priceTLPerKg: asm(11, ECON),
-    varCostTLPerDa: asm(9000, ECON),
+    priceTLPerKg: asm(11.97, `${ECON} (TMO August 2025 grain maize 11.30 TL/kg + 0.67 TL/kg support = 11.97 TL/kg)`),
+    varCostTLPerDa: asm(8600, ECON),
     maxConsecutive: lit(2, SPEC),
   },
   sunflower: {
@@ -243,8 +243,8 @@ export const CROPS: Record<CropId, CropDef> = {
     rainfedCeilingTHa: asm(2.4, RF_CEILING),
     phRange: asm({ min: 6.0, max: 8.0 }, PH),
     nRemovalKgPerT: asm(28, N_REMOVAL),
-    priceTLPerKg: asm(24, ECON),
-    varCostTLPerDa: asm(5500, ECON),
+    priceTLPerKg: asm(28, `${ECON} (Trakya Birlik 2025/26 oilseed sunflower advance purchase price = 28,000 TL/t = 28.00 TL/kg)`),
+    varCostTLPerDa: asm(5400, ECON),
     maxConsecutive: lit(1, SPEC),
   },
   dry_bean: {
@@ -273,8 +273,8 @@ export const CROPS: Record<CropId, CropDef> = {
     phRange: asm({ min: 6.0, max: 7.8 }, PH),
     nRemovalKgPerT: asm(35, N_REMOVAL),
     nFixationKgHa: asm({ low: 20, high: 60 }, N_FIX),
-    priceTLPerKg: asm(70, ECON),
-    varCostTLPerDa: asm(7000, ECON),
+    priceTLPerKg: asm(72, `${ECON} (2025/26 Konya/Karaman Commodity Exchange dry bean reference)`),
+    varCostTLPerDa: asm(6800, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
   },
   alfalfa: {
@@ -303,8 +303,8 @@ export const CROPS: Record<CropId, CropDef> = {
     phRange: asm({ min: 6.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(28, N_REMOVAL),
     nFixationKgHa: asm({ low: 150, high: 300 }, N_FIX),
-    priceTLPerKg: asm(8, ECON),
-    varCostTLPerDa: asm(6000, ECON),
+    priceTLPerKg: asm(8.5, `${ECON} (2025/26 dry alfalfa hay bale reference)`),
+    varCostTLPerDa: asm(5800, ECON),
     maxConsecutive: lit(2, SPEC),
   },
   vetch: {
@@ -333,8 +333,8 @@ export const CROPS: Record<CropId, CropDef> = {
     phRange: asm({ min: 6.0, max: 8.0 }, PH),
     nRemovalKgPerT: asm(30, N_REMOVAL),
     nFixationKgHa: asm({ low: 60, high: 150 }, N_FIX),
-    priceTLPerKg: asm(7, ECON),
-    varCostTLPerDa: asm(3000, ECON),
+    priceTLPerKg: asm(7.5, `${ECON} (2025/26 dry vetch forage hay reference)`),
+    varCostTLPerDa: asm(2900, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
   },
   cotton: {
@@ -362,8 +362,8 @@ export const CROPS: Record<CropId, CropDef> = {
     rainfedCeilingTHa: asm(2.5, RF_CEILING),
     phRange: asm({ min: 5.5, max: 8.5 }, PH),
     nRemovalKgPerT: asm(25, N_REMOVAL),
-    priceTLPerKg: asm(30, ECON),
-    varCostTLPerDa: asm(14000, ECON),
+    priceTLPerKg: asm(31, `${ECON} (2025/26 Çukobirlik / Tariş seed cotton reference)`),
+    varCostTLPerDa: asm(12500, ECON),
     maxConsecutive: lit(2, SPEC),
   },
   fallow: {

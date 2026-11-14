@@ -194,5 +194,19 @@
     "verified": true,
     "verified_on": "2026-11-14",
     "notes": "Implemented in src/lib/data/tiles.ts"
+  },
+  {
+    "id": "tmo-trakya-turkseker-2025",
+    "title": "TMO 2025/2026 Hububat ve Mısır Alım Fiyatları, Trakya Birlik Ayçiçeği ve Türkşeker Şeker Pancarı Referans Alım Fiyatları",
+    "authors_or_org": "Toprak Mahsulleri Ofisi (TMO), Trakya Birlik, Türkiye Şeker Fabrikaları A.Ş. (Türkşeker), Ticaret Borsaları",
+    "date": "2025",
+    "url": "https://www.tmo.gov.tr",
+    "doi_or_arxiv": "",
+    "version": "2025/2026 Üretim Sezonu",
+    "license": "Kamuya Açık Resmi Duyuru",
+    "used_for": "Varsayılan ürün alım fiyatları ve değişken üretim maliyeti kalibrasyonu (Buğday 14,50 TL/kg, Arpa 13,52 TL/kg destek dahil, Mısır 11,97 TL/kg destek dahil, Ayçiçeği 28,00 TL/kg, Nohut 38,00 TL/kg, Kırmızı Mercimek 34,00 TL/kg, Şeker Pancarı 3,40 TL/kg)",
+    "verified": true,
+    "verified_on": "2026-11-14",
+    "notes": "Calibrated in src/lib/crops/database.ts; user-editable per farm in the UI"
   }
 ]

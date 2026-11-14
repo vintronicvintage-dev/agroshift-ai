@@ -49,3 +49,15 @@ Bu belge, AgroShift AI'ın mühendislik derinleştirme sürecinde alınan kritik
   - `AppShell.tsx` kalıcı sol orman yeşili komuta menüsü + üst hızlı pilot/senaryo kontrol çubuğu + mobil alt bar/çekmece olarak yeniden inşa edildi.
   - `FieldWorkspace.tsx` üzerinde Tanıtım Hero Alanı, 5 KPI Özet Kartı, Asimetrik Harita (`NASA Uydu Katmanları` yüzer kontrol paneli + `HD Uydu z20` seçici) + `Mevcut Durum Özeti`, 3 Sütunlu Bento (`Akıllı Ürün Önerileri`, `Üç Yıllık Ürün Rotasyon Planı`, çift eksenli `Verim ve Kârlılık Analizi` SVG grafiği), 2 Sütunlu Alt Bölüm (`Risk Simülasyonları` tablosu/yatay çubuk grafiği + `Açıklanabilir Karar Dayanağı XAI`) ve genişletilebilir 11 detaylı bilimsel sensör kartı (`FieldPanel`) %100 gerçek motor/uydu verisiyle birleştirildi.
 
+## ADR-008: 2025/2026 TMO/Borsa Ekonomik Kalibrasyonu, P10–P90 Grafikleri, Canlı Formül Kanıtları ve 3 Adımlı Rehber Akışı
+- **Bağlam:** Kullanıcının geri bildirimi doğrultusunda:
+  1. Verim ve kârlılık analizinin gerçek 2025/2026 alım fiyatlarıyla (TMO, Trakya Birlik, Türkşeker, Ticaret Borsaları) ve şeffaf gelir–maliyet kırılımıyla gösterilmesi,
+  2. Grafiklerin P10–P90 belirsizlik bantları, karşılaştırma referans çizgileri ve 12 aylık su dengesi (yağış, $ET_0$, $ET_c$, sulama) klimografı ile zenginleştirilmesi,
+  3. Kanıtların ve 6 adımlı matematiksel formül zincirinin (`FAO-56 Penman-Monteith`, `Saxton & Rawls 2006`, `FAO-33/66 Stewart`, `Ekonomik Kazanç Denklemi`, `RUSLE & Biyolojik Azot`, `TOPSIS & ±%20 Duyarlılık`) doğrudan kontrol panelinde canlı parsel değerleriyle gösterilmesi,
+  4. Kullanımın 3 adımlı rehber şeridi ve satır içi su/fiyat kalibrasyon kontrolleriyle basitleştirilmesi,
+  5. Tam renkli botanik ürün illüstrasyonları (`CropArt.tsx`) ve doğrulanan NASA/USGS uydu görsellerinin (`IMAGES`) kartlara entegre edilmesi talep edildi.
+- **Karar:**
+  - `src/lib/crops/database.ts` içindeki referans ürün fiyatları ve değişken maliyetler 2025/2026 TMO (destek dahil buğday 14,50 TL/kg, arpa 13,52 TL/kg, mısır 11,97 TL/kg), Trakya Birlik (ayçiçeği 28,00 TL/kg), Türkşeker (şeker pancarı 3,40 TL/kg) ve Ticaret Borsaları (nohut 38 TL/kg, kırmızı mercimek 34 TL/kg, kuru fasulye 72 TL/kg) verileriyle kalibre edildi ve `sources.json` / `docs/SOURCES.md` içine kaydedildi.
+  - `src/components/tarla/DashboardCharts.tsx` ve `src/components/tarla/EvidenceFoundations.tsx` modülleri oluşturularak kontrol paneline entegre edildi.
+
+

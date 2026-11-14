@@ -15,6 +15,7 @@ Bu belge, AgroShift AI içerisinde kullanılan tüm dış veri kaynaklarını, b
 | `esri-world-imagery` | [ArcGIS World Imagery MapServer](https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer) | Esri / Maxar / Earthstar Geographics | ~0,3 m (Zoom 18 doğal, Zoom 20 ölçekli) | Esri Master License (Atıflı) | Türkiye genelinde yüksek çözünürlüklü parsel/tarla uydu altlığı ve `World_Transportation` köy/karayolu ağı. **Doğrulandı** (5 Türkiye pilot bölgesinde HTTP 200). |
 | `carto-voyager` | [CARTO Voyager & Labels Retina (@2x)](https://carto.com/attributions) | CARTO / OpenStreetMap | Zoom 19 doğal (@2x Retina) | ODbL 1.0 / CC BY 4.0 | Türkiye 81 il, ilçe, köy, mahalle ve ova etiketleri ile detaylı yol/yerleşim altlığı. **Doğrulandı**. |
 | `opentopomap` | [OpenTopoMap](https://opentopomap.org) | OpenTopoMap / OSM / NASA SRTM | Zoom 17 doğal | CC BY-SA 3.0 | Türkiye eşyükselti eğrileri ve topografik kabartma haritası. **Doğrulandı**. |
+| `tmo-trakya-turkseker-2025` | [TMO / Trakya Birlik / Türkşeker 2025–2026 Alım Fiyatları](https://www.tmo.gov.tr) | TMO, Trakya Birlik, Türkşeker, Ticaret Borsaları | Ülke geneli referans | Kamuya Açık Resmi Duyuru | 2025/2026 sezonu ürün alım fiyatları ve değişken maliyet referansları (Buğday, Arpa, Mısır, Ayçiçeği, Nohut, Mercimek, Şeker Pancarı, Kuru Fasulye, Pamuk). **Doğrulandı**. |
 
 ## 2. Agronomik, Hidrolojik ve İstatistiksel Literatür
 

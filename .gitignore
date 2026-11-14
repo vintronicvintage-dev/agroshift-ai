@@ -42,5 +42,7 @@ next-env.d.ts
 
 # data cache (AgroShift)
 /.cache/
+__pycache__/
+*.pyc
 
 !.env.example

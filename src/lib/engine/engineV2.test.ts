@@ -11,7 +11,9 @@ import { soilHydraulics, slopeAdjustedCN, tawCum, uniformProfile, SOIL_COLUMN_M,
 import { createSetup, replayWindows, simulatePlanChain, simulateWindowExact, SPINUP_MAX_ITER } from "./rotation";
 import { buildEvalContext, summarizeRaw, type RawWindow } from "./evaluation";
 import { lsFactor } from "./indicators";
-import type { AnalysisInput, CropId, FieldInput, SoilLayer } from "../types";
+import { getContext } from "./context";
+import { Screener } from "./screening";
+import type { AnalysisInput, CropId, FieldInput, RotationSequence, SoilLayer } from "../types";
 
 const highland = syntheticClimate();
 const field: FieldInput = { areaDa: 50, soil: LOAM_SOIL, irrigationBudgetMm: 250, irrigationEfficiency: 0.7, currentRotation: ["wheat_winter", "fallow", "wheat_winter"] };
@@ -302,5 +304,45 @@ describe("implausible inputs are capped and flagged", () => {
     expect(l[0].method).toBe("saxton-rawls");
     expect(l[0].measuredRejected).toBe(true);
     expect(l[0].tawMmPerM).toBeGreaterThan(80);
+  });
+});
+
+describe("two-tier AnalysisContext memoisation, cold scoreAgainst normalisation & Screener budget isolation", () => {
+  it("reuses the exact same AnalysisContext object across different extraPlans / robust / sensitivity options", () => {
+    const base = inp({}, { areaDa: 63 });
+    const withExtraA = inp({ options: { extraPlans: [["wheat_winter", "chickpea", "barley_winter"]], robust: false } }, { areaDa: 63 });
+    const withExtraB = inp({ options: { extraPlans: [["lentil_red", "wheat_winter", "sunflower"]], sensitivity: false } }, { areaDa: 63 });
+    const ctx0 = getContext(base);
+    const ctxA = getContext(withExtraA);
+    const ctxB = getContext(withExtraB);
+    expect(ctxA).toBe(ctx0);
+    expect(ctxB).toBe(ctx0);
+  });
+
+  it("evaluateCustomPlan on a cold context (main-thread / Worker split) normalises composite & components identically to analyze()", () => {
+    const coldInput = inp({}, { areaDa: 77, irrigationBudgetMm: 180 });
+    const customSeq: RotationSequence = ["chickpea", "wheat_winter", "sunflower"];
+    // Call evaluateCustomPlan FIRST on a completely cold input (simulating main-thread Builder when analyze ran in Web Worker)
+    const coldCustom = evaluateCustomPlan(coldInput, customSeq);
+    // Now run full analyze with customSeq in extraPlans
+    const full = analyze({ ...coldInput, options: { extraPlans: [customSeq], robust: false, sensitivity: false } });
+    const refPlan = full.userPlans[0];
+    expect(coldCustom.plan.score.composite).toBeCloseTo(refPlan.score.composite, 6);
+    expect(coldCustom.plan.score.components.water).toBeCloseTo(refPlan.score.components.water, 6);
+    expect(coldCustom.plan.score.components.income).toBeCloseTo(refPlan.score.components.income, 6);
+    expect(coldCustom.plan.score.components.soil).toBeCloseTo(refPlan.score.components.soil, 6);
+    expect(coldCustom.plan.score.components.risk).toBeCloseTo(refPlan.score.components.risk, 6);
+  });
+
+  it("Screener isolates crop-piece cache across different non-zero irrigation budgets on the same instance", () => {
+    const clim = prepareClimate(highland, 1, 0);
+    const setup = createSetup(clim, soilHydraulics(LOAM_SOIL), "highland");
+    const windows = replayWindows(clim);
+    const sched = scheduleSequence(["maize_grain", "wheat_winter", "sugar_beet"], "highland");
+    const screener = new Screener(setup);
+    const lowBudget = screener.screenWindow(sched, windows[0], 0.5, 40, 0);
+    const highBudget = screener.screenWindow(sched, windows[0], 0.5, 450, 0);
+    expect(highBudget.years[0]!.irrigation).toBeGreaterThan(lowBudget.years[0]!.irrigation);
+    expect(highBudget.years[0]!.eta).toBeGreaterThan(lowBudget.years[0]!.eta);
   });
 });

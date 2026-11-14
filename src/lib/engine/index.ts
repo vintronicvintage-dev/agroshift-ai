@@ -114,7 +114,9 @@ export function analyze(input: AnalysisInput): AnalysisResult {
     shortlistSize: input.options?.shortlistSize ?? DEFAULT_SHORTLIST, maxFallowYears: ctx.landUse.maxFallowYears,
   });
   for (const r of opt.exactSet) if (r.exact?.raws) seedRaws(ctx.ev, r, r.exact.raws);
-  ctx.scoreItems = opt.exactSet.filter((r) => r.exact?.metrics).map((r) => ({ r, m: r.exact!.metrics! }));
+  ctx.scoreItems = opt.exactSet
+    .filter((r) => (opt.shortlist.has(r.id) || r.id === opt.current.id) && r.exact?.metrics)
+    .map((r) => ({ r, m: r.exact!.metrics! }));
 
   const curShifts = new Set(cyclicIds(field.currentRotation));
   const eligible = (r: PlanRecord) => r.feasible && opt.shortlist.has(r.id) && !curShifts.has(r.id);

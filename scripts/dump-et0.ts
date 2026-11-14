@@ -4,7 +4,8 @@
  *   npx tsx scripts/dump-et0.ts [sowDate=2010-10-10] [initialWetness=0.5]
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expandSnapshot, type CompactSnapshot } from "../src/lib/data/snapshots";
 import { prepareClimate } from "../src/lib/engine/climate";
 import { soilHydraulics } from "../src/lib/engine/soil";
@@ -14,6 +15,7 @@ import { CROPS } from "../src/lib/crops/database";
 import { newFluxes, simulateSeason, uniformState, yieldRatio, type CropParams } from "../src/lib/engine/waterBalance";
 import { toEpochDay } from "../src/lib/engine/dates";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const raw = JSON.parse(readFileSync(join(__dirname, "..", "src", "data", "snapshots", "konya-cumra.json"), "utf8")) as CompactSnapshot;
 const snap = expandSnapshot(raw);
 if (!snap.climate) throw new Error("no climate in snapshot");

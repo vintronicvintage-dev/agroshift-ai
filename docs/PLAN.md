@@ -37,13 +37,13 @@
 - Modify: `agroshift/src/lib/engine/screening.ts`
 - Test: `agroshift/src/lib/engine/engineV2.test.ts`
 
-- [ ] **Step 1: Başarısız birim testlerini yaz (`engineV2.test.ts`)**
+- [x] **Step 1: Başarısız birim testlerini yaz (`engineV2.test.ts`)**
   - Test 1: `evaluateCustomPlan(input, seq)` çağrısının, öncesinde `analyze(input)` çalışmasa bile (veya `input.options.extraPlans` farklı olsa bile) `analyze({ ...input, options: { extraPlans: [seq] } }).userPlans[0]` ile birebir aynı `score.composite` ($\pm 10^{-9}$) değerini ürettiğini doğrula.
   - Test 2: `options.extraPlans` değiştiğinde `getContext` içindeki fiziksel/iklimsel bağlamın (`PreparedClimate`, `SoilHydraulics`, `EngineSetup`, `EvalContext`) yeniden hesaplanmadığını (aynı referansı koruduğunu) doğrula.
   - Test 3: `Screener` sınıfının farklı `budget` değerleriyle çağrıldığında önbellek çakışması yaşamadığını doğrula.
-- [ ] **Step 2: Testleri çalıştır ve RED durumunu kanıtla**
-- [ ] **Step 3: `context.ts` ve `screening.ts` içinde minimal implementasyonu tamamla**
-- [ ] **Step 4: Testleri ve Python çapraz kontrol betiklerini çalıştırarak GREEN durumunu kanıtla ve commit al**
+- [x] **Step 2: Testleri çalıştır ve RED durumunu kanıtla**
+- [x] **Step 3: `context.ts` ve `screening.ts` içinde minimal implementasyonu tamamla**
+- [x] **Step 4: Testleri ve Python çapraz kontrol betiklerini çalıştırarak GREEN durumunu kanıtla ve commit al**
 
 ---
 

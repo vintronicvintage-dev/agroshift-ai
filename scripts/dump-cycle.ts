@@ -7,7 +7,8 @@
  *   npx tsx scripts/dump-cycle.ts > <tmp>/engine_cycle.json
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expandSnapshot, type CompactSnapshot } from "../src/lib/data/snapshots";
 import { prepareClimate } from "../src/lib/engine/climate";
 import { soilHydraulics, tawCum, tawProfileOf } from "../src/lib/engine/soil";
@@ -16,6 +17,7 @@ import { createSetup, replayWindows, simulatePlanChain, slotIndices, initialWetn
 import { fromEpochDay } from "../src/lib/engine/dates";
 import type { SoilLayer } from "../src/lib/types";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const raw = JSON.parse(readFileSync(join(__dirname, "..", "src", "data", "snapshots", "konya-cumra.json"), "utf8")) as CompactSnapshot;
 const snap = expandSnapshot(raw);
 const series = snap.climate!;

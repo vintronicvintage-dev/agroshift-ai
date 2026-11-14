@@ -20,10 +20,10 @@ import {
   buildEvalContext, evaluateExactRaw, planMetrics, summarizeRaw, waterResult, yearResults, RISK_WEIGHTS, waterProductivity, deficitPerValue,
   type EvalContext, type PlanMetrics, type RawWindow,
 } from "./evaluation";
-import { makeRecord, normalizePriorities, scorePlans, type PlanRecord } from "./optimizer";
+import { DEFAULT_SHORTLIST, makeRecord, normalizePriorities, optimize, scorePlans, type PlanRecord } from "./optimizer";
 import { DIAG_N, DIAG_ETC, DIAG_ETA, DIAG_EFFR, DIAG_IRR, DIAG_BARE, type MonthlyDiag } from "./waterBalance";
 import { erosionIndicator, erosivityR, nitrogenBalance, planWarnings, soilCover } from "./indicators";
-import { planConfidence, type ConfidenceInputs, type EvalEnv } from "./robust";
+import { planConfidence, seedRaws, type ConfidenceInputs, type EvalEnv } from "./robust";
 import { dist } from "./stats";
 
 /** Standard-atmosphere lapse rate used to move POWER grid temperatures to the field elevation. */
@@ -114,7 +114,7 @@ function atElevation(series: ClimateSeries, elevation: number): ClimateSeries {
 function inputKey(input: AnalysisInput): string {
   const { climate: _c, options, ...rest } = input;
   void _c;
-  return JSON.stringify({ ...rest, extra: options?.extraPlans ?? [], sl: options?.shortlistSize ?? null, mf: options?.maxFallowYears ?? null });
+  return JSON.stringify({ ...rest, sl: options?.shortlistSize ?? null, mf: options?.maxFallowYears ?? null });
 }
 
 /** Build (or reuse) the plan-independent context of an analysis input. */
@@ -384,10 +384,25 @@ export function evaluateRecordExact(ctx: AnalysisContext, r: PlanRecord): void {
   r.exact = { windows, metrics: planMetrics(windows), raws, slots };
 }
 
-/** Composite of one record against the reference set of the last analysis (or against the current plan only). */
+/** Ensure the base shortlist + current reference set is populated on `ctx` (even when `analyze` ran in a Worker). */
+export function ensureScoreItems(ctx: AnalysisContext): { r: PlanRecord; m: PlanMetrics }[] {
+  if (ctx.scoreItems) return ctx.scoreItems;
+  const opt = optimize({
+    ev: ctx.ev, zone: ctx.zone, suitability: ctx.suitability, candidates: ctx.candidates,
+    excluded: [...ctx.excluded], current: ctx.input.field.currentRotation, extraPlans: [],
+    priorities: ctx.priorities, slopePct: ctx.slope.pct,
+    shortlistSize: ctx.input.options?.shortlistSize ?? DEFAULT_SHORTLIST,
+    maxFallowYears: ctx.landUse.maxFallowYears,
+  });
+  for (const rec of opt.exactSet) if (rec.exact?.raws) seedRaws(ctx.ev, rec, rec.exact.raws);
+  ctx.scoreItems = opt.exactSet.filter((rec) => rec.exact?.metrics).map((rec) => ({ r: rec, m: rec.exact!.metrics! }));
+  return ctx.scoreItems;
+}
+
+/** Composite of one record against the reference set of the context (shortlist + current). */
 export function scoreAgainst(ctx: AnalysisContext, r: PlanRecord): void {
   if (!r.exact?.metrics) return;
-  const ref = (ctx.scoreItems ?? []).filter((x) => x.r.id !== r.id);
+  const ref = ensureScoreItems(ctx).filter((x) => x.r.id !== r.id);
   const items = [...ref, { r, m: r.exact.metrics }];
   if (items.length === 1 && ctx.current?.rec.exact?.metrics && ctx.current.rec.id !== r.id) items.unshift({ r: ctx.current.rec, m: ctx.current.rec.exact.metrics });
   r.score = scorePlans(items, ctx.priorities).at(-1)!;

@@ -34,7 +34,7 @@ export interface ScreenWindow {
 }
 
 export class Screener {
-  private cropCache = new Map<number, Float64Array>();
+  private cropCache = new Map<number, Map<number, Float64Array>>();
   private bareCache = new Map<number, number>();
   private cropIndex: Record<CropId, number>;
   pieceSimulations = 0;
@@ -49,18 +49,24 @@ export class Screener {
 
   private cropPieceAt(cropId: CropId, sowIdx: number, stages: readonly number[], budget: number, mode: number, level: number): Float64Array {
     const len = stages[0] + stages[1] + stages[2] + stages[3];
+    const effectiveBudget = mode === 1 ? 0 : budget;
+    let byBudget = this.cropCache.get(effectiveBudget);
+    if (!byBudget) {
+      byBudget = new Map<number, Float64Array>();
+      this.cropCache.set(effectiveBudget, byBudget);
+    }
     const key = ((((this.cropIndex[cropId] * 16384 + sowIdx) * 1024 + len) * 2 + mode) * 16) + level;
-    let v = this.cropCache.get(key);
+    let v = byBudget.get(key);
     if (v) return v;
     const ctx = this.setup.ctx;
     const st = uniformState(ctx, level / LEVELS);
     const flux = newFluxes();
-    const o = simulateSeason(ctx, this.setup.params[cropId] as CropParams, sowIdx, stages, st, budget, flux);
+    const o = simulateSeason(ctx, this.setup.params[cropId] as CropParams, sowIdx, stages, st, effectiveBudget, flux);
     v = new Float64Array(C_LEN);
     v[C_ETC] = o.etc; v[C_ETA] = o.eta; v[C_IRR] = o.irrigation; v[C_LIM] = o.shortfall;
     v[C_FROST] = o.frostDays + o.winterKillDays; v[C_HEAT] = o.heatDays;
     v[C_W] = (st.wTop + st.wSub) / this.colCapacity();
-    this.cropCache.set(key, v);
+    byBudget.set(key, v);
     this.pieceSimulations++;
     return v;
   }

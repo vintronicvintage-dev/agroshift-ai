@@ -75,7 +75,15 @@ def make_profile(layers):
 
 # ------------------------------------------------------------------ Part B
 def run():
-    eng = json.load(open(sys.argv[1], encoding="utf-8"))
+    if len(sys.argv) > 1:
+        eng = json.load(open(sys.argv[1], encoding="utf-8"))
+    else:
+        import subprocess
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        out = subprocess.run("npx tsx scripts/dump-cycle.ts", cwd=root, shell=True, capture_output=True, text=True, encoding="utf-8")
+        if out.returncode != 0:
+            sys.exit(out.stderr)
+        eng = json.loads(out.stdout)
     snap, days = load_snapshot()
     soc_top = snap["soil"]["soc"]
     om_fb = soc_top / 10 * 1.724 if soc_top is not None else eng["omDefaultPct"]

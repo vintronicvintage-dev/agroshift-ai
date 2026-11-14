@@ -75,8 +75,8 @@
 - Test: `agroshift/src/lib/data/field.test.ts`
 
 - [x] **Step 1: Başarısız güvenlik ve eşzamanlılık testlerini yaz (`field.test.ts`)**
-  - Test 1: >256 köşeli poligonun `GeometryError` / `ValidationError` ile reddedilmesi.
-  - Test 2: Aynı koordinat için eşzamanlı `cacheSet` ve `withCache` (Singleflight) çağrılarının yarış durumu yaratmadan tek bir upstream çağrısını paylaşması.
+  - Test 1: >200 köşeli poligonun (`MAX_VERTICES = 200`) `GeometryError` / `ValidationError` ile ve >64 KB gövdenin HTTP 400 ile reddedilmesi.
+  - Test 2: Aynı koordinat için eşzamanlı `cacheSet` ve `singleflight` çağrılarının yarış durumu yaratmadan tek bir upstream çağrısını paylaşması.
   - Test 3: `terrain` / `geocode` hız sınırlayıcı kuyruğunun maksimum derinliği aştığında bekletmeden hata fırlatması.
 - [x] **Step 2: Testleri çalıştır ve RED durumunu kanıtla**
 - [x] **Step 3: `cache.ts`, `geometry.ts`, `field/route.ts`, `geocode/route.ts` ve `terrain.ts` implementasyonunu tamamla**
@@ -102,6 +102,6 @@
 
 ### Dilim 6: Uçtan Uca Doğrulama, Görsel Denetim ve Bağımsız Kanıt İncelemesi (`verify-and-review`)
 
-- [ ] **Step 1: Tüm test paketini, tip kontrolünü, linter'ı, Python çapraz kontrol betiklerini ve üretim derlemesini (`npm run build`) çalıştır**
-- [ ] **Step 2: Uygulamayı başlat ve tarayıcı alt-ajanı (`browser`) ile 1440×900 ve 390×844 çözünürlüklerde doğrulama yap**
-- [ ] **Step 3: `evidence-reviewer` alt-ajanı ile bağımsız denetim gerçekleştir ve nihai Türkçe raporu sun**
+- [x] **Step 1: Tüm test paketini, tip kontrolünü, linter'ı, Python çapraz kontrol betiklerini ve üretim derlemesini (`npm run build`) çalıştır**
+- [x] **Step 2: Uygulamayı başlat ve tarayıcı alt-ajanı (`browser`) ile 1440×900 ve 390×844 çözünürlüklerde doğrulama yap**
+- [x] **Step 3: `evidence-reviewer` alt-ajanı ile bağımsız denetim gerçekleştir ve nihai Türkçe raporu sun**

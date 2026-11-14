@@ -29,7 +29,7 @@ Bu belge, AgroShift AI'ın mühendislik derinleştirme sürecinde alınan kritik
   - `geocode/route.ts` ve `terrain.ts` hız sınırlayıcıları sınırsız Promise zinciri kuruyordu.
 - **Karar:**
   - `cache.ts`: Geçici dosya adına monotonik sayaç (`++tmpCounter`) eklenir ve `inFlight` Promise haritasıyla eşzamanlı aynı anahtar okumaları/yazmaları birleştirilir (Singleflight).
-  - `geometry.ts` & `field/route.ts`: Poligon halkası için `MAX_RING_VERTICES = 256` ve JSON gövdesi için `MAX_BODY_BYTES = 65536` (64 KB) sınırı uygulanır.
+  - `geometry.ts` & `field/route.ts`: Poligon halkası için `MAX_VERTICES = 200` ve JSON gövdesi için `MAX_FIELD_BODY_BYTES = 65536` (64 KB) sınırı uygulanır.
   - `geocode/route.ts` & `terrain.ts`: Hız sınırlayıcı kuyruk derinliği `MAX_QUEUE_DEPTH = 15` ile sınırlandırılır; aşım durumunda bekletmeden hata döndürülür.
 
 ## ADR-005: Motor-Arayüz Terminoloji Birliği

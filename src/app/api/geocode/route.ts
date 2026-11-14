@@ -63,6 +63,10 @@ export async function GET(request: Request): Promise<Response> {
     if (CACHE.size > 500) CACHE.delete(CACHE.keys().next().value as string);
     return Response.json({ results, cached: false, attribution: "© OpenStreetMap contributors (ODbL)" });
   } catch (e) {
-    return Response.json({ error: { code: "upstream_unavailable", message: e instanceof Error ? e.message : String(e) } }, { status: 502 });
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/queue full/i.test(msg)) {
+      return Response.json({ error: { code: "rate_limited", message: msg } }, { status: 429 });
+    }
+    return Response.json({ error: { code: "upstream_unavailable", message: msg } }, { status: 502 });
   }
 }

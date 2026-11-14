@@ -327,11 +327,11 @@ describe("two-tier AnalysisContext memoisation, cold scoreAgainst normalisation 
     // Now run full analyze with customSeq in extraPlans
     const full = analyze({ ...coldInput, options: { extraPlans: [customSeq], robust: false, sensitivity: false } });
     const refPlan = full.userPlans[0];
-    expect(coldCustom.plan.score.composite).toBeCloseTo(refPlan.score.composite, 6);
-    expect(coldCustom.plan.score.components.water).toBeCloseTo(refPlan.score.components.water, 6);
-    expect(coldCustom.plan.score.components.income).toBeCloseTo(refPlan.score.components.income, 6);
-    expect(coldCustom.plan.score.components.soil).toBeCloseTo(refPlan.score.components.soil, 6);
-    expect(coldCustom.plan.score.components.risk).toBeCloseTo(refPlan.score.components.risk, 6);
+    expect(coldCustom.plan.score.composite).toBeCloseTo(refPlan.score.composite, 9);
+    expect(coldCustom.plan.score.components.water).toBeCloseTo(refPlan.score.components.water, 9);
+    expect(coldCustom.plan.score.components.income).toBeCloseTo(refPlan.score.components.income, 9);
+    expect(coldCustom.plan.score.components.soil).toBeCloseTo(refPlan.score.components.soil, 9);
+    expect(coldCustom.plan.score.components.risk).toBeCloseTo(refPlan.score.components.risk, 9);
   });
 
   it("Screener isolates crop-piece cache across different non-zero irrigation budgets on the same instance", () => {

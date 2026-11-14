@@ -295,9 +295,17 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   exactSet.set(current.id, current);
   for (const u of userPlans) exactSet.set(u.id, u);
   for (const r of exactSet.values()) r.exact = exactRecord(ev, r);
+  const baseScored = [...exactSet.values()]
+    .filter((r) => (shortlist.has(r.id) || r.id === current.id) && r.exact?.metrics)
+    .map((r) => ({ r, m: r.exact!.metrics! }));
+  const baseScores = scorePlans(baseScored, priorities);
+  baseScored.forEach((x, i) => { x.r.score = baseScores[i]; });
+  for (const u of userPlans) {
+    if (!u.exact?.metrics) continue;
+    const ref = baseScored.filter((x) => x.r.id !== u.id);
+    u.score = scorePlans([...ref, { r: u, m: u.exact.metrics }], priorities).at(-1)!;
+  }
   const scored = [...exactSet.values()].filter((r) => r.exact?.metrics).map((r) => ({ r, m: r.exact!.metrics! }));
-  const scores = scorePlans(scored, priorities);
-  scored.forEach((x, i) => { x.r.score = scores[i]; });
   const eParetoPool = scored.filter((x) => x.r.feasible || x.r.id === current.id);
   const ePts = eParetoPool.map(({ r, m }) => ({ req: m.requirementP50, margin: m.marginP50, soil: r.soil.score }));
   const eFlags = paretoFlags(ePts);

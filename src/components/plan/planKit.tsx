@@ -8,9 +8,9 @@ import { useTheme } from "@/lib/ui/theme";
 import { useI18n } from "@/lib/i18n";
 
 /**
- * The engine writes Turkish with a few analyst words ("rotasyon", "brüt marj"). The board's
- * vocabulary table asks for "ekim nöbeti / sıra" and "kazanç" on the main path; these whole-phrase
- * replacements keep the engine's numbers and grammar intact (engine files are not edited).
+ * The engine v2.2+ directly emits v3 farmer vocabulary ("ekim nöbeti / sıra", "kazanç (brüt)").
+ * These whole-phrase replacements are kept as a backward-compatibility safety net for any legacy
+ * cached `lastRun` entries stored in `localStorage`.
  */
 const TR_FIX: [RegExp, string][] = [
   [/mevcut rotasyonuna göre/g, "bugünkü sırana göre"],

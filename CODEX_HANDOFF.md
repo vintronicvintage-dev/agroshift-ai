@@ -9,16 +9,15 @@ Bu dosya **Antigravity (yerel geliştirme ajanı)** ve **Codex** arasında arac�
 ---
 
 ## Antigravity Güncel Durum Raporu
+- **Son Commit (`main`):** `8cfefa6` (Derinleştirme Paketi)
 - **Son Doğrulama:**
-  - `npm test`: **22/22 test dosyası, 222/222 test geçti** (`0` hata).
+  - `npm test`: **24/24 test dosyası, 229/229 test geçti** (`0` hata).
   - `npm run build`: TypeScript + Next.js 16.4.6 Turbopack (**24/24 sayfa**) hatasız derlendi.
 - **Son Tamamlanan Değişiklikler:**
-  1. **Motor Hızlandırması (`src/lib/engine/dates.ts`, `src/lib/engine/screening.ts`):** Tam sayı Gregoryen `epochDayOf` ve `Screener` `WeakMap` + tampon önbelleklemesi ile `analyze()` süresi ~%18 hızlandırıldı.
-  2. **Türkiye Dışı Koordinat Düzeltmesi (`src/lib/data/turkiyeAgroMaster.ts`):** `matchMasterProvince` fonksiyonuna `isInTurkey` kontrolü eklendi. Türkiye dışı koordinatlar (örn. Amerika) artık Edirne olarak etiketlenmiyor; *"Türkiye Dışı · Küresel Uydu Modu"* olarak işleniyor.
-  3. **İki Modlu Arayüz & 3 Olası Rota (`src/components/tarla/FieldWorkspace.tsx`):**
-     - `Kolaylaştırılmış` ve `Detaylı (Teknik)` görünüm modları eklendi.
-     - Harita yanında bölgede sıklıkla ekilen ürünler, 3 yıllık rota, su tasarrufu (`m³/da/yıl`) ve net kazanç (`₺/da/yıl`) özeti eklendi.
-     - Harita altında (`#rota-nedenleri`) **En Doğru Rota**, **Klasik Ekilenler Arasından En Mantıklı Rota** ve **Alternatif Rota** 1→2→3 sıralama gerekçeleriyle birlikte sunuluyor.
+  1. **Gerçek İl Klasik Rotasyonu Motor Değerlendirmesi (`src/lib/data/turkiyeAgroMaster.ts`, `src/components/data/FieldData.tsx`, `src/components/tarla/FieldWorkspace.tsx`):** `getClassicRegionalSequence(lat, lon)` eklendi; Türkiye içi parsellerde `Dengeli_Gelir` 3 yıllık rotasyonu `options.extraPlans` üzerinden fizik motoruna gönderilip gerçek su, verim ve kâr hesabıyla `"Klasik Ekilenler Arasından En Mantıklı Rota"` kartında gösteriliyor. 3 rota kartına tıklanınca `selectedPlanOverride` ile aktif rota detayları güncelleniyor.
+  2. **Parsel Bazlı Sayısal Sıra Gerekçelendirmesi (`src/components/tarla/FieldWorkspace.tsx`):** `explainSequenceOrder` artık her yıl için motorun hesapladığı `~kg/da` verim, `mm` sulama / `kuru tarım`, `₺/da` (`grossMarginTLPerDa.p50`) ve `plan.soilHealth.nContributionKgHa` biyolojik azot katkısını (`kg/da`) gösteriyor.
+  3. **Canlı Uydu vs. Örneklem/Yedek Veri Kaynağı Rozetleri (`src/components/tarla/FieldWorkspace.tsx`):** Harita yanı özet kartına `İklim`, `Toprak` ve `Eğim` kaynaklarını gösteren 3 parçalı `Veri Kaynağı` rozeti eklendi.
+  4. **Önceki Temel İyileştirmeler:** Motor hızlandırması (`dates.ts`, `screening.ts`), Türkiye dışı koordinat kontrolü (`isInTurkey`) ve iki modlu (`Kolaylaştırılmış` / `Detaylı`) arayüz + 3 rota kartı aktif.
 
 ---
 
@@ -45,7 +44,7 @@ Bu dosya **Antigravity (yerel geliştirme ajanı)** ve **Codex** arasında arac�
 - **Tarayıcı E2E & Mobil Görünüm + Supabase Misafir Modu (`http://localhost:3000`):**
   - Misafir modunda (Supabase env olmadan) masaüstü (`1440×900`) ve mobil (`390×844`, `scrollWidth = 375.2px <= 390px`, sıfır yatay taşma) doğrulandı.
   - `Kolaylaştırılmış ↔ Detaylı (Teknik)` mod geçişi, harita yanı özet ve 3 olası rota kartı (`En Doğru Rota`, `Klasik Ekilenler Arasından En Mantıklı Rota`, `Alternatif Rota`) doğrulandı.
-- **Toplam Test & Derleme:** `npm test` → **24/24 dosya, 228/228 test geçti**; `npm run build` → **hatasız (24/24 sayfa)**.
+- **Toplam Test & Derleme:** `npm test` → **24/24 dosya, 229/229 test geçti**; `npm run build` → **hatasız (24/24 sayfa)**.
 
 ---
 

@@ -16,7 +16,7 @@ import { scheduleSequence, type SequenceSchedule } from "../crops/calendar";
 import { staticViolations } from "../crops/rules";
 import type { CropSuitability } from "./suitability";
 import { soilHealth } from "./soilHealth";
-import { type EvalContext, type PlanMetrics, type WindowSummary, evaluateExact, evaluateScreening, planMetrics } from "./evaluation";
+import { type EvalContext, type PlanMetrics, type WindowSummary, type RawWindow, type SlotYield, evaluateExactRaw, evaluateScreening, planMetrics, summarizeRaw } from "./evaluation";
 import { Screener } from "./screening";
 
 export const DEFAULT_PRIORITIES: PriorityWeights = { water: 0.25, income: 0.25, soil: 0.25, risk: 0.25 };
@@ -31,7 +31,7 @@ export interface PlanRecord {
   feasible: boolean;
   soil: SoilHealthResult;
   screening: PlanMetrics | null;
-  exact: { windows: WindowSummary[]; metrics: PlanMetrics | null } | null;
+  exact: { windows: WindowSummary[]; metrics: PlanMetrics | null; raws?: RawWindow[]; slots?: SlotYield[] } | null;
   score: PlanScore | null;
   screeningScore: number;
   paretoScreening: boolean;
@@ -171,6 +171,36 @@ export function pickDiverse(sorted: PlanRecord[], current: RotationSequence, k =
   return best;
 }
 
+/** Exact repeating-cycle replay of one record (raw water results kept for re-pricing). */
+export function exactRecord(ev: EvalContext, r: PlanRecord): NonNullable<PlanRecord["exact"]> {
+  const raws = evaluateExactRaw(ev, r.schedule);
+  const { windows, slots } = summarizeRaw(ev, r.crops, raws);
+  return { windows, metrics: planMetrics(windows), raws, slots };
+}
+
+/**
+ * Pareto knee / compromise pick: the non-dominated point with the smallest Euclidean distance to the
+ * ideal point after min–max normalisation of (requirement ↓, margin ↑, soil ↑) — compromise
+ * programming (Zeleny 1973). Returns the index into `points` or −1.
+ */
+export function kneeIndex(points: { req: number; margin: number; soil: number }[], flags: boolean[]): number {
+  const idx = points.map((_, i) => i).filter((i) => flags[i]);
+  if (!idx.length) return -1;
+  const rng = (f: (p: (typeof points)[number]) => number) => {
+    let lo = Infinity, hi = -Infinity;
+    for (const i of idx) { const v = f(points[i]); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    return (v: number) => (hi - lo > 1e-9 ? (v - lo) / (hi - lo) : 1);
+  };
+  const nr = rng((p) => p.req), nm = rng((p) => p.margin), ns = rng((p) => p.soil);
+  let best = -1, bd = Infinity;
+  for (const i of idx) {
+    const p = points[i];
+    const d = Math.hypot(nr(p.req), 1 - nm(p.margin), 1 - ns(p.soil));
+    if (d < bd - 1e-12) { bd = d; best = i; }
+  }
+  return best;
+}
+
 export interface OptimizeInput {
   ev: EvalContext;
   zone: ClimateZone;
@@ -194,6 +224,12 @@ export interface OptimizeOutput {
   enumerated: number;
   infeasibleByReason: Partial<Record<ConstraintCode, number>>;
   pieceSimulations: number;
+  /** Feasible shortlisted plans by exact composite, best first. */
+  ranked: PlanRecord[];
+  knee: PlanRecord | null;
+  byId: Map<string, PlanRecord>;
+  getOrMake: (seq: RotationSequence) => PlanRecord;
+  shortlist: Map<string, PlanRecord>;
 }
 
 export function optimize(input: OptimizeInput): OptimizeOutput {
@@ -241,16 +277,17 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   const exactSet = new Map<string, PlanRecord>(shortlist);
   exactSet.set(current.id, current);
   for (const u of userPlans) exactSet.set(u.id, u);
-  for (const r of exactSet.values()) {
-    const windows = evaluateExact(ev, r.schedule);
-    r.exact = { windows, metrics: planMetrics(windows) };
-  }
+  for (const r of exactSet.values()) r.exact = exactRecord(ev, r);
   const scored = [...exactSet.values()].filter((r) => r.exact?.metrics).map((r) => ({ r, m: r.exact!.metrics! }));
   const scores = scorePlans(scored, priorities);
   scored.forEach((x, i) => { x.r.score = scores[i]; });
   const eParetoPool = scored.filter((x) => x.r.feasible || x.r.id === current.id);
-  const eFlags = paretoFlags(eParetoPool.map(({ r, m }) => ({ req: m.requirementP50, margin: m.marginP50, soil: r.soil.score })));
+  const ePts = eParetoPool.map(({ r, m }) => ({ req: m.requirementP50, margin: m.marginP50, soil: r.soil.score }));
+  const eFlags = paretoFlags(ePts);
   eParetoPool.forEach((x, i) => { x.r.paretoExact = eFlags[i]; });
+  const kneeFlags = eParetoPool.map((x, i) => eFlags[i] && x.r.feasible);
+  const ki = kneeIndex(ePts, kneeFlags);
+  const knee = ki >= 0 ? eParetoPool[ki].r : null;
 
   const ranked = scored.filter((x) => x.r.feasible && shortlist.has(x.r.id))
     .map((x) => x.r)
@@ -258,7 +295,8 @@ export function optimize(input: OptimizeInput): OptimizeOutput {
   const alternatives = pickDiverse(ranked, input.current, 3);
 
   return {
-    current, alternatives, userPlans, feasible, exactSet: [...exactSet.values()],
+    current, alternatives, userPlans, feasible, exactSet: [...exactSet.values()], ranked, knee,
     enumerated: all.length, infeasibleByReason, pieceSimulations: screener.pieceSimulations,
+    byId, getOrMake, shortlist,
   };
 }

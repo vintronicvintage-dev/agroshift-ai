@@ -45,6 +45,22 @@ for (const e of index) {
   );
   const sl = s.soil;
   console.log(`   soil: ${sl.origin} ${sl.textureClass} sand ${sl.sand} silt ${sl.silt} clay ${sl.clay} soc ${sl.soc} pH ${sl.ph}`);
+  // --- field-data extras ---
+  const pc = s.precipCheck;
+  if (pc) {
+    const pm = mean(pc.powerAnnual);
+    const rm = mean(pc.referenceAnnual);
+    console.log(`   precip cross-check (${pc.years.length} common complete years ${pc.years[0]}..${pc.years[pc.years.length - 1]}): POWER ${f(pm, 0)} mm/yr vs ${pc.reference.toUpperCase()} ${f(rm, 0)} mm/yr, ratio ref/POWER ${f(pc.annualRatio, 3)}`);
+    console.log(`   monthly ratio Jan..Dec: ${pc.monthlyRatio.map((r) => f(r, 2)).join(" ")}`);
+  } else console.log("   precip cross-check: none");
+  const t = s.terrain;
+  console.log(t ? `   terrain (SRTM): elevation mean ${t.elevationMean} m (min ${t.elevationMin}, max ${t.elevationMax}), slope ${t.slopePct} %, aspect ${t.aspectDeg ?? "flat/none"}, samples ${t.samples}; POWER elevation ${e.elevation} m` : "   terrain: none");
+  console.log(`   WRB: ${s.wrb ?? "n/a"}`);
+  if (s.soilLayers) {
+    console.log("   layer      sand silt clay   SOC   pH   CEC   N    BD   CF");
+    for (const l of s.soilLayers) console.log(`   ${String(l.top + "-" + l.bottom + " cm").padEnd(10)} ${f(l.sand ?? NaN).padStart(4)} ${f(l.silt ?? NaN).padStart(4)} ${f(l.clay ?? NaN).padStart(4)} ${f(l.soc ?? NaN).padStart(5)} ${f(l.ph ?? NaN, 2).padStart(5)} ${f(l.cec ?? NaN).padStart(5)} ${f(l.nitrogen ?? NaN, 2).padStart(5)} ${f(l.bulkDensity ?? NaN, 2).padStart(5)} ${f(l.coarseFragments ?? NaN).padStart(4)}`);
+  } else console.log("   soil layers: none");
+  if (s.extrasNotes?.length) console.log("   extras notes:", s.extrasNotes.join(" | "));
   console.log(`   imerg: ${raw.imerg?.status}${raw.imerg?.reason ? ` (${raw.imerg.reason})` : ""}`);
   if (s.notes.length) console.log("   notes:", s.notes.join(" | "));
 }

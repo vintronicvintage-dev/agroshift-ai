@@ -18,6 +18,10 @@ const TR55 = "USDA-NRCS TR-55 Table 2-2b";
 const ECON = "Scenario assumption (2025/26 TL order of magnitude) — edit for your farm";
 const YIELD = "Assumption, TÜİK national-average order of magnitude";
 const SPEC = "AgroShift spec §4.6 rotation rule";
+const RF_CEILING = "Assumption: water-unlimited yield under typical rainfed management (lower N rate, seed rate and inputs than irrigated fields) — about a good rainfed year; Ym of a crop-year moves from this value to the irrigated value with irrigation intensity";
+const PH = "Assumption: soil pH range without a pH-related flag (general agronomic tolerance ranges; e.g. dry bean Fe/Zn chlorosis on calcareous high-pH soils). Verify locally";
+const N_REMOVAL = "Assumption: kg N removed per t of harvested product (protein/N content order of magnitude)";
+const N_FIX = "Assumption: biological N fixation per crop year, kg N/ha (order of magnitude for rainfed Mediterranean conditions; see e.g. the review by Herridge et al. 2008, Plant Soil 311:1–18, for typical ranges)";
 const LEGUME_BREAK = "AgroShift rule: grain legumes and vetch never follow themselves (Ascochyta, Fusarium/Rhizoctonia and nematode build-up; extension guidance is 3–4 years between chickpea or lentil crops)";
 
 export function lit<T>(value: T, source: string): Sourced<T> {
@@ -58,7 +62,10 @@ export const CROPS: Record<CropId, CropDef> = {
     },
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("high", "Assumption: straw residue class"),
-    refYieldTHa: asm({ irrigated: 5.5, rainfed: 2.5 }, YIELD),
+    refYieldTHa: asm({ irrigated: 6.0, rainfed: 2.5 }, `${YIELD}; irrigated 6.0 t/ha in line with Harran plain tillage trials (≈ 5.6–6.2 t/ha) and Konya irrigated practice`),
+    rainfedCeilingTHa: asm(4.0, RF_CEILING),
+    phRange: asm({ min: 5.5, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(22, N_REMOVAL),
     priceTLPerKg: asm(14, ECON),
     varCostTLPerDa: asm(5000, ECON),
     maxConsecutive: lit(2, SPEC),
@@ -85,6 +92,9 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("high", "Assumption: straw residue class"),
     refYieldTHa: asm({ irrigated: 4.5, rainfed: 2.5 }, YIELD),
+    rainfedCeilingTHa: asm(3.5, RF_CEILING),
+    phRange: asm({ min: 6.0, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(18, N_REMOVAL),
     priceTLPerKg: asm(11, ECON),
     varCostTLPerDa: asm(4500, ECON),
     maxConsecutive: lit(2, SPEC),
@@ -111,6 +121,10 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 20, high: 40 }, "Assumption: residual N credit to the next crop, grain-legume literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 2.0, rainfed: 1.1 }, YIELD),
+    rainfedCeilingTHa: asm(1.6, RF_CEILING),
+    phRange: asm({ min: 6.0, max: 9.0 }, PH),
+    nRemovalKgPerT: asm(35, N_REMOVAL),
+    nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
     priceTLPerKg: asm(40, ECON),
     varCostTLPerDa: asm(3500, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
@@ -137,6 +151,10 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 15, high: 40 }, "Assumption: residual N credit, grain-legume literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 1.8, rainfed: 1.2 }, YIELD),
+    rainfedCeilingTHa: asm(1.5, RF_CEILING),
+    phRange: asm({ min: 5.5, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(40, N_REMOVAL),
+    nFixationKgHa: asm({ low: 30, high: 90 }, N_FIX),
     priceTLPerKg: asm(30, ECON),
     varCostTLPerDa: asm(3000, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
@@ -163,6 +181,9 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("medium", "Assumption: leaves/crowns left on field"),
     refYieldTHa: asm({ irrigated: 65, rainfed: 30 }, YIELD),
+    rainfedCeilingTHa: asm(35, RF_CEILING),
+    phRange: asm({ min: 6.5, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(1.8, N_REMOVAL),
     priceTLPerKg: asm(3.4, ECON),
     varCostTLPerDa: asm(12000, ECON),
     maxConsecutive: lit(1, SPEC),
@@ -189,6 +210,9 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("high", "Assumption: stover residue class"),
     refYieldTHa: asm({ irrigated: 11, rainfed: 4 }, YIELD),
+    rainfedCeilingTHa: asm(6.0, RF_CEILING),
+    phRange: asm({ min: 5.5, max: 8.0 }, PH),
+    nRemovalKgPerT: asm(15, N_REMOVAL),
     priceTLPerKg: asm(11, ECON),
     varCostTLPerDa: asm(9000, ECON),
     maxConsecutive: lit(2, SPEC),
@@ -215,6 +239,9 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("medium", "Assumption"),
     refYieldTHa: asm({ irrigated: 3.0, rainfed: 1.8 }, YIELD),
+    rainfedCeilingTHa: asm(2.4, RF_CEILING),
+    phRange: asm({ min: 6.0, max: 8.0 }, PH),
+    nRemovalKgPerT: asm(28, N_REMOVAL),
     priceTLPerKg: asm(24, ECON),
     varCostTLPerDa: asm(5500, ECON),
     maxConsecutive: lit(1, SPEC),
@@ -241,6 +268,10 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 10, high: 30 }, "Assumption: common bean is a weak N fixer; literature range"),
     residue: asm("low", "Assumption"),
     refYieldTHa: asm({ irrigated: 2.6, rainfed: 1.0 }, YIELD),
+    rainfedCeilingTHa: asm(1.6, RF_CEILING),
+    phRange: asm({ min: 6.0, max: 7.8 }, PH),
+    nRemovalKgPerT: asm(35, N_REMOVAL),
+    nFixationKgHa: asm({ low: 20, high: 60 }, N_FIX),
     priceTLPerKg: asm(70, ECON),
     varCostTLPerDa: asm(7000, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
@@ -267,6 +298,10 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 80, high: 150 }, "Assumption: N credit after alfalfa, literature range"),
     residue: asm("high", "Assumption: roots and crowns"),
     refYieldTHa: asm({ irrigated: 12, rainfed: 5 }, `${YIELD} (dry hay)`),
+    rainfedCeilingTHa: asm(6.0, RF_CEILING),
+    phRange: asm({ min: 6.5, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(28, N_REMOVAL),
+    nFixationKgHa: asm({ low: 150, high: 300 }, N_FIX),
     priceTLPerKg: asm(8, ECON),
     varCostTLPerDa: asm(6000, ECON),
     maxConsecutive: lit(2, SPEC),
@@ -293,6 +328,10 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: asm({ low: 40, high: 80 }, "Assumption: N credit when cut for hay; more if incorporated"),
     residue: asm("medium", "Assumption"),
     refYieldTHa: asm({ irrigated: 6, rainfed: 3.5 }, `${YIELD} (dry hay)`),
+    rainfedCeilingTHa: asm(4.5, RF_CEILING),
+    phRange: asm({ min: 6.0, max: 8.0 }, PH),
+    nRemovalKgPerT: asm(30, N_REMOVAL),
+    nFixationKgHa: asm({ low: 60, high: 150 }, N_FIX),
     priceTLPerKg: asm(7, ECON),
     varCostTLPerDa: asm(3000, ECON),
     maxConsecutive: lit(1, LEGUME_BREAK),
@@ -319,6 +358,9 @@ export const CROPS: Record<CropId, CropDef> = {
     nContributionKgHa: lit({ low: 0, high: 0 }, "Non-legume"),
     residue: asm("medium", "Assumption: stalks"),
     refYieldTHa: asm({ irrigated: 5.0, rainfed: 1.5 }, `${YIELD} (seed cotton)`),
+    rainfedCeilingTHa: asm(2.5, RF_CEILING),
+    phRange: asm({ min: 5.5, max: 8.5 }, PH),
+    nRemovalKgPerT: asm(25, N_REMOVAL),
     priceTLPerKg: asm(30, ECON),
     varCostTLPerDa: asm(14000, ECON),
     maxConsecutive: lit(2, SPEC),
@@ -359,4 +401,13 @@ export const CROP_CONSTANTS = {
   zColumnM: asm(1.5, "Assumption: deepest root depth in the crop table"),
   /** Default irrigation water cost, TL/m³ of gross withdrawal. */
   waterPriceTLPerM3: asm(1.0, ECON),
+  /** Irrigation covering this share of the rainfed deficit counts as fully irrigated management (deficit irrigation keeps high-input management). */
+  irrigatedManagementShare: asm(0.5, "Assumption: supplying ≥ 50 % of the rainfed water deficit means the field is managed as irrigated (inputs, cultivar); below it Ym moves linearly towards the rainfed ceiling"),
+  /** Share of the (irrigated-management) variable cost spent under rainfed management; cost = cost × (share + (1 − share)·s). */
+  rainfedCostShare: asm(0.6, `${ECON}: rainfed fields use less N, seed and crop protection`),
+  /** Fertiliser N price, TL per kg N (urea ≈ 46 % N); values the N credit of a previous legume/fallow. */
+  nPriceTLPerKgN: asm(40, `${ECON} (urea-N)`),
+  /** Water-productivity bound for small-grain cereals: grain ≤ TE·(seasonal ETa − E0). */
+  wpTranspirationEfficiencyKgHaMm: lit(20, "French & Schultz (1984) Aust. J. Agric. Res. 35: 20 kg grain/ha per mm of water use (applied here to simulated seasonal ETa — assumption)"),
+  wpEvaporationMm: lit(110, "French & Schultz (1984) Aust. J. Agric. Res. 35: 110 mm intercept (soil evaporation)"),
 } as const;

@@ -81,7 +81,7 @@ export function neighbourOffsets(): [number, number][] {
   return out;
 }
 
-const srcMeta = (retrievedAt: string, note: string): SourceMeta => ({
+export const soilSourceMeta = (retrievedAt: string, note: string): SourceMeta => ({
   name: "SoilGrids v2.0 (mean, 0-30 cm)",
   provider: "ISRIC - World Soil Information (not a NASA product)",
   url: "https://www.isric.org/explore/soilgrids",
@@ -142,7 +142,7 @@ export async function fetchSoilGrids(lat: number, lon: number, opts: SoilOpts = 
       }
     }
     if (!prof) return defaultSoil("no valid SoilGrids pixel within about 2 km of the point", retrievedAt);
-    return { ...prof, origin: "soilgrids", sources: [srcMeta(retrievedAt, note)] };
+    return { ...prof, origin: "soilgrids", sources: [soilSourceMeta(retrievedAt, note)] };
   } catch (e) {
     return defaultSoil(errMsg(e), retrievedAt);
   }

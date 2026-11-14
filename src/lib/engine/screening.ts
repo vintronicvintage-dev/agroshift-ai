@@ -26,7 +26,12 @@ export interface ScreenYear {
   etc: number; eta: number; irrigation: number; shortfall: number; frostDays: number; heatDays: number;
 }
 
-export interface ScreenWindow { years: (ScreenYear | null)[] }
+export interface ScreenWindow {
+  years: (ScreenYear | null)[];
+  /** Engine v2: relative column wetness and day index at the end of the window (chaining). */
+  wEnd: number;
+  endIdx: number;
+}
 
 export class Screener {
   private cropCache = new Map<number, Float64Array>();
@@ -39,8 +44,7 @@ export class Screener {
   }
 
   private colCapacity(): number {
-    const c = this.setup.ctx;
-    return c.tawPerM * c.zCol;
+    return this.setup.ctx.tawCol;
   }
 
   private cropPieceAt(cropId: CropId, sowIdx: number, stages: readonly number[], budget: number, mode: number, level: number): Float64Array {
@@ -98,11 +102,11 @@ export class Screener {
    * Screen one scheduled plan over one window.
    * @param mode 0 = with budget, 1 = rainfed shadow run.
    */
-  screenWindow(schedule: SequenceSchedule, win: ReplayWindow, w0: number, budget: number, mode: 0 | 1): ScreenWindow {
+  screenWindow(schedule: SequenceSchedule, win: ReplayWindow, w0: number, budget: number, mode: 0 | 1, startCursor?: number): ScreenWindow {
     const clim = this.setup.ctx.clim;
     const buf = new Float64Array(C_LEN);
     let w = w0;
-    let cursor = win.startIdx;
+    let cursor = startCursor !== undefined ? Math.max(win.startIdx, startCursor) : win.startIdx;
     const years: (ScreenYear | null)[] = [];
     for (let k = 0; k < 3; k++) {
       const slot = schedule.slots[k];
@@ -118,6 +122,39 @@ export class Screener {
       w = buf[C_W];
       cursor = sowIdx + slot.stages[0] + slot.stages[1] + slot.stages[2] + slot.stages[3];
     }
-    return { years };
+    const end = Math.max(cursor, win.coreEndIdx);
+    w = this.bare(cursor, end, w);
+    return { years, wEnd: w, endIdx: end };
+  }
+
+  /**
+   * Engine v2: screen a plan over all windows as a repeating cycle (same chaining rule as
+   * `simulatePlanChain`; spin-up windows iterate the cached piece model to a fixed point).
+   */
+  screenChain(schedule: SequenceSchedule, windows: readonly ReplayWindow[], usable: readonly boolean[], w0: readonly number[], budget: number, mode: 0 | 1): (ScreenWindow | null)[] {
+    const out: (ScreenWindow | null)[] = new Array(windows.length).fill(null);
+    const byAy = new Map<number, number>();
+    windows.forEach((w, i) => byAy.set(w.firstAy, i));
+    const order = windows.map((_, i) => i).sort((a, b) => windows[a].firstAy - windows[b].firstAy);
+    for (const i of order) {
+      if (!usable[i]) continue;
+      const win = windows[i];
+      const pi = byAy.get(win.firstAy - 3);
+      const pred = pi === undefined ? null : out[pi];
+      if (pred && pred.endIdx >= win.startIdx && pred.endIdx - win.startIdx < 200) {
+        out[i] = this.screenWindow(schedule, win, pred.wEnd, budget, mode, pred.endIdx);
+        continue;
+      }
+      let r = this.screenWindow(schedule, win, w0[i], budget, mode);
+      for (let it = 1; it < 6; it++) {
+        const cur = win.startIdx + Math.max(0, r.endIdx - win.coreEndIdx);
+        const n = this.screenWindow(schedule, win, r.wEnd, budget, mode, cur);
+        const done = Math.abs(n.wEnd - r.wEnd) * this.colCapacity() < 0.5;
+        r = n;
+        if (done) break;
+      }
+      out[i] = r;
+    }
+    return out;
   }
 }

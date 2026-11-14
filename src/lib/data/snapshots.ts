@@ -1,6 +1,7 @@
 // Bundled snapshots: compact (columnar, scaled-integer) <-> ClimateSeries / SoilProfile / NdviSeries.
 // No Node APIs: usable from server and client components. Snapshot JSON is loaded lazily with import().
-import type { ClimateSeries, DailyWeather, NdviSeries, SoilProfile, SourceMeta } from "@/lib/types";
+import type { ClimateSeries, DailyWeather, NdviSeries, SoilLayer, SoilProfile, SourceMeta, TerrainInfo } from "@/lib/types";
+import type { PrecipCrossCheck } from "./fieldTypes";
 
 export const DAILY_VARS = ["tmax", "tmin", "tmean", "rh", "wind2m", "rs", "precip", "gwetRoot", "gwetTop"] as const;
 export type DailyVar = (typeof DAILY_VARS)[number];
@@ -18,7 +19,17 @@ export const SCALES: Record<DailyVar, number> = {
   gwetTop: 100,
 };
 
-export interface CompactSnapshot {
+/** Optional field-data extras (added after v1; older files simply lack them). Stored as-is: they are small. */
+export interface SnapshotExtras {
+  soilLayers?: SoilLayer[] | null;
+  wrb?: string | null;
+  terrain?: TerrainInfo | null;
+  precipCheck?: PrecipCrossCheck | null;
+  /** Notes about the extras (failed upstreams etc.). */
+  extrasNotes?: string[];
+}
+
+export interface CompactSnapshot extends SnapshotExtras {
   v: 1;
   id: string;
   lat: number;
@@ -51,7 +62,7 @@ export interface SnapshotIndexEntry {
   retrievedAt: string;
 }
 
-export interface Snapshot {
+export interface Snapshot extends SnapshotExtras {
   id: string;
   climate: ClimateSeries | null;
   soil: SoilProfile;
@@ -116,6 +127,7 @@ export function compactSnapshot(
   notes: string[],
   meta: { lat: number; lon: number; elevation: number | null; start?: string; end?: string },
   imerg?: CompactSnapshot["imerg"],
+  extras?: SnapshotExtras,
 ): CompactSnapshot {
   return {
     v: 1,
@@ -131,6 +143,7 @@ export function compactSnapshot(
     ndvi: compactNdvi(ndvi),
     notes,
     imerg,
+    ...(extras ?? {}),
   };
 }
 
@@ -142,6 +155,11 @@ export function expandSnapshot(c: CompactSnapshot): Snapshot {
     ndvi: expandNdvi(c.lat, c.lon, c.ndvi),
     notes: c.notes,
     imerg: c.imerg,
+    ...(c.soilLayers !== undefined ? { soilLayers: c.soilLayers } : {}),
+    ...(c.wrb !== undefined ? { wrb: c.wrb } : {}),
+    ...(c.terrain !== undefined ? { terrain: c.terrain } : {}),
+    ...(c.precipCheck !== undefined ? { precipCheck: c.precipCheck } : {}),
+    ...(c.extrasNotes ? { extrasNotes: c.extrasNotes } : {}),
   };
 }
 

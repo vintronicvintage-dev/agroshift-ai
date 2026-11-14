@@ -13,8 +13,8 @@ function cacheDir(): string {
   return process.env.AGROSHIFT_CACHE_DIR || path.join(process.cwd(), ".cache");
 }
 
-export function cacheKey(kind: string, lat: number, lon: number): string {
-  return `${kind}_${roundCoord(lat).toFixed(2)}_${roundCoord(lon).toFixed(2)}.json`;
+export function cacheKey(kind: string, lat: number, lon: number, extra = ""): string {
+  return `${kind}_${roundCoord(lat).toFixed(2)}_${roundCoord(lon).toFixed(2)}${extra ? `_${extra}` : ""}.json`;
 }
 
 interface Entry<T> {
@@ -22,9 +22,9 @@ interface Entry<T> {
   data: T;
 }
 
-export async function cacheGet<T>(kind: string, lat: number, lon: number, now = Date.now()): Promise<T | null> {
+export async function cacheGet<T>(kind: string, lat: number, lon: number, now = Date.now(), extra = ""): Promise<T | null> {
   try {
-    const raw = await fs.readFile(path.join(cacheDir(), cacheKey(kind, lat, lon)), "utf8");
+    const raw = await fs.readFile(path.join(cacheDir(), cacheKey(kind, lat, lon, extra)), "utf8");
     const e = JSON.parse(raw) as Entry<T>;
     if (now - e.savedAt > CACHE_TTL_MS) return null;
     return e.data;
@@ -33,10 +33,10 @@ export async function cacheGet<T>(kind: string, lat: number, lon: number, now = 
   }
 }
 
-export async function cacheSet<T>(kind: string, lat: number, lon: number, data: T): Promise<void> {
+export async function cacheSet<T>(kind: string, lat: number, lon: number, data: T, extra = ""): Promise<void> {
   try {
     await fs.mkdir(cacheDir(), { recursive: true });
-    const file = path.join(cacheDir(), cacheKey(kind, lat, lon));
+    const file = path.join(cacheDir(), cacheKey(kind, lat, lon, extra));
     const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, JSON.stringify({ savedAt: Date.now(), data } satisfies Entry<T>));
     await fs.rename(tmp, file);

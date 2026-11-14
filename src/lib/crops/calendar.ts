@@ -64,14 +64,16 @@ export function sowEpochDay(slot: SlotSchedule, firstAy: number): number {
   return epochDayOf(y, slot.sowMonth, slot.sowDayOfMonth) + slot.delay;
 }
 
-/** Schedule a 3-year sequence in a zone. Deterministic, climate independent. */
-export function scheduleSequence(crops: RotationSequence, zone: ClimateZone): SequenceSchedule {
+/** Days in one 3-year cycle on the reference calendar (1 Oct before year 1 → 1 Oct after year 3). */
+export const CYCLE_DAYS = offsetOf(3, 10, 1, true);
+
+function scheduleSlots(crops: RotationSequence, zone: ClimateZone, prevHarvest0: number) {
   const turnaround = CROP_CONSTANTS.turnaroundDays.value;
   const minIni = CROP_CONSTANTS.minIniDays.value;
   const minDev = CROP_CONSTANTS.minDevDays.value;
   const slots: (SlotSchedule | null)[] = [];
   const conflictYears: number[] = [];
-  let prevHarvest = -Infinity;
+  let prevHarvest = prevHarvest0;
   for (let k = 0; k < 3; k++) {
     const def = CROPS[crops[k]];
     if (!def.agronomy) { slots.push(null); continue; }
@@ -85,29 +87,48 @@ export function scheduleSequence(crops: RotationSequence, zone: ClimateZone): Se
     const earliest = prevHarvest + turnaround;
     const delay = Math.max(0, Math.ceil(earliest - sowOffset0));
     const stages: [number, number, number, number] = [...c.stages];
-    let shift = delay;
     if (autumn && delay > 0) {
       // Winter crops: harvest is driven by spring temperatures, so compress the early stages.
       const cutIni = Math.min(delay, Math.max(0, stages[0] - minIni));
       stages[0] -= cutIni;
       const cutDev = Math.min(delay - cutIni, Math.max(0, stages[1] - minDev));
       stages[1] -= cutDev;
-      shift = delay; // sowing still moves by `delay`; total length shrinks by cutIni + cutDev
     }
-    const sowOffset = sowOffset0 + shift;
+    const sowOffset = sowOffset0 + delay;
     const harvestOffset = sowOffset + stages[0] + stages[1] + stages[2] + stages[3];
     const conflict = sowOffset > latestOffset;
     if (conflict) conflictYears.push(k + 1);
     slots.push({ cropId: crops[k], k, sowMonth: m, sowDayOfMonth: d, autumn, delay, stages, sowOffset, harvestOffset, conflict });
     prevHarvest = harvestOffset;
   }
+  return { slots, conflictYears };
+}
+
+/**
+ * Schedule a 3-year sequence in a zone. Deterministic, climate independent.
+ *
+ * Engine v2: the plan is a REPEATING cycle, so the harvest of the last crop of year 3 (minus one
+ * cycle length) is the "previous harvest" of year 1. A late year-3 harvest (e.g. sugar beet or
+ * cotton) therefore delays — or, past the latest sowing date, conflicts with — a year-1 autumn crop.
+ */
+export function scheduleSequence(crops: RotationSequence, zone: ClimateZone): SequenceSchedule {
+  let r = scheduleSlots(crops, zone, -Infinity);
+  for (let iter = 0; iter < 3; iter++) {
+    const last = [...r.slots].reverse().find((s): s is SlotSchedule => s !== null);
+    if (!last) break;
+    const next = scheduleSlots(crops, zone, last.harvestOffset - CYCLE_DAYS);
+    const same = next.slots.every((s, i) => (s?.delay ?? -1) === (r.slots[i]?.delay ?? -1));
+    r = next;
+    if (same) break;
+  }
+  const { slots, conflictYears } = r;
   // Bare days: from each harvest to the next sowing, wrapping to the next 3-year cycle.
   const bareDaysAfter = [0, 0, 0];
   const cropSlots = slots.filter((s): s is SlotSchedule => s !== null);
   if (cropSlots.length === 0) {
     bareDaysAfter[0] = bareDaysAfter[1] = bareDaysAfter[2] = 365;
   } else {
-    const cycle = offsetOf(3, 10, 1, true) - 0; // 3 AYs in days (1096 incl. a leap day)
+    const cycle = CYCLE_DAYS; // 3 AYs in days (1096 incl. a leap day)
     for (let i = 0; i < cropSlots.length; i++) {
       const cur = cropSlots[i];
       const next = i + 1 < cropSlots.length ? cropSlots[i + 1].sowOffset : cropSlots[0].sowOffset + cycle;

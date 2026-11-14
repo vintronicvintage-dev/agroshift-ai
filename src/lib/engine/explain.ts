@@ -71,19 +71,19 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   // ── WHY ───────────────────────────────────────────────────────────────────
   if (isCurrent) {
     why.push(item("why.current", { plan: planEn(crops) },
-      "Mevcut rotasyonunuz ({plan}); diğer planlar bununla karşılaştırılır.",
+      "Mevcut rotasyonun ({plan}); diğer planlar bununla karşılaştırılır.",
       "Your current rotation ({plan}); every other plan is compared with it.", undefined, { plan: planTr(crops) }));
   } else if (plan.kind === "user") {
     why.push(item("why.user", { plan: planEn(crops) },
-      "Sizin kurduğunuz plan ({plan}); öneri değil, karşılaştırma için hesaplandı.",
+      "Senin kurduğun plan ({plan}); öneri değil, karşılaştırma için hesaplandı.",
       "A plan you built ({plan}); evaluated for comparison, not recommended by the tool.", undefined, { plan: planTr(crops) }));
   } else {
     why.push(item("why.rank", { rank: plan.rank ?? 0, score: plan.score.composite, current: current.score.composite },
-      "Önceliklerinize göre {rank}. sırada: bileşik puan {score}/100 (mevcut rotasyon {current}/100).",
+      "Önceliklerine göre {rank}. sırada: bileşik puan {score}/100 (mevcut rotasyon {current}/100).",
       "Ranked #{rank} for your priorities: composite score {score}/100 (current rotation {current}/100)."));
     const top = (Object.keys(ctx.priorities) as (keyof PriorityWeights)[]).sort((a, b) => ctx.priorities[b] - ctx.priorities[a])[0];
     why.push(item("why.priority", { weight: Math.round(ctx.priorities[top] * 100), value: plan.score.components[top] * 100, priority: PRIORITY_NAME[top].en },
-      "En yüksek ağırlıklı önceliğiniz {priority} (%{weight}); bu plan o eksende {value}/100 alıyor.",
+      "En yüksek ağırlıklı önceliğin {priority} (%{weight}); bu plan o eksende {value}/100 alıyor.",
       "Your highest-weighted priority is {priority} ({weight} %); this plan scores {value}/100 on it.", undefined, { priority: PRIORITY_NAME[top].tr }));
   }
   const pr = plan.water.requirementMmPerYr, cr = current.water.requirementMmPerYr;
@@ -203,12 +203,12 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   }
   if (crops.includes("fallow")) {
     benefits.push(item("benefit.fallowStorage", {},
-      "Nadas yılı kış yağışını profilde biriktirir; sonraki ürün daha nemli toprakta başlar (yukarıdaki kanıta bakın).",
+      "Nadas yılı kış yağışını profilde biriktirir; sonraki ürün daha nemli toprakta başlar (yukarıdaki kanıta bak).",
       "The fallow year stores winter rain in the profile; the next crop starts in wetter soil (see evidence)."));
   }
   if (!isCurrent && pm && cm && pm.p50 > cm.p50 + 100) {
     benefits.push(item("benefit.margin", { diff: pm.p50 - cm.p50 },
-      "Senaryo varsayımlarıyla dekar başına yılda yaklaşık {diff} TL ek brüt marj (fiyatları düzenleyebilirsiniz).",
+      "Senaryo varsayımlarıyla dekar başına yılda yaklaşık {diff} TL ek brüt marj (fiyatları düzenleyebilirsin).",
       "About {diff} TL/da/yr extra gross margin under the scenario assumptions (prices are editable)."));
   }
 
@@ -249,8 +249,8 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
     "Tam veriye sahip üç yıllık pencere yok: su ve verim dağılımı hesaplanamadı (veri yok).",
     "No 3-year window has complete data: water and yield distributions could not be computed (no data)."));
   if (ctx.gwetAssumedWindows > 0) gaps.push(item("gap.initialMoisture", { n: ctx.gwetAssumedWindows },
-    "{n} pencerede başlangıç toprak nemi (GWETROOT) yoktu; %50 dolu kabul edildi.",
-    "In {n} windows the starting soil moisture (GWETROOT) was missing; 50 % of available water was assumed."));
+    "{n} pencerede başlangıç toprak nemi (GWETROOT) yoktu; %50 dolu kabul edildi (yalnız döngü ısınma tohumu olarak kullanılır).",
+    "In {n} windows the starting soil moisture (GWETROOT) was missing; 50 % of available water was assumed (used only as the cycle spin-up seed)."));
   if (ctx.soil.organicMatterAssumed) gaps.push(item("gap.organicMatter", { om: ctx.soil.organicMatterPct },
     "Organik karbon verisi yok; organik madde %{om} varsayıldı.",
     "No organic carbon data; organic matter assumed at {om} %."));
@@ -267,14 +267,14 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   for (const s of plan.calendar) {
     if (!s.sow) continue;
     localReview.push(item("review.sowing", { crop: cropEn(s.cropId), year: s.year, sow: s.sow, harvest: s.harvest ?? "–" },
-      "{year}. yıl {crop}: ekim {sow}, hasat {harvest} varsayıldı; yerel çeşit ve İl Tarım takvimiyle doğrulayın.",
+      "{year}. yıl {crop}: ekim {sow}, hasat {harvest} varsayıldı; yerel çeşit ve İl Tarım takvimiyle doğrula.",
       "Year {year} {crop}: sowing {sow}, harvest {harvest} assumed; confirm with local varieties and the provincial extension calendar.",
       undefined, { crop: cropTr(s.cropId) }));
   }
   for (const s of legumeSuccessions(crops)) {
     const next = s.year === 3 ? 1 : s.year + 1;
     localReview.push(item("review.legumeSuccession", { from: cropEn(s.from), to: cropEn(s.to), year: s.year, next },
-      "{year}. yıl {from} → {next}. yıl {to}: iki baklagil üst üste. Ortak toprak kaynaklı hastalık (Fusarium, Rhizoctonia, Sclerotinia) ve nematod riski artar; arada bir tahıl önerilir, yerel uzmanla değerlendirin.",
+      "{year}. yıl {from} → {next}. yıl {to}: iki baklagil üst üste. Ortak toprak kaynaklı hastalık (Fusarium, Rhizoctonia, Sclerotinia) ve nematod riski artar; arada bir tahıl önerilir, yerel uzmanla değerlendir.",
       "Year {year} {from} → year {next} {to}: two legumes in a row. Shared soil-borne disease (Fusarium, Rhizoctonia, Sclerotinia) and nematode risk increases; a cereal break is advised, review with a local expert.",
       undefined, { from: cropTr(s.from), to: cropTr(s.to) }));
   }
@@ -288,7 +288,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
   if (set.has("alfalfa")) rv("review.alfalfa", "Yonca tek yıllık dilim olarak modellendi; gerçekte çok yıllıktır, tesis maliyeti yıllara yayılır.", "Alfalfa is modelled as a one-year slice; real stands are multi-year and establishment cost is spread over years.");
   if (set.has("fallow")) rv("review.fallow", "Nadas: yabancı ot kontrolü ve eğimli arazide erozyon; bunun yerine fiğ gibi örtü bitkisi düşünülebilir.", "Fallow: weed control and erosion on slopes; a cover crop such as vetch may be an alternative.");
   if (set.has("maize_grain") || set.has("sugar_beet") || set.has("cotton") || set.has("dry_bean")) {
-    rv("review.waterRight", "Sulama hakkı ve tahsis (DSİ / sulama birliği) ile kuyu izni bütçeyle uyumlu mu doğrulayın.", "Confirm the water right and allotment (DSİ / irrigation association) and well permit match the budget.");
+    rv("review.waterRight", "Sulama hakkı ve tahsis (DSİ / sulama birliği) ile kuyu izni bütçeyle uyumlu mu, doğrula.", "Confirm the water right and allotment (DSİ / irrigation association) and well permit match the budget.");
   }
   plan.water.budgetExceededShareByYear.forEach((s, i) => {
     if (s !== null && s >= 0.2) localReview.push(item("review.budgetYear", { year: i + 1, share: s * 100, crop: cropEn(crops[i]) },
@@ -303,7 +303,7 @@ export function explainPlan(plan: PlanResult, current: PlanResult, ctx: ExplainC
       "{year}. yıl {crop}: çiçeklenme/dane dolumunda ortalama {days} sıcak stres günü.",
       "Year {year} {crop}: on average {days} heat-stress days at flowering/grain fill.", undefined, { crop: cropTr(y.cropId) }));
   }
-  if (ctx.budgetMm > 0) rv("review.efficiency", "Sulama randımanı (yöntem) varsayımı tarladaki gerçek kayıplarla karşılaştırılmalı.", "Compare the assumed irrigation efficiency (method) with real field losses.");
+  if (ctx.budgetMm > 0) rv("review.efficiency", "Sulama randımanı (yöntem) varsayımını tarlandaki gerçek kayıplarla karşılaştır.", "Compare the assumed irrigation efficiency (method) with real field losses.");
 
   return { why, evidence, benefits, gaps, localReview };
 }

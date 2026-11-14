@@ -1,4 +1,5 @@
-// Build bundled snapshots from the live services: `npm run snapshots [-- --only <id>] [-- --no-imerg]`
+// Build bundled snapshots from the live services: `npm run snapshots [-- --only <id>] [-- --no-imerg] [-- --extras-only]`
+// --extras-only patches soilLayers / wrb / terrain / precipCheck into the existing files without re-downloading NDVI or climate.
 // Never fabricates: any failed part is recorded in the snapshot's notes/sources and left empty or default-labelled.
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -8,7 +9,8 @@ import { errMsg } from "../src/lib/data/http";
 import { fetchModisNdvi } from "../src/lib/data/modis";
 import { PILOTS } from "../src/lib/data/pilots";
 import { fetchPowerClimate } from "../src/lib/data/power";
-import { compactSnapshot, type CompactSnapshot, type SnapshotIndexEntry } from "../src/lib/data/snapshots";
+import { compactSnapshot, expandClimate, type CompactSnapshot, type SnapshotIndexEntry } from "../src/lib/data/snapshots";
+import { buildExtras } from "./snapshot-extras";
 import { fetchSoilGrids } from "../src/lib/data/soilgrids";
 
 try {
@@ -77,7 +79,8 @@ async function buildOne(p: (typeof PILOTS)[number]): Promise<{ entry: SnapshotIn
   }
 
   const retrievedAt = new Date().toISOString();
-  const snap = compactSnapshot(p.id, retrievedAt, climate, soil, ndvi, notes, { lat: p.lat, lon: p.lon, elevation: null }, imerg);
+  const extras = await buildExtras(p, climate);
+  const snap = compactSnapshot(p.id, retrievedAt, climate, soil, ndvi, notes, { lat: p.lat, lon: p.lon, elevation: null }, imerg, extras);
   writeFileSync(file, JSON.stringify(snap));
   const bytes = statSync(file).size;
   log(`   wrote ${p.id}.json ${(bytes / 1024).toFixed(0)} KB in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
@@ -116,7 +119,34 @@ async function retrySoil() {
   }
 }
 
+/** `--extras-only`: add the new field-data parts to existing snapshots in place (no NDVI / POWER re-download). */
+async function extrasOnly() {
+  for (const p of PILOTS) {
+    if (only && p.id !== only) continue;
+    const file = path.join(OUT, `${p.id}.json`);
+    if (!existsSync(file)) {
+      log(`${p.id}: no snapshot file, skipped`);
+      continue;
+    }
+    log(`== extras ${p.id}`);
+    const snap = JSON.parse(readFileSync(file, "utf8")) as CompactSnapshot;
+    const climate = snap.climate ? expandClimate(snap, snap.climate) : null;
+    const ex = await buildExtras(p, climate);
+    // a failed retry must not erase parts that an earlier run fetched successfully
+    if (!ex.soilLayers && snap.soilLayers) {
+      ex.soilLayers = snap.soilLayers;
+      ex.wrb = snap.wrb ?? ex.wrb;
+    }
+    if (!ex.terrain && snap.terrain) ex.terrain = snap.terrain;
+    if (!ex.precipCheck && snap.precipCheck) ex.precipCheck = snap.precipCheck;
+    Object.assign(snap, ex);
+    writeFileSync(file, JSON.stringify(snap));
+    log(`   wrote ${p.id}.json ${(statSync(file).size / 1024).toFixed(0)} KB`);
+  }
+}
+
 async function main() {
+  if (args.includes("--extras-only")) return extrasOnly();
   if (args.includes("--soil-only")) return retrySoil();
   mkdirSync(OUT, { recursive: true });
   const indexFile = path.join(OUT, "index.json");

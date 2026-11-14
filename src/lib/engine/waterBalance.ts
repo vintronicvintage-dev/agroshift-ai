@@ -20,11 +20,16 @@
  */
 import type { CoverType, CropDef, StageName } from "../types";
 import type { PreparedClimate } from "./climate";
-import { scsRunoff } from "./soil";
+import { scsRunoff, tawCum, type TawProfile } from "./soil";
 
 export interface SimContext {
   clim: PreparedClimate;
+  /** Column-mean TAW per metre, mm/m (= profile TAW(zCol)/zCol). */
   tawPerM: number;
+  /** Engine v2: cumulative TAW profile (layered or uniform). */
+  profile: TawProfile;
+  /** TAW of the whole column, mm. */
+  tawCol: number;
   zCol: number;
   zBare: number;
   zMin: number;
@@ -35,10 +40,24 @@ export interface SimContext {
 
 export interface SoilState { wTop: number; wSub: number; zTop: number }
 
-export interface Fluxes { precip: number; runoff: number; irrigation: number; et: number; deepPerc: number }
+/**
+ * Optional monthly diagnostics (engine v2): `arr` holds 36 months × DIAG_N values, month index =
+ * clim.absMonth[day] − base, wrapped modulo 36 (steady-state cycle: a late harvest after the
+ * window spills into year 1 of the next cycle).
+ */
+export interface MonthlyDiag { arr: Float64Array; base: number }
+export const DIAG_ETC = 0, DIAG_ETA = 1, DIAG_EFFR = 2, DIAG_IRR = 3, DIAG_BARE = 4, DIAG_N = 5;
 
-export function newFluxes(): Fluxes {
-  return { precip: 0, runoff: 0, irrigation: 0, et: 0, deepPerc: 0 };
+export interface Fluxes { precip: number; runoff: number; irrigation: number; et: number; deepPerc: number; diag?: MonthlyDiag | null }
+
+export function newFluxes(diag?: MonthlyDiag | null): Fluxes {
+  return { precip: 0, runoff: 0, irrigation: 0, et: 0, deepPerc: 0, diag: diag ?? null };
+}
+
+function diagAdd(d: MonthlyDiag, absMonth: number, k: number, v: number): void {
+  let m = (absMonth - d.base) % 36;
+  if (m < 0) m += 36;
+  d.arr[m * DIAG_N + k] += v;
 }
 
 /** Resolved, flat per-crop parameters for the inner loop. */
@@ -67,23 +86,42 @@ export function cropParams(def: CropDef, cn: Record<CoverType, number>): CropPar
 
 export function uniformState(ctx: SimContext, wetness: number): SoilState {
   const w = Math.min(1, Math.max(0, wetness));
-  return { wTop: w * ctx.tawPerM * ctx.zBare, wSub: w * ctx.tawPerM * (ctx.zCol - ctx.zBare), zTop: ctx.zBare };
+  const top = tawCum(ctx.profile, ctx.zBare);
+  return { wTop: w * top, wSub: w * (ctx.tawCol - top), zTop: ctx.zBare };
 }
 
 export function storage(s: SoilState): number {
   return s.wTop + s.wSub;
 }
 
-/** Change the top-bucket depth, moving water between buckets (uniform profile assumption). */
-export function setTopDepth(s: SoilState, z: number, zCol: number): void {
+/**
+ * Change the top-bucket depth, moving water between buckets. The bucket that loses depth is assumed
+ * to have a uniform RELATIVE wetness, so the water moved is proportional to the TAW of the moved
+ * slice (layered profile); with a uniform profile this is the depth ratio.
+ */
+export function setTopDepth(s: SoilState, z: number, ctx: SimContext): void {
   if (z === s.zTop) return;
-  if (z > s.zTop) {
-    const subDepth = zCol - s.zTop;
-    const moved = subDepth > 0 ? (s.wSub * (z - s.zTop)) / subDepth : 0;
-    s.wSub -= moved; s.wTop += moved;
+  const p = ctx.profile;
+  if (p.uniform !== null) {
+    const zCol = ctx.zCol;
+    if (z > s.zTop) {
+      const subDepth = zCol - s.zTop;
+      const moved = subDepth > 0 ? (s.wSub * (z - s.zTop)) / subDepth : 0;
+      s.wSub -= moved; s.wTop += moved;
+    } else {
+      const moved = s.zTop > 0 ? (s.wTop * (s.zTop - z)) / s.zTop : 0;
+      s.wTop -= moved; s.wSub += moved;
+    }
   } else {
-    const moved = s.zTop > 0 ? (s.wTop * (s.zTop - z)) / s.zTop : 0;
-    s.wTop -= moved; s.wSub += moved;
+    const tOld = tawCum(p, s.zTop), tNew = tawCum(p, z);
+    if (z > s.zTop) {
+      const cap = ctx.tawCol - tOld;
+      const moved = cap > 0 ? (s.wSub * (tNew - tOld)) / cap : 0;
+      s.wSub -= moved; s.wTop += moved;
+    } else {
+      const moved = tOld > 0 ? (s.wTop * (tOld - tNew)) / tOld : 0;
+      s.wTop -= moved; s.wSub += moved;
+    }
   }
   s.zTop = z;
 }
@@ -116,7 +154,8 @@ export function simulateSeason(
   state: SoilState, budgetNet: number, flux: Fluxes,
 ): SeasonOutcome {
   const c = ctx.clim;
-  const zCol = ctx.zCol, tawPerM = ctx.tawPerM;
+  const prof = ctx.profile, tawCol = ctx.tawCol;
+  const diag = flux.diag ?? null;
   const L1 = stages[0], L2 = L1 + stages[1], L3 = L2 + stages[2], L4 = L3 + stages[3];
   const out = emptySeason();
   out.awAtSow = state.wTop + state.wSub;
@@ -131,8 +170,8 @@ export function simulateSeason(
     else if (t < L3) { kc = cp.kcMid; bit = 4; }
     else { kc = cp.kcMid + ((cp.kcEnd - cp.kcMid) * (t - L3 + 1)) / (L4 - L3); bit = 8; }
     const zr = L2 > 0 ? zMin + (cp.zMax - zMin) * Math.min(1, (t + 1) / L2) : cp.zMax;
-    setTopDepth(state, zr, zCol);
-    const taw = tawPerM * zr;
+    setTopDepth(state, zr, ctx);
+    const taw = tawCum(prof, zr);
     const et0 = c.et0[d];
     const etc = kc * et0;
     let p = cp.pTab + 0.04 * (5 - etc);
@@ -150,6 +189,7 @@ export function simulateSeason(
         out.irrigation += irr;
         out.events++;
         flux.irrigation += irr;
+        if (diag) diagAdd(diag, c.absMonth[d], DIAG_IRR, irr);
         dr -= irr;
       } else {
         out.limited = 1;
@@ -161,14 +201,19 @@ export function simulateSeason(
     const ro = scsRunoff(P, cp.cn);
     state.wTop += P - ro - eta;
     if (state.wTop < 0) { eta += state.wTop; state.wTop = 0; }
+    let dp = 0;
     if (state.wTop > taw) {
       state.wSub += state.wTop - taw;
       state.wTop = taw;
-      const capSub = tawPerM * (zCol - zr);
-      if (state.wSub > capSub) { flux.deepPerc += state.wSub - capSub; state.wSub = capSub; }
+      const capSub = tawCol - taw;
+      if (state.wSub > capSub) { dp = state.wSub - capSub; flux.deepPerc += dp; state.wSub = capSub; }
     }
     flux.precip += P; flux.runoff += ro; flux.et += eta;
     out.etc += etc; out.eta += eta;
+    if (diag) {
+      const am = c.absMonth[d];
+      diagAdd(diag, am, DIAG_ETC, etc); diagAdd(diag, am, DIAG_ETA, eta); diagAdd(diag, am, DIAG_EFFR, P - ro - dp);
+    }
     if (out.limited) out.shortfall += etc - eta;
     // Climate stress counters
     const tn = c.tmin[d], tx = c.tmax[d];
@@ -179,18 +224,18 @@ export function simulateSeason(
     if (g > 0) out.gdd += g;
   }
   out.unmet = out.etc - out.eta;
-  setTopDepth(state, ctx.zBare, zCol);
+  setTopDepth(state, ctx.zBare, ctx);
   return out;
 }
 
 /** Simulate bare soil from `startIdx` (inclusive) to `endIdx` (exclusive). Returns soil evaporation, mm. */
 export function simulateBare(ctx: SimContext, startIdx: number, endIdx: number, state: SoilState, flux: Fluxes): number {
   const c = ctx.clim;
-  const zCol = ctx.zCol, tawPerM = ctx.tawPerM;
-  setTopDepth(state, ctx.zBare, zCol);
-  const tew = tawPerM * ctx.zBare;
+  setTopDepth(state, ctx.zBare, ctx);
+  const tew = tawCum(ctx.profile, ctx.zBare);
   const rew = Math.min(ctx.rew, 0.8 * tew);
-  const capSub = tawPerM * (zCol - ctx.zBare);
+  const capSub = ctx.tawCol - tew;
+  const diag = flux.diag ?? null;
   const cn = ctx.cn.bare;
   let evap = 0;
   for (let d = startIdx; d < endIdx; d++) {
@@ -201,13 +246,15 @@ export function simulateBare(ctx: SimContext, startIdx: number, endIdx: number, 
     const ro = scsRunoff(P, cn);
     state.wTop += P - ro - e;
     if (state.wTop < 0) { e += state.wTop; state.wTop = 0; }
+    let dp = 0;
     if (state.wTop > tew) {
       state.wSub += state.wTop - tew;
       state.wTop = tew;
-      if (state.wSub > capSub) { flux.deepPerc += state.wSub - capSub; state.wSub = capSub; }
+      if (state.wSub > capSub) { dp = state.wSub - capSub; flux.deepPerc += dp; state.wSub = capSub; }
     }
     flux.precip += P; flux.runoff += ro; flux.et += e;
     evap += e;
+    if (diag) { const am = c.absMonth[d]; diagAdd(diag, am, DIAG_BARE, e); diagAdd(diag, am, DIAG_EFFR, P - ro - dp); }
   }
   return evap;
 }

@@ -1,14 +1,27 @@
 /**
  * Turns window simulations (exact or screening) into plan metrics: water, yield, scenario
  * economics, risk. Pure functions.
+ *
+ * Engine v2:
+ * - Every plan is replayed as a REPEATING cycle (`simulatePlanChain` / `Screener.screenChain`).
+ * - Simulation results are kept "raw" (water only); yields and margins are derived from them by
+ *   `summarizeRaw`, so economic sweeps (prices, costs, yields) never re-simulate.
+ * - Yield: Ya = Ym · (1 − Ky(1 − ETa/ETc)) · preCropFactor, with
+ *     Ym = Yrainfed-ceiling + (Yirrigated − Yrainfed-ceiling) · s,
+ *     s = min(1, Σ irrigation / (0.5 · Σ rainfed deficit)) of this rotation slot over all windows
+ *     (0 = rainfed management, 1 = irrigated management; covering half the deficit already counts),
+ *   and for small-grain cereals the French & Schultz (1984) water-productivity bound
+ *     Ya ≤ 20 kg/ha/mm · (seasonal ETa − 110 mm).
+ * - Previous-crop N credit lowers the following crop's variable cost (N price × credit).
  */
 import type { CropId, RiskResult, WaterResult, YearResult, Dist } from "../types";
-import { CROPS, CROP_IDS } from "../crops/database";
+import { CROPS, CROP_IDS, CROP_CONSTANTS } from "../crops/database";
+import { preCropEffect, previousCrops, N_NEED_KG_HA, ROTATION_GROUP } from "../crops/preCrop";
 import type { EngineSetup, ReplayWindow } from "./rotation";
-import { simulateWindowExact, windowUsable, initialWetnessFromGwet, ASSUMED_INITIAL_WETNESS } from "./rotation";
+import { initialWetnessFromGwet, ASSUMED_INITIAL_WETNESS, simulatePlanChain, windowUsable } from "./rotation";
 import type { SequenceSchedule } from "../crops/calendar";
 import type { Screener } from "./screening";
-import { yieldRatio } from "./waterBalance";
+import { yieldRatio, type MonthlyDiag } from "./waterBalance";
 import { dist } from "./stats";
 
 /** Visible risk weights (sum 1). */
@@ -22,12 +35,18 @@ export const MARGIN_SCALE_TL = 1000;
 /** A year counts as "budget exceeded" when the deficit accrued after the budget ran out is ≥ this (mm). */
 export const BUDGET_SHORTFALL_MM = 10;
 
-export interface CropEconomics { priceTLPerKg: number; varCostTLPerDa: number; ymTHa: number }
+export interface CropEconomics {
+  priceTLPerKg: number; varCostTLPerDa: number;
+  /** Irrigated (water- and input-unlimited) reference yield, t/ha. */
+  ymTHa: number;
+  /** Rainfed-management ceiling, t/ha (engine v2). */
+  ymRainfedTHa: number;
+}
 
 export interface EvalContext {
   setup: EngineSetup;
   windows: ReplayWindow[];
-  /** Initial column wetness per window (from GWETROOT or assumed). */
+  /** Initial column wetness per window (from GWETROOT or assumed) — spin-up seed only in v2. */
   w0: number[];
   w0Assumed: boolean[];
   budgetNet: number;
@@ -35,12 +54,30 @@ export interface EvalContext {
   waterPriceTLPerM3: number;
   priceMultiplier: number;
   econ: Record<CropId, CropEconomics>;
+  nPriceTLPerKgN: number;
+}
+
+export type EconOverrides = Partial<Record<CropId, { priceTLPerKg?: number; varCostTLPerDa?: number; refYieldIrrigatedTHa?: number; refYieldRainfedCeilingTHa?: number }>>;
+
+export function cropEconomics(overrides: EconOverrides = {}): Record<CropId, CropEconomics> {
+  const econ = {} as Record<CropId, CropEconomics>;
+  for (const id of CROP_IDS) {
+    const o = overrides[id] ?? {};
+    const c = CROPS[id];
+    const ymTHa = o.refYieldIrrigatedTHa ?? c.refYieldTHa.value.irrigated;
+    const rf = o.refYieldRainfedCeilingTHa ?? c.rainfedCeilingTHa?.value ?? c.refYieldTHa.value.irrigated;
+    econ[id] = {
+      priceTLPerKg: o.priceTLPerKg ?? c.priceTLPerKg.value,
+      varCostTLPerDa: o.varCostTLPerDa ?? c.varCostTLPerDa.value,
+      ymTHa, ymRainfedTHa: Math.min(ymTHa, rf),
+    };
+  }
+  return econ;
 }
 
 export function buildEvalContext(
   setup: EngineSetup, windows: ReplayWindow[], budgetNet: number, efficiency: number,
-  waterPriceTLPerM3: number, priceMultiplier: number,
-  overrides: Partial<Record<CropId, { priceTLPerKg?: number; varCostTLPerDa?: number; refYieldIrrigatedTHa?: number }>> = {},
+  waterPriceTLPerM3: number, priceMultiplier: number, overrides: EconOverrides = {},
 ): EvalContext {
   const w0: number[] = [], w0Assumed: boolean[] = [];
   for (const w of windows) {
@@ -48,29 +85,48 @@ export function buildEvalContext(
     w0.push(g ?? ASSUMED_INITIAL_WETNESS);
     w0Assumed.push(g === null);
   }
-  const econ = {} as Record<CropId, CropEconomics>;
-  for (const id of CROP_IDS) {
-    const o = overrides[id] ?? {};
-    econ[id] = {
-      priceTLPerKg: o.priceTLPerKg ?? CROPS[id].priceTLPerKg.value,
-      varCostTLPerDa: o.varCostTLPerDa ?? CROPS[id].varCostTLPerDa.value,
-      ymTHa: o.refYieldIrrigatedTHa ?? CROPS[id].refYieldTHa.value.irrigated,
-    };
-  }
-  return { setup, windows, w0, w0Assumed, budgetNet, efficiency, waterPriceTLPerM3, priceMultiplier, econ };
+  return {
+    setup, windows, w0, w0Assumed, budgetNet, efficiency, waterPriceTLPerM3, priceMultiplier,
+    econ: cropEconomics(overrides), nPriceTLPerKgN: CROP_CONSTANTS.nPriceTLPerKgN.value,
+  };
 }
 
-/** Gross margin TL/da for one crop-year (scenario). yield t/ha × 100 = kg/da; 1 mm net = 1 m³/da net. */
-export function grossMargin(ev: EvalContext, cropId: CropId, ratio: number | null, irrigationNetMm: number): { margin: number; yieldTHa: number } {
-  const e = ev.econ[cropId];
-  const yieldTHa = ratio === null ? 0 : e.ymTHa * ratio;
-  const revenue = yieldTHa * 100 * e.priceTLPerKg * ev.priceMultiplier;
+/**
+ * Gross margin TL/da for one crop-year (scenario). yield t/ha × 100 = kg/da; 1 mm net = 1 m³/da net.
+ * Without `opts` the irrigated Ym is used (v1 behaviour, kept for callers and tests).
+ */
+export function grossMargin(
+  ev: EvalContext, cropId: CropId, ratio: number | null, irrigationNetMm: number,
+  opts?: { ymTHa?: number; yieldTHa?: number; nSavingTLPerDa?: number; costFactor?: number; econ?: Record<CropId, CropEconomics>; priceMultiplier?: number },
+): { margin: number; yieldTHa: number } {
+  const e = (opts?.econ ?? ev.econ)[cropId];
+  const ym = opts?.ymTHa ?? e.ymTHa;
+  const yieldTHa = opts?.yieldTHa ?? (ratio === null ? 0 : ym * ratio);
+  const revenue = yieldTHa * 100 * e.priceTLPerKg * (opts?.priceMultiplier ?? ev.priceMultiplier);
   const water = (irrigationNetMm / Math.max(0.05, ev.efficiency)) * ev.waterPriceTLPerM3;
-  return { margin: revenue - e.varCostTLPerDa - water, yieldTHa };
+  const cost = e.varCostTLPerDa * (opts?.costFactor ?? 1) - (opts?.nSavingTLPerDa ?? 0);
+  return { margin: revenue - cost - water, yieldTHa };
+}
+
+/** Water-only outcome of one crop-year. */
+export interface RawYear {
+  etc: number; eta: number; irrigation: number; shortfall: number;
+  /** ETc − ETa of the same year in the rainfed shadow run. */
+  rfDeficit: number;
+  frost: number; wk: number; heat: number; aw: number;
+}
+export interface RawWindow {
+  firstAy: number;
+  years: (RawYear | null)[];
+  /** Σ (ETc − ETa) of the rainfed shadow run, mm (3 years). */
+  rainfedDeficit: number;
+  deepPerc: number; runoff: number; massErr: number; yearsLen: number;
+  start: "chained" | "spinup" | "given" | "screening";
 }
 
 /** Per-window summary common to exact and screening evaluation. */
 export interface WindowSummary {
+  firstAy: number;
   requirement: number; // mm/yr
   irrigation: number;  // mm/yr net
   unmet: number;       // mm/yr
@@ -84,85 +140,169 @@ export interface WindowSummary {
   lowYield: boolean;
   stressedCropYears: number;
   cropYears: number;
+  wpCapped: boolean[];
   // exact-only extras (NaN in screening)
   frost: number[]; winterKill: number[]; heat: number[]; awAtSow: number[];
   deepPerc: number; runoff: number; massErr: number; years: number;
 }
 
-function summarize(
-  ev: EvalContext, crops: readonly CropId[],
-  seasons: ({ etc: number; eta: number; irrigation: number; shortfall: number; frost: number; wk: number; heat: number; aw: number } | null)[],
-  rainfedDeficit: number, extras?: { deepPerc: number; runoff: number; massErr: number; years: number },
-): WindowSummary {
-  const s: WindowSummary = {
-    requirement: rainfedDeficit / 3, irrigation: 0, unmet: 0, exceeded: [false, false, false], ratios: [null, null, null],
-    yields: [0, 0, 0], irrYear: [0, 0, 0], unmetYear: [0, 0, 0], margins: [0, 0, 0], marginMean: 0, lowYield: false,
-    stressedCropYears: 0, cropYears: 0,
-    frost: [NaN, NaN, NaN], winterKill: [NaN, NaN, NaN], heat: [NaN, NaN, NaN], awAtSow: [NaN, NaN, NaN],
-    deepPerc: extras?.deepPerc ?? NaN, runoff: extras?.runoff ?? NaN, massErr: extras?.massErr ?? NaN, years: extras?.years ?? 3,
-  };
-  for (let k = 0; k < 3; k++) {
-    const se = seasons[k];
+/** Plan-level yield parameters per rotation slot (derived over all windows). */
+export interface SlotYield {
+  cropId: CropId;
+  prev: CropId;
+  intensity: number | null;
+  ymTHa: number | null;
+  preCropFactor: number;
+  nCreditKgHa: { low: number; high: number };
+  nSavingTLPerDa: number;
+  wpBound: boolean;
+  /** Variable-cost multiplier from management intensity (rainfed share … 1). */
+  costFactor: number;
+}
+
+const RF_COST = CROP_CONSTANTS.rainfedCostShare.value;
+const IRR_SHARE = CROP_CONSTANTS.irrigatedManagementShare.value;
+const SMALL_GRAIN = (id: CropId) => ROTATION_GROUP[id] === "small_grain";
+
+/** Irrigation intensity and Ym per slot from raw windows. */
+export function slotYields(ev: EvalContext, crops: readonly CropId[], raws: readonly RawWindow[], econ: Record<CropId, CropEconomics> = ev.econ): SlotYield[] {
+  const prevs = previousCrops(crops);
+  return [0, 1, 2].map((k) => {
     const id = crops[k];
-    if (!se) {
-      s.margins[k] = grossMargin(ev, id, null, 0).margin;
-      continue;
+    const eff = preCropEffect(prevs[k], id);
+    const nMid = (eff.nCreditKgHa.low + eff.nCreditKgHa.high) / 2;
+    const nSaving = (Math.min(nMid, N_NEED_KG_HA[id]) * ev.nPriceTLPerKgN) / 10;
+    if (!CROPS[id].agronomy) {
+      return { cropId: id, prev: prevs[k], intensity: null, ymTHa: null, preCropFactor: 1, nCreditKgHa: eff.nCreditKgHa, nSavingTLPerDa: 0, wpBound: false, costFactor: 1 };
     }
-    const ky = CROPS[id].agronomy!.ky.value;
-    const r = yieldRatio(ky, se.eta, se.etc);
-    const g = grossMargin(ev, id, r, se.irrigation);
-    s.ratios[k] = r; s.yields[k] = g.yieldTHa; s.margins[k] = g.margin;
-    s.irrYear[k] = se.irrigation; s.unmetYear[k] = se.etc - se.eta;
-    s.irrigation += se.irrigation / 3;
-    s.unmet += (se.etc - se.eta) / 3;
-    // Rainfed (budget 0): there is no budget to exceed; the deficit is reported as unmet demand only.
-    s.exceeded[k] = ev.budgetNet > 0 && se.shortfall >= BUDGET_SHORTFALL_MM;
-    if (r < LOW_YIELD_RATIO) s.lowYield = true;
-    s.cropYears++;
-    if (se.frost + se.wk >= 1 || se.heat >= STRESS_HEAT_DAYS) s.stressedCropYears++;
-    s.frost[k] = se.frost; s.winterKill[k] = se.wk; s.heat[k] = se.heat; s.awAtSow[k] = se.aw;
-  }
-  s.marginMean = (s.margins[0] + s.margins[1] + s.margins[2]) / 3;
-  return s;
+    let irr = 0, def = 0;
+    for (const r of raws) { const y = r.years[k]; if (y) { irr += y.irrigation; def += y.rfDeficit; } }
+    const s = ev.budgetNet <= 0 ? 0 : def > 1 ? Math.min(1, irr / (IRR_SHARE * def)) : 1;
+    const e = econ[id];
+    return {
+      cropId: id, prev: prevs[k], intensity: s, ymTHa: e.ymRainfedTHa + (e.ymTHa - e.ymRainfedTHa) * s,
+      preCropFactor: eff.yieldFactor, nCreditKgHa: eff.nCreditKgHa, nSavingTLPerDa: nSaving, wpBound: SMALL_GRAIN(id),
+      costFactor: RF_COST + (1 - RF_COST) * s,
+    };
+  });
 }
 
-/** Exact replay over every usable window. */
+/**
+ * Derive yields, margins and flags from raw windows.
+ * @param econ / priceMultiplier optional overrides for sensitivity sweeps (no re-simulation).
+ */
+export function summarizeRaw(
+  ev: EvalContext, crops: readonly CropId[], raws: readonly RawWindow[],
+  econ: Record<CropId, CropEconomics> = ev.econ, priceMultiplier = ev.priceMultiplier,
+): { windows: WindowSummary[]; slots: SlotYield[] } {
+  const slots = slotYields(ev, crops, raws, econ);
+  const te = CROP_CONSTANTS.wpTranspirationEfficiencyKgHaMm.value, e0 = CROP_CONSTANTS.wpEvaporationMm.value;
+  const windows = raws.map((raw) => {
+    const s: WindowSummary = {
+      firstAy: raw.firstAy,
+      requirement: raw.rainfedDeficit / 3, irrigation: 0, unmet: 0, exceeded: [false, false, false], ratios: [null, null, null],
+      yields: [0, 0, 0], irrYear: [0, 0, 0], unmetYear: [0, 0, 0], margins: [0, 0, 0], marginMean: 0, lowYield: false,
+      stressedCropYears: 0, cropYears: 0, wpCapped: [false, false, false],
+      frost: [NaN, NaN, NaN], winterKill: [NaN, NaN, NaN], heat: [NaN, NaN, NaN], awAtSow: [NaN, NaN, NaN],
+      deepPerc: raw.deepPerc, runoff: raw.runoff, massErr: raw.massErr, years: raw.yearsLen,
+    };
+    for (let k = 0; k < 3; k++) {
+      const se = raw.years[k];
+      const id = crops[k];
+      const sl = slots[k];
+      if (!se) {
+        s.margins[k] = grossMargin(ev, id, null, 0, { econ, priceMultiplier }).margin;
+        continue;
+      }
+      const ky = CROPS[id].agronomy!.ky.value;
+      const r = yieldRatio(ky, se.eta, se.etc);
+      let y = (sl.ymTHa ?? 0) * r * sl.preCropFactor;
+      if (sl.wpBound) {
+        const cap = (te * Math.max(0, se.eta - e0)) / 1000;
+        if (y > cap) { y = cap; s.wpCapped[k] = true; }
+      }
+      const g = grossMargin(ev, id, r, se.irrigation, { yieldTHa: y, nSavingTLPerDa: sl.nSavingTLPerDa, costFactor: sl.costFactor, econ, priceMultiplier });
+      s.ratios[k] = r; s.yields[k] = y; s.margins[k] = g.margin;
+      s.irrYear[k] = se.irrigation; s.unmetYear[k] = se.etc - se.eta;
+      s.irrigation += se.irrigation / 3;
+      s.unmet += (se.etc - se.eta) / 3;
+      // Rainfed (budget 0): there is no budget to exceed; the deficit is reported as unmet demand only.
+      s.exceeded[k] = ev.budgetNet > 0 && se.shortfall >= BUDGET_SHORTFALL_MM;
+      if (r < LOW_YIELD_RATIO) s.lowYield = true;
+      s.cropYears++;
+      if (se.frost + se.wk >= 1 || se.heat >= STRESS_HEAT_DAYS) s.stressedCropYears++;
+      s.frost[k] = se.frost; s.winterKill[k] = se.wk; s.heat[k] = se.heat; s.awAtSow[k] = se.aw;
+    }
+    s.marginMean = (s.margins[0] + s.margins[1] + s.margins[2]) / 3;
+    return s;
+  });
+  return { windows, slots };
+}
+
+function usableFlags(ev: EvalContext, schedule: SequenceSchedule): boolean[] {
+  const clim = ev.setup.ctx.clim;
+  return ev.windows.map((w) => windowUsable(clim, w, schedule));
+}
+
+/** Exact repeating-cycle replay over every usable window (water only). */
+export function evaluateExactRaw(ev: EvalContext, schedule: SequenceSchedule, diag?: MonthlyDiag[] | null): RawWindow[] {
+  const main = simulatePlanChain(ev.setup, schedule, ev.windows, ev.budgetNet, ev.w0, diag);
+  const rf = ev.budgetNet > 0 ? simulatePlanChain(ev.setup, schedule, ev.windows, 0, ev.w0) : main;
+  const out: RawWindow[] = [];
+  main.forEach((o, i) => {
+    const r = rf[i];
+    if (!o || !r) return;
+    const w = ev.windows[i];
+    let def = 0;
+    const years = o.years.map((y, k) => {
+      const rs = r.years[k].season;
+      const rfd = rs ? rs.etc - rs.eta : 0;
+      def += rfd;
+      const se = y.season;
+      return se ? {
+        etc: se.etc, eta: se.eta, irrigation: se.irrigation, shortfall: se.shortfall, rfDeficit: rfd,
+        frost: se.frostDays, wk: se.winterKillDays, heat: se.heatDays, aw: se.awAtSow,
+      } : null;
+    });
+    const days = Math.max(o.endIdx, w.coreEndIdx) - w.startIdx;
+    out.push({
+      firstAy: w.firstAy, years, rainfedDeficit: def,
+      deepPerc: o.flux.deepPerc, runoff: o.flux.runoff, massErr: o.massBalanceError,
+      yearsLen: Math.max(1, days) / 365.25, start: o.start,
+    });
+  });
+  return out;
+}
+
+/** Screening (cached pieces, repeating cycle) over every usable window (water only). */
+export function evaluateScreeningRaw(ev: EvalContext, screener: Screener, schedule: SequenceSchedule): RawWindow[] {
+  const usable = usableFlags(ev, schedule);
+  const a = screener.screenChain(schedule, ev.windows, usable, ev.w0, ev.budgetNet, 0);
+  const rf = ev.budgetNet > 0 ? screener.screenChain(schedule, ev.windows, usable, ev.w0, 0, 1) : a;
+  const out: RawWindow[] = [];
+  a.forEach((sw, i) => {
+    const r = rf[i];
+    if (!sw || !r) return;
+    let def = 0;
+    const years = sw.years.map((y, k) => {
+      const ry = r.years[k];
+      const rfd = ry ? ry.etc - ry.eta : 0;
+      def += rfd;
+      return y ? { etc: y.etc, eta: y.eta, irrigation: y.irrigation, shortfall: y.shortfall, rfDeficit: rfd, frost: y.frostDays, wk: 0, heat: y.heatDays, aw: NaN } : null;
+    });
+    out.push({ firstAy: ev.windows[i].firstAy, years, rainfedDeficit: def, deepPerc: NaN, runoff: NaN, massErr: NaN, yearsLen: 3, start: "screening" });
+  });
+  return out;
+}
+
+/** Exact replay → window summaries (v1-compatible entry point). */
 export function evaluateExact(ev: EvalContext, schedule: SequenceSchedule): WindowSummary[] {
-  const out: WindowSummary[] = [];
-  const clim = ev.setup.ctx.clim;
-  ev.windows.forEach((w, i) => {
-    if (!windowUsable(clim, w, schedule)) return;
-    const o = simulateWindowExact(ev.setup, schedule, w, ev.budgetNet, ev.w0[i]);
-    const rf = ev.budgetNet > 0 ? simulateWindowExact(ev.setup, schedule, w, 0, ev.w0[i]) : o;
-    let def = 0;
-    for (const y of rf.years) if (y.season) def += y.season.etc - y.season.eta;
-    const days = (Math.max(w.coreEndIdx, 0) - w.startIdx);
-    out.push(summarize(ev, schedule.crops,
-      o.years.map((y) => y.season ? {
-        etc: y.season.etc, eta: y.season.eta, irrigation: y.season.irrigation, shortfall: y.season.shortfall,
-        frost: y.season.frostDays, wk: y.season.winterKillDays, heat: y.season.heatDays, aw: y.season.awAtSow,
-      } : null),
-      def,
-      { deepPerc: o.flux.deepPerc, runoff: o.flux.runoff, massErr: o.massBalanceError, years: days / 365.25 }));
-  });
-  return out;
+  return summarizeRaw(ev, schedule.crops, evaluateExactRaw(ev, schedule)).windows;
 }
 
-/** Screening pass (cached pieces) over every usable window. */
+/** Screening pass → window summaries (v1-compatible entry point). */
 export function evaluateScreening(ev: EvalContext, screener: Screener, schedule: SequenceSchedule): WindowSummary[] {
-  const out: WindowSummary[] = [];
-  const clim = ev.setup.ctx.clim;
-  ev.windows.forEach((w, i) => {
-    if (!windowUsable(clim, w, schedule)) return;
-    const a = screener.screenWindow(schedule, w, ev.w0[i], ev.budgetNet, 0);
-    const rf = ev.budgetNet > 0 ? screener.screenWindow(schedule, w, ev.w0[i], 0, 1) : a;
-    let def = 0;
-    for (const y of rf.years) if (y) def += y.etc - y.eta;
-    out.push(summarize(ev, schedule.crops,
-      a.years.map((y) => y ? { etc: y.etc, eta: y.eta, irrigation: y.irrigation, shortfall: y.shortfall, frost: y.frostDays, wk: 0, heat: y.heatDays, aw: NaN } : null),
-      def));
-  });
-  return out;
+  return summarizeRaw(ev, schedule.crops, evaluateScreeningRaw(ev, screener, schedule)).windows;
 }
 
 export interface PlanMetrics {
@@ -215,12 +355,13 @@ export function waterResult(ws: WindowSummary[], efficiency: number, areaDa: num
   };
 }
 
-export function yearResults(ws: WindowSummary[], crops: readonly CropId[]): YearResult[] {
+export function yearResults(ws: WindowSummary[], crops: readonly CropId[], slots?: SlotYield[]): YearResult[] {
   const meanOrNull = (v: number[]) => { const f = v.filter(Number.isFinite); return f.length ? f.reduce((a, b) => a + b, 0) / f.length : null; };
   return [0, 1, 2].map((k) => {
     const fallow = !CROPS[crops[k]].agronomy;
     const d = (f: (w: WindowSummary) => number | null): Dist | null =>
       ws.length && !fallow ? dist(ws.map(f).filter((x): x is number => x !== null)) : null;
+    const sl = slots?.[k];
     return {
       year: k + 1,
       cropId: crops[k],
@@ -234,6 +375,10 @@ export function yearResults(ws: WindowSummary[], crops: readonly CropId[]): Year
       heatDaysMean: fallow ? null : meanOrNull(ws.map((w) => w.heat[k])),
       soilWaterAtSowingMm: d((w) => (Number.isFinite(w.awAtSow[k]) ? w.awAtSow[k] : null)),
       grossMarginTLPerDa: ws.length ? dist(ws.map((w) => w.margins[k])) : null,
+      ...(sl ? {
+        ymTHa: sl.ymTHa, irrigationIntensity: sl.intensity, preCropFactor: fallow ? null : sl.preCropFactor,
+        wpCapShare: fallow || !ws.length ? null : ws.filter((w) => w.wpCapped[k]).length / ws.length,
+      } : {}),
     };
   });
 }

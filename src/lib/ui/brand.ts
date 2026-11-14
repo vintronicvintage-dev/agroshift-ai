@@ -1,39 +1,52 @@
 /**
- * AgroShift brand geometry, generated from one source (see docs/brand.md). Hand-constructed:
- * the mark is a leaf-shaped parcel cut by two furrows that open on alternate sides, so the
- * plough's three passes (the three rotation years) read as an S for Shift.
- * Do not edit the paths by hand; regenerate them and keep the public/brand files in sync.
+ * AgroShift brand v2 geometry ("Orbit furrows"), generated from one source (see docs/brand.md).
+ * Hand-constructed: an orbital arc passes over a field whose three furrow bands run to the
+ * horizon; the middle band starts one step lower (the shift). The construction values are in
+ * docs/brand.md §2; if a path changes, re-export public/brand/*.svg and the app icons with it.
  */
 
-/** Mark on a 24-unit grid: bands 6, furrows 3, turn corners R12, free ends r1.5. */
-export const MARK_PATH =
-  "M12 0h10.5A1.5 1.5 0 0 1 24 1.5V6H9a1.5 1.5 0 0 0 0 3h15v3A12 12 0 0 1 12 24H1.5A1.5 1.5 0 0 1 0 22.5V18h15a1.5 1.5 0 0 0 0-3H0v-3A12 12 0 0 1 12 0Z";
+/** Master mark on a 24-unit grid (circle R12): arc 2.4 thick over 198°–342°, field from y 13, middle band from y 15.5. */
+export const MARK_PATH = "M0.587 8.292A12 12 0 0 1 23.413 8.292L21.13 9.033A9.6 9.6 0 0 0 2.87 9.033ZM0.042 13L8.596 13L6.033 22.411A12 12 0 0 1 0.042 13ZM8.11 23.352L9.447 15.5L14.553 15.5L15.89 23.352A12 12 0 0 1 8.11 23.352ZM17.967 22.411L15.404 13L23.958 13A12 12 0 0 1 17.967 22.411Z";
 export const MARK_VIEWBOX = "0 0 24 24";
 
-/** Custom monoline lowercase "agroshift": centreline paths, stroked. x-height 14, ascender 12, baseline 34. */
-export const WORD_PATH =
-  "M7.4 21.3a5.7 5.7 0 1 0 0 11.4a5.7 5.7 0 1 0 0 -11.4ZM13.1 20V34M24.6 21.3a5.7 5.7 0 1 0 0 11.4a5.7 5.7 0 1 0 0 -11.4ZM30.3 20V36a3.4 3.4 0 0 1-3.4 3.4H22M36.5 34V20M36.5 26.8A5.4 5.4 0 0 1 41.9 21.4H43.1M51.5 21.3a5.7 5.7 0 1 0 0 11.4a5.7 5.7 0 1 0 0 -11.4ZM71.8 21.4H65.7a2.8 2.8 0 0 0 0 5.6H67.9a2.8 2.8 0 0 1 0 5.6H61.8M76.9 12V34M76.9 26.9a5.5 5.5 0 0 1 11 0V34M94.2 20V34M94.2 13.4V16.8M101.6 34V17.7a4 4 0 0 1 4 -4H107.6M98.2 21.4H115M109.8 14.6V28.6a4 4 0 0 0 4 4H115.4";
-export const WORD_STROKE = 3.4;
-export const WORD_VIEWBOX = "0 11.5 115.4 30";
+/** Pixel-hinted mark for 16-18 px: 16-unit grid, 2 px arc, 1 px vertical furrows on whole pixels, 2 px shift. */
+export const MARK_PATH_16 = "M0.482 5.264A8 8 0 0 1 15.518 5.264L13.638 5.948A6 6 0 0 0 2.362 5.948ZM0.063 9L5 9L5 15.416A8 8 0 0 1 0.063 9ZM6 15.746L6 11L10 11L10 15.746A8 8 0 0 1 6 15.746ZM11 15.416L11 9L15.937 9A8 8 0 0 1 11 15.416Z";
+export const MARK_VIEWBOX_16 = "0 0 16 16";
 
-/** Horizontal lockup: mark 22 units tall (ascender to baseline), 7-unit gap, then the word. */
-export const LOCKUP_H = { viewBox: "0 11.5 144.4 30", width: 144.4, height: 30, markX: 0, markY: 12, markScale: 0.9167, wordX: 29 } as const;
-/** Stacked lockup: mark 36 units, centred, 8 units above the ascender line. */
-export const LOCKUP_S = { viewBox: "0 -32 115.4 73.6", width: 115.4, height: 73.6, markX: 39.7, markY: -32, markScale: 1.5 } as const;
+/** 14-unit hinted mark, used inside the 16 px favicon tile (1 px inset). */
+export const MARK_PATH_14 = "M0.422 4.606A7 7 0 0 1 13.578 4.606L11.698 5.29A5 5 0 0 0 2.302 5.29ZM0.072 8L4 8L4 13.325A7 7 0 0 1 0.072 8ZM5 13.708L5 10L9 10L9 13.708A7 7 0 0 1 5 13.708ZM10 13.325L10 8L13.928 8A7 7 0 0 1 10 13.325Z";
 
-/** Fixed colours for the brand on a known ground. In the app, prefer the theme tokens. */
+/**
+ * Drawn "AgroShift" lettering (sentence case) on a condensed grotesque skeleton made to sit with
+ * Archivo (wdth ~85, wght 600). Units: cap height 24 (y 6..30), x-height 17.5, baseline 30.
+ * Rendered as one filled path (A, f/t crossbars) and two stroked centreline paths: "Agro" at
+ * WORD_STROKE_AGRO, "Shift" heavier at WORD_STROKE_SHIFT. Butt caps, miter joins.
+ */
+export const WORD_FILL_PATH = "M0 30L4.9 6H10.3L15.2 30H11.379L10.214 24.296H4.986L3.821 30ZM5.618 21.2H9.582L7.6 11.492ZM95.6 12.5H104.8V16.284H95.6ZM104.8 12.5H113.8V16.284H104.8Z";
+export const WORD_STROKE_AGRO_PATH = "M17.7 18.4A4.5 4.5 0 0 1 26.7 18.4V24.1A4.5 4.5 0 0 1 17.7 24.1ZM26.7 12.5V32.6A4 4 0 0 1 22.7 36.6H18.1M32.9 12.5V30M32.9 19.3C32.9 15.1 35.3 13.9 38.5 13.9H41.1M44.2 18.4A4.5 4.5 0 0 1 53.2 18.4V24.1A4.5 4.5 0 0 1 44.2 24.1Z";
+export const WORD_STROKE_SHIFT_PATH = "M69.3 11C69.3 8.9 67.46 7.8 64.7 7.8C61.94 7.8 60.1 9.78 60.1 12.75C60.1 16.215 61.48 17.2 64.7 17.7C67.92 18.2 69.3 19.275 69.3 22.95C69.3 26.1 67.46 28.2 64.7 28.2C61.94 28.2 60.1 27.1 60.1 24.8M76.2 5.4V30M76.2 18.9C76.2 14.9 77.7 14.3 80.3 14.3C83.1 14.3 84.4 16.1 84.4 18.1V30M91.5 12.5V30M91.5 5.4V9.8M99.6 30V11.6C99.6 8.9 101.2 7.6 103.8 7.6H105M108.8 7.6V24.2C108.8 26.9 110.4 28.2 113 28.2H114.2";
+export const WORD_STROKE_AGRO = 3.6;
+export const WORD_STROKE_SHIFT = 4.4;
+export const WORD_VIEWBOX = "0 4.6 114.2 35";
+export const WORD_WIDTH = 114.2;
+
+export type LockupGeometry = { viewBox: string; width: number; height: number; markX: number; markY: number; markSize: number; wordX: number };
+/** Horizontal lockup: mark 29 units, centred on the cap band, 7-unit gap, then the word. */
+export const LOCKUP_H: LockupGeometry = { viewBox: "0 3.5 150.2 36.1", width: 150.2, height: 36.1, markX: 0, markY: 3.5, markSize: 29, wordX: 36 };
+/** Stacked lockup: mark 46 units, centred, 9 units above the cap line. */
+export const LOCKUP_S: LockupGeometry = { viewBox: "0 -49 114.2 88.6", width: 114.2, height: 88.6, markX: 34.1, markY: -49, markSize: 46, wordX: 0 };
+
+/** Fixed brand colours for known grounds (Ortho Console tokens). In the app prefer theme tokens. */
 export const BRAND_COLORS = {
-  sprout: "#c8f25a",
-  deep: "#456100",
-  ink: "#142019",
-  paper: "#e6ede4",
-  ground: "#0d1310",
-  groundLight: "#edf1e9",
+  signal: "#d4ff3a",
+  signalDeep: "#3d5a00",
+  ink: "#101612",
+  paper: "#eef2ec",
+  ground: "#0b0e0c",
+  groundLight: "#f4f5f0"
 } as const;
 
-/** Pixel-hinted mark for 16 px rasters: 14-unit grid, bands 4, furrows 1. Use at exactly 14 or 16 px. */
-export const MARK_PATH_14 =
-  "M7 0h6.25a.75.75 0 0 1 .75.75V4H5a.5.5 0 0 0 0 1h9v2A7 7 0 0 1 7 14H.75A.75.75 0 0 1 0 13.25V10h9a.5.5 0 0 0 0-1H0V7A7 7 0 0 1 7 0Z";
-
-/** Smallest sizes at which each form stays legible (px, rendered height). */
-export const BRAND_MIN_SIZE = { mark: 16, horizontal: 18, stacked: 48 } as const;
+/** Smallest rendered heights (px). Below 19 px the mark switches to the hinted 16-grid path. */
+export const BRAND_MIN_SIZE = { mark: 16, horizontal: 20, stacked: 64 } as const;
+/** Clear space on every side, as a fraction of the mark's height. */
+export const BRAND_CLEAR_SPACE = 0.25;

@@ -6,9 +6,10 @@
 import type { CropId, SoilHydraulics, ClimateZone } from "../types";
 import type { PreparedClimate } from "./climate";
 import {
-  type SimContext, type CropParams, type Fluxes, type SeasonOutcome, type SoilState,
+  type SimContext, type CropParams, type Fluxes, type SeasonOutcome, type SoilState, type MonthlyDiag,
   cropParams, newFluxes, simulateBare, simulateSeason, storage, uniformState, yieldRatio,
 } from "./waterBalance";
+import { tawCum, tawProfileOf } from "./soil";
 import { CROPS, CROP_IDS, CROP_CONSTANTS } from "../crops/database";
 import { type SequenceSchedule, type SlotSchedule, sowEpochDay } from "../crops/calendar";
 
@@ -20,9 +21,13 @@ export interface EngineSetup {
 }
 
 export function createSetup(clim: PreparedClimate, soil: SoilHydraulics, zone: ClimateZone): EngineSetup {
+  const profile = tawProfileOf(soil);
+  const zCol = CROP_CONSTANTS.zColumnM.value;
   const ctx: SimContext = {
     clim,
     tawPerM: soil.tawMmPerM,
+    profile,
+    tawCol: tawCum(profile, zCol),
     zCol: CROP_CONSTANTS.zColumnM.value,
     zBare: CROP_CONSTANTS.zBareM.value,
     zMin: CROP_CONSTANTS.rootDepthMinM.value,
@@ -112,25 +117,40 @@ export interface WindowOutcome {
   bareEvap: number;
   initialWetness: number;
   initialWetnessAssumed: boolean;
+  /** Engine v2: soil state and day index at the end of the window (input of the next cycle). */
+  endState: SoilState;
+  endIdx: number;
+  /** Engine v2: how the starting state was obtained. */
+  start: "chained" | "spinup" | "given";
+  /** Engine v2: steady-state iterations used for a spin-up start (0 otherwise). */
+  spinupIterations: number;
+}
+
+export interface WindowStart {
+  state: SoilState;
+  /** Day index where the simulation starts (≥ window start; > when the previous cycle's last harvest spilled over). */
+  cursor: number;
 }
 
 /**
  * Exact daily replay of a scheduled plan over one window.
  * @param budgetNet net irrigation budget per rotation year (mm); 0 = rainfed.
- * @param initialWetness optional override of the starting column wetness (0–1).
+ * @param initialWetness optional override of the starting column wetness (0–1), uniform profile.
+ * @param start optional explicit starting state (engine v2 chaining); overrides `initialWetness`.
  */
 export function simulateWindowExact(
   setup: EngineSetup, schedule: SequenceSchedule, w: ReplayWindow, budgetNet: number, initialWetness?: number,
+  start?: WindowStart | null, diag?: MonthlyDiag | null,
 ): WindowOutcome {
   const { ctx } = setup;
   const clim = ctx.clim;
   let w0 = initialWetness ?? initialWetnessFromGwet(clim, setup.soil, w.startIdx);
   const assumed = w0 === null || w0 === undefined;
   if (w0 === null || w0 === undefined) w0 = ASSUMED_INITIAL_WETNESS;
-  const state: SoilState = uniformState(ctx, w0);
+  const state: SoilState = start ? { ...start.state } : uniformState(ctx, w0);
   const s0 = storage(state);
-  const flux = newFluxes();
-  let cursor = w.startIdx;
+  const flux = newFluxes(diag);
+  let cursor = start ? Math.max(w.startIdx, start.cursor) : w.startIdx;
   let bareEvap = 0;
   const years: WindowYear[] = [];
   for (let k = 0; k < 3; k++) {
@@ -151,6 +171,63 @@ export function simulateWindowExact(
   const err = flux.precip + flux.irrigation - flux.et - flux.runoff - flux.deepPerc - (s1 - s0);
   return {
     firstAy: w.firstAy, years, flux, storageStart: s0, storageEnd: s1, massBalanceError: err, bareEvap,
-    initialWetness: w0, initialWetnessAssumed: assumed,
+    initialWetness: w0, initialWetnessAssumed: assumed && !start,
+    endState: { ...state }, endIdx: end, start: start ? "given" : "given", spinupIterations: 0,
   };
+}
+
+/** Steady-state spin-up: tolerance on the column storage change between iterations, mm. */
+export const SPINUP_TOL_MM = 0.5;
+export const SPINUP_MAX_ITER = 6;
+
+/**
+ * Engine v2 — the plan as a REPEATING cycle over the record.
+ *
+ * Windows are processed in three phase chains (start years y, y+3, y+6 …). A window whose
+ * predecessor (start year − 3) was simulated starts from that predecessor's final soil state and
+ * day index, so water left by year 3 of one cycle is the real input of year 1 of the next. A window
+ * without a usable predecessor (the first of each chain, or after a data gap) starts from the
+ * periodic steady state of the plan in that window: start from the GWETROOT-based wetness, simulate,
+ * restart from the end state, until storage changes by < SPINUP_TOL_MM (max SPINUP_MAX_ITER).
+ *
+ * @returns outcomes aligned with `windows` (null where the window is unusable for this plan).
+ */
+export function simulatePlanChain(
+  setup: EngineSetup, schedule: SequenceSchedule, windows: readonly ReplayWindow[], budgetNet: number,
+  w0: readonly number[], diag?: MonthlyDiag[] | null,
+): (WindowOutcome | null)[] {
+  const clim = setup.ctx.clim;
+  const out: (WindowOutcome | null)[] = new Array(windows.length).fill(null);
+  const byAy = new Map<number, number>();
+  windows.forEach((w, i) => byAy.set(w.firstAy, i));
+  const order = windows.map((_, i) => i).sort((a, b) => windows[a].firstAy - windows[b].firstAy);
+  for (const i of order) {
+    const w = windows[i];
+    if (!windowUsable(clim, w, schedule)) continue;
+    const pi = byAy.get(w.firstAy - 3);
+    const pred = pi === undefined ? null : out[pi];
+    const dg = diag ? diag[i] : null;
+    if (pred && pred.endIdx >= w.startIdx && pred.endIdx - w.startIdx < 200) {
+      const o = simulateWindowExact(setup, schedule, w, budgetNet, w0[i], { state: pred.endState, cursor: pred.endIdx }, dg);
+      o.start = "chained";
+      out[i] = o;
+      continue;
+    }
+    // Periodic steady state (spin-up).
+    let st: WindowStart | null = null;
+    let o = simulateWindowExact(setup, schedule, w, budgetNet, w0[i]);
+    let it = 1;
+    for (; it < SPINUP_MAX_ITER; it++) {
+      const prevEnd = o.storageEnd;
+      st = { state: o.endState, cursor: w.startIdx + Math.max(0, o.endIdx - w.coreEndIdx) };
+      o = simulateWindowExact(setup, schedule, w, budgetNet, w0[i], st);
+      if (Math.abs(o.storageEnd - prevEnd) < SPINUP_TOL_MM) break;
+    }
+    if (dg) o = simulateWindowExact(setup, schedule, w, budgetNet, w0[i], st, dg);
+    o.start = "spinup";
+    o.spinupIterations = it;
+    o.initialWetnessAssumed = initialWetnessFromGwet(clim, setup.soil, w.startIdx) === null;
+    out[i] = o;
+  }
+  return out;
 }

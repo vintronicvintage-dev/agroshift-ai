@@ -49,6 +49,19 @@ export interface NdviSeries {
   points: { date: string; ndvi: number }[]; // 16 günlük MODIS
   sources: SourceMeta[];
 }
+export interface SoilLayer { top: number; bottom: number; // cm
+  sand: number | null; silt: number | null; clay: number | null; // %
+  soc: number | null;        // g/kg
+  ph: number | null; cec: number | null; // cmol(c)/kg
+  nitrogen: number | null;   // g/kg
+  bulkDensity: number | null; // g/cm3
+  coarseFragments: number | null; // vol %
+  thetaFC: number | null; thetaWP: number | null; } // m3/m3 at 33 kPa and 1500 kPa, null if not available
+export interface TerrainInfo { elevationMean: number; elevationMin: number; elevationMax: number; // m
+  slopePct: number; aspectDeg: number | null; samples: number; sources: SourceMeta[]; }
+export interface PrecipCrossCheck { reference: "era5-land" | "era5"; years: number[]; powerAnnual: number[]; referenceAnnual: number[];
+  monthlyRatio: number[]; // 12 values, reference / POWER, long-term monthly means
+  annualRatio: number; sources: SourceMeta[]; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Engine types
@@ -120,6 +133,18 @@ export interface CropDef {
   residue: Sourced<"low" | "medium" | "high">;
   /** Reference yields, t/ha (TÜİK order of magnitude). Irrigated value is used as Ym (no water stress). */
   refYieldTHa: Sourced<{ irrigated: number; rainfed: number }>;
+  /**
+   * Engine v2: water-unlimited yield under typical RAINFED management (lower N, density, inputs), t/ha.
+   * Ym for a crop-year = rainfed ceiling + (irrigated − rainfed ceiling) × irrigation intensity.
+   * `refYieldTHa.rainfed` stays the average (water-limited) rainfed yield shown for comparison.
+   */
+  rainfedCeilingTHa?: Sourced<number>;
+  /** Engine v2: soil pH range where the crop grows without a pH-related flag (assumption). */
+  phRange?: Sourced<{ min: number; max: number }>;
+  /** Engine v2: N removed with the harvested product, kg N per t (fresh product as sold). */
+  nRemovalKgPerT?: Sourced<number>;
+  /** Engine v2: biological N fixation, kg N/ha per crop year (legumes only). */
+  nFixationKgHa?: Sourced<{ low: number; high: number }>;
   /** Product price, TL/kg — scenario assumption, user editable. */
   priceTLPerKg: Sourced<number>;
   /** Variable cost excluding irrigation water, TL/da — scenario assumption, user editable. */
@@ -157,6 +182,20 @@ export interface CropEconomicsOverride {
   priceTLPerKg?: number;
   varCostTLPerDa?: number;
   refYieldIrrigatedTHa?: number;
+  /** Engine v2: overrides the rainfed-management (water-unlimited) yield ceiling, t/ha. */
+  refYieldRainfedCeilingTHa?: number;
+}
+
+/**
+ * Rainfall correction chosen by the caller (never applied silently). "annual": every daily value ×
+ * factorAnnual; "monthly": daily value × factorsMonthly[month − 1] (12 values, January first).
+ * Combined multiplicatively with the scenario rain multiplier. Reported in assumptions and evidence.
+ */
+export interface PrecipAdjustment {
+  mode: "none" | "annual" | "monthly";
+  factorAnnual?: number;
+  factorsMonthly?: number[];
+  provenance: string;
 }
 
 export interface FieldInput {
@@ -178,6 +217,10 @@ export interface FieldInput {
   /** Candidate set for the optimiser (default: all 12 crops incl. fallow). */
   candidateCrops?: CropId[];
   priorities?: Partial<PriorityWeights>;
+  /** Engine v2: layered soil profile (e.g. SoilGrids 0–5 … 100–200 cm). Used for layered TAW and pH flags. */
+  soilLayers?: SoilLayer[];
+  /** Engine v2: terrain (slope, elevation). Used for slope-adjusted CN, erosion indicator and temperature lapse. */
+  terrain?: TerrainInfo;
 }
 
 export interface EconomicsInput {
@@ -196,7 +239,15 @@ export interface AnalysisInput {
     shortlistSize?: number;
     /** User-built plans to evaluate alongside (not ranked as recommendations). */
     extraPlans?: RotationSequence[];
+    /** Engine v2: robust ranking across typical / dry / hot-dry (default true). */
+    robust?: boolean;
+    /** Engine v2: one-at-a-time ±20 % rank-stability sweep on the shortlist (default true). */
+    sensitivity?: boolean;
   };
+  /** Engine v2: independent rainfall cross-check (e.g. ERA5-Land). Reported, never applied by itself. */
+  precipCheck?: PrecipCrossCheck;
+  /** Engine v2: explicit rainfall correction chosen by the caller. */
+  precipAdjustment?: PrecipAdjustment;
 }
 
 // ── Outputs ──────────────────────────────────────────────────────────────────
@@ -220,6 +271,188 @@ export interface Explanation {
   benefits: ExplanationItem[];
   gaps: ExplanationItem[];
   localReview: ExplanationItem[];
+}
+
+/** Engine v2: plain-language farmer narrative (kept outside `Explanation` so `keyof Explanation` stays list-valued). */
+export interface PlanNarrative {
+  /** One-sentence verdict in farmer units ("sen" address in Turkish). */
+  verdict: LocalizedText;
+  /** "ne kazanırım" — gains versus the current rotation, with numbers in farmer units. */
+  gains: ExplanationItem[];
+  /** "ne kaybederim" — losses versus the current rotation. */
+  losses: ExplanationItem[];
+  /** "nelere dikkat" — things to watch (uncertainty phrased as "N dönemin M'inde"). */
+  watch: ExplanationItem[];
+}
+
+/** Engine v2: advisory (soft) rule codes; never make a plan infeasible. */
+export type WarningCode =
+  | "ph_low" | "ph_high" | "break_short" | "legume_after_legume" | "cereal_after_cereal"
+  | "sclerotinia_host" | "fusarium_maize_residue" | "verticillium" | "rainfed_irrigated_crop"
+  | "erosion_high" | "salinity_unknown";
+
+export interface PlanWarning {
+  code: WarningCode;
+  cropId: CropId | null;
+  /** Rotation year 1–3 (0 = whole plan). */
+  year: number;
+  severity: "info" | "warn";
+  text: LocalizedText;
+}
+
+/** Engine v2: constraint or advisory message for the live rotation builder. */
+export interface BuilderMessage {
+  code: ConstraintCode | WarningCode;
+  kind: "constraint" | "warning";
+  cropId: CropId | null;
+  year: number;
+  text: LocalizedText;
+}
+
+/** Engine v2: one historical 3-year window of a plan (for the year-by-year heat strip). */
+export interface PlanWindow {
+  /** Agricultural year of rotation year 1 (AY c = Oct c−1 … Sep c). */
+  startYear: number;
+  /** Rain-only water deficit (ΣETc − ΣETa of a rainfed run), mm/yr. */
+  deficitMmPerYr: number;
+  /** ETc − ETa under the budget, mm/yr. */
+  unmetMmPerYr: number;
+  budgetExceeded: boolean;
+  budgetExceededByYear: [boolean, boolean, boolean];
+  /** Mean water-limited yield ratio Ya/Ym over the crop years (null when the plan is all fallow). */
+  yieldRatio: number | null;
+  yieldRatioByYear: [number | null, number | null, number | null];
+  marginTLPerDaPerYr: number;
+}
+
+/** Engine v2: mean monthly water flows of a plan, by rotation year (36 rows, Oct of year 1 first). */
+export interface MonthlyDemand {
+  year: 1 | 2 | 3;
+  /** Calendar month 1–12. */
+  month: number;
+  /** 0…35 from October of rotation year 1. */
+  index: number;
+  etcMm: number;
+  etaMm: number;
+  /** Rain that stayed in the soil: P − runoff − deep percolation, mm. */
+  effectiveRainMm: number;
+  irrigationMm: number;
+  /** Crop ETc − ETa, mm. */
+  deficitMm: number;
+  /** Soil evaporation on bare days, mm. */
+  bareEvapMm: number;
+}
+
+export interface PreCropEffectInfo {
+  /** Rotation year (1–3) of the following crop. */
+  year: number;
+  prev: CropId;
+  cropId: CropId;
+  /** Multiplier on the following crop's yield (1 = no effect). */
+  yieldFactor: number;
+  /** Fertiliser-N credit for the following crop, kg N/ha. */
+  nCreditKgHa: { low: number; high: number };
+  /** Fertiliser cost saved on the following crop, TL/da (mid credit × N price, capped by the crop's N need). */
+  nCostSavingTLPerDa: number;
+  codes: string[];
+  note: LocalizedText;
+  source: string;
+  confidence: Confidence;
+}
+
+export interface NitrogenBalance {
+  label: "indicator";
+  /** Legume N fixation, kg N/ha/yr (cycle mean). */
+  fixationKgHaYr: { low: number; high: number };
+  /** N removed with harvested products (P50 yields), kg N/ha/yr. */
+  removalKgHaYr: { low: number; high: number };
+  /** Fixation − removal (fertiliser not counted), kg N/ha/yr. */
+  balanceKgHaYr: { low: number; high: number };
+  sources: string[];
+}
+
+export interface SoilCoverIndicator {
+  /** Mean days per calendar month (Jan first) with a crop past its initial stage. */
+  coveredDaysByMonth: number[];
+  /** Mean days per month in a crop's initial (establishing) stage. */
+  establishingDaysByMonth: number[];
+  /** Mean days per month with no crop (fallow, between harvest and sowing). */
+  bareDaysByMonth: number[];
+}
+
+export interface ErosionIndicator {
+  label: "indicator";
+  /** RUSLE-style mean annual soil loss A = R·K·LS·C·P, t/ha/yr; null without slope information. */
+  aTHaYr: number | null;
+  class: "low" | "moderate" | "high" | "very_high" | null;
+  /** Rainfall erosivity, MJ·mm/(ha·h·yr). */
+  rFactor: number | null;
+  /** Soil erodibility, t·ha·h/(ha·MJ·mm). */
+  kFactor: number;
+  lsFactor: number | null;
+  /** Erosivity-weighted cover-management factor of the plan (0–1). */
+  cFactor: number;
+  pFactor: number;
+  slopePct: number | null;
+  slopeSource: "terrain" | "field" | "none";
+  evidence: Evidence;
+}
+
+export interface TradeSummary {
+  windows: number;
+  /** Windows in which the water budget was enough (rainfed: no year with yield ratio < 0.5). */
+  okWindowsPlan: number;
+  okWindowsCurrent: number;
+  marginDiffTLPerDaPerYr: number | null;
+  /** Irrigation need difference (net), m³/da/yr (= mm). */
+  waterDiffM3PerDaPerYr: number | null;
+  fieldMarginDiffTLPerYr: number | null;
+  lines: LocalizedText[];
+}
+
+export interface RobustScenarioResult {
+  id: "active" | ScenarioPresetId;
+  label: LocalizedText;
+  rainMultiplier: number;
+  tempDeltaC: number;
+  composite: number;
+  /** Best composite in this scenario minus this plan's composite (0 = best). */
+  regret: number;
+  marginP50: number;
+  requirementP50: number;
+}
+
+export interface RobustInfo {
+  scenarios: RobustScenarioResult[];
+  maxRegret: number;
+  meanComposite: number;
+  /** Mean of the worst 20 % of window margins pooled over all scenarios, TL/da/yr. */
+  cvar20MarginTLPerDaPerYr: number;
+}
+
+export interface StabilityFlip {
+  assumption: "price" | "cost" | "yield" | "rain" | "budget";
+  change: "+20%" | "-20%";
+  label: LocalizedText;
+  /** Plan that took this plan's place in the top 3. */
+  replacedBy: string | null;
+}
+
+export interface StabilityInfo {
+  runs: number;
+  /** Share of sweep runs in which the plan stays among the 3 recommended plans. */
+  top3Share: number;
+  flips: StabilityFlip[];
+}
+
+export type ConfidenceGrade = "A" | "B" | "C" | "D";
+
+export interface PlanConfidence {
+  grade: ConfidenceGrade;
+  /** 0–100 */
+  score: number;
+  factors: { dataCompleteness: number; rainfallCalibration: number; parameterLiterature: number; rankStability: number | null };
+  reasons: LocalizedText[];
 }
 
 export type ConstraintCode =
@@ -263,6 +496,14 @@ export interface YearResult {
   /** Plant-available water in the 1.5 m column at sowing, mm (P50). Shows the carry-over effect. */
   soilWaterAtSowingMm: Dist | null;
   grossMarginTLPerDa: Dist | null;
+  /** Engine v2: Ym actually used (rainfed ceiling ↔ irrigated by irrigation intensity), t/ha. */
+  ymTHa?: number | null;
+  /** Engine v2: irrigation intensity 0–1 = Σ irrigation / Σ rainfed deficit of this slot over windows. */
+  irrigationIntensity?: number | null;
+  /** Engine v2: previous-crop yield multiplier applied to this year. */
+  preCropFactor?: number | null;
+  /** Engine v2: share of windows where the French–Schultz water-productivity bound capped the yield. */
+  wpCapShare?: number | null;
 }
 
 export interface WaterResult {
@@ -351,6 +592,35 @@ export interface PlanResult {
   explanation: Explanation;
   /** "exact" = full daily replay over every window. */
   basis: "exact";
+  // ── Engine v2 (all optional, additive) ──
+  windows?: PlanWindow[];
+  monthlyDemand?: MonthlyDemand[];
+  preCrop?: PreCropEffectInfo[];
+  nitrogen?: NitrogenBalance;
+  cover?: SoilCoverIndicator;
+  erosion?: ErosionIndicator;
+  trade?: TradeSummary | null;
+  robust?: RobustInfo | null;
+  stability?: StabilityInfo | null;
+  confidence?: PlanConfidence;
+  warnings?: PlanWarning[];
+  narrative?: PlanNarrative;
+  /** Pareto knee (compromise) plan among the exactly replayed plans. */
+  knee?: boolean;
+  /** Engine v2: is the recommendation stable when the other rainfall source is used? (null = no alternative source) */
+  rainSource?: RainSourceCheck | null;
+}
+
+export interface RainSourceCheck {
+  /** Label of the alternative rainfall source the shortlist was re-run with. */
+  alternative: LocalizedText;
+  /** Mean annual precipitation of the alternative run, mm/yr. */
+  alternativeAnnualMm: number;
+  /** Plan is among the 3 recommended plans under the alternative rainfall too. */
+  inTop3: boolean;
+  /** Gross margin P50 / water requirement P50 of this plan under the alternative rainfall. */
+  marginP50Alt: number | null;
+  requirementP50Alt: number | null;
 }
 
 export interface CandidatePoint {
@@ -363,6 +633,8 @@ export interface CandidatePoint {
   /** "screening" = cheap pass, "exact" = replayed. */
   basis: "screening" | "exact";
   pareto: boolean;
+  /** Engine v2: Pareto knee (minimum normalised distance to the ideal point). */
+  knee?: boolean;
 }
 
 export interface TrendResult {
@@ -423,6 +695,29 @@ export interface SoilHydraulics {
   curveNumbers: Record<CoverType, number>;
   rewMm: number;
   evidence: Evidence[];
+  // ── Engine v2 ──
+  /** Per-layer hydraulics when `field.soilLayers` was given. */
+  layers?: SoilLayerHydraulics[];
+  /** Plant-available water of the whole simulated column (1.5 m), mm. */
+  tawColumnMm?: number;
+  /** Curve numbers before the slope adjustment (TR-55 values, ~5 % slope). */
+  curveNumbersBase?: Record<CoverType, number>;
+  slopePct?: number | null;
+  /** SOC above the plausibility cap was capped for the pedotransfer (e.g. SoilGrids topsoil artefact). */
+  socCapped?: boolean;
+  /** Depth-weighted soil pH of the top 30 cm (layers) or the profile pH. */
+  phTopsoil?: number | null;
+}
+
+export interface SoilLayerHydraulics {
+  top: number; bottom: number; // cm
+  thetaFC: number; thetaWP: number; // m³/m³, bulk soil (coarse fragments removed)
+  tawMmPerM: number;
+  method: "measured" | "saxton-rawls" | "extrapolated";
+  densityFactor: number | null;
+  coarseFragmentsPct: number;
+  organicMatterPct: number;
+  ph: number | null;
 }
 
 export interface AssumptionItem {
@@ -467,4 +762,37 @@ export interface AnalysisResult {
   assumptions: AssumptionItem[];
   disclaimer: LocalizedText;
   methodSources: { id: string; citation: string; url?: string }[];
+  // ── Engine v2 (optional, additive) ──
+  /** Best plan for the active scenario (= alternatives[0]). */
+  typicalBestId?: string | null;
+  /** Minimax-regret plan across the active, dry and hot-dry scenarios. */
+  robustBestId?: string | null;
+  /** The robust plan when it is not already among `alternatives` (otherwise null). */
+  robustBest?: PlanResult | null;
+  /** Pareto knee plan id among the exactly replayed plans. */
+  kneeId?: string | null;
+  robustness?: { scenarios: { id: "active" | ScenarioPresetId; label: LocalizedText; rainMultiplier: number; tempDeltaC: number }[]; pool: number; method: LocalizedText } | null;
+  sensitivity?: { runs: number; pool: number; perturbations: { assumption: StabilityFlip["assumption"]; change: StabilityFlip["change"]; label: LocalizedText; top3: string[] }[]; method: LocalizedText } | null;
+  precipitation?: {
+    mode: PrecipAdjustment["mode"];
+    factorsMonthly: number[];
+    provenance: string | null;
+    /** true when an explicit adjustment was applied or the series already carries a station calibration. */
+    calibrated: boolean;
+    check: { reference: string; annualRatio: number; years: number } | null;
+  };
+  terrain?: { slopePct: number | null; elevationMean: number | null; gridElevation: number; lapseDeltaC: number; siteElevation: number } | null;
+  /**
+   * Engine v2: spread of annual precipitation across the available sources and what the chosen
+   * adjustment implies. `sensitive` = the top-3 recommendation changes when the other source is used.
+   */
+  precipUncertainty?: {
+    sources: { id: "power" | "reference" | "chosen"; label: LocalizedText; annualMm: number }[];
+    rangeMm: [number, number];
+    chosenFactorAnnual: number;
+    /** Top-3 plan ids under the alternative rainfall source (null when none was run). */
+    alternativeTop3: string[] | null;
+    sensitive: boolean | null;
+    note: LocalizedText;
+  } | null;
 }

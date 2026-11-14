@@ -1,173 +1,306 @@
-# AgroShift brand
+# AgroShift brand v2
 
-The whole identity is original work for this project. The logo was built by hand on a grid, and
-so were the 12 crop illustrations and 4 spot illustrations. No generator, stock source or template
-was used for any of them (see "How each asset was made").
+Version 2 replaces the v1 identity after the design review board judged it inadequate
+(`docs/board/visual-direction.md` §2, `docs/ui-v3.md`). The v1 mark read as a generic italic "S",
+said nothing about agriculture, orbit or rotation, and became a blob at 16 px. The v1 crop
+illustrations read as clip-art with uneven weight, and the legumes could not be told apart at 24 px.
+v2 is built for the board's **Ortho Console** direction: dark-first, imagery as the canvas, one
+signal colour, and Archivo / Instrument Sans / Geist Mono.
 
-## 1. Logo concept exploration
+Everything here was drawn by hand as SVG geometry (see §10, Provenance). Each candidate and final
+asset was rendered with `sharp` and checked by eye before it was kept.
 
-Each concept was drawn as SVG and rendered at 16, 24, 32, 64 and 256 px on the dark and light grounds.
+## 1. Logo concepts and decision
 
-| # | Concept | One line | Verdict |
-|---|---|---|---|
-| 1 | Three turning bands | Three field strips rotated 120° into a pinwheel, one for each rotation year | Says "rotation", but at 16 px it turns into a generic fan or recycling sign |
-| 2 | Rows from orbit | A circle (centre pivot, Earth) with parallel furrow lines | At small sizes it reads as a striped ball. Too close to many "globe" marks |
-| 3 | Orbit track + furrow | An orbit ellipse whose lower arc becomes a straight furrow | Two thin lines vanish at 16 px and need a gradient to show depth |
-| 4 | Water / soil / crop triad | Three dots or strips in blue, amber and green (the v1 wordmark) | Depends on colour, so it breaks in one colour. Looks like a status legend |
-| 5 | Shifting parcel | A square of three strips with the middle strip pushed sideways | Reads as a generic "layers" icon |
-| 6 | Plough path S | One thick stroke ploughing three passes with two U-turns, which forms an S | Good meaning (three passes = three years, S = Shift), but at small sizes it is just the letter S |
-| 7 | Parcel with furrows | A rounded square with two furrows cut in from alternate sides | Crisp at 16 px, but the square silhouette is generic |
-| **8** | **Leaf parcel (chosen)** | **Concept 7, with only the two corners where the plough turns rounded to R12. The silhouette becomes a leaf** | **See below** |
+Five concepts were taken to a finished state. Each one was rendered at 16, 24, 32, 64 and 256 px on
+the dark ground (`#0b0e0c`), on the light ground (`#f4f5f0`) and directly over the Harran Landsat
+scene. Sheet: `public/brand/exploration/logo-candidates.png`.
 
-### Why the leaf parcel
-- **One idea, three meanings.** The outline is a leaf (crop). Inside, two furrows cut a single
-  plough path in three passes (the three-year rotation). The path draws an S (Shift). The
-  rounded corners are exactly where a tractor turns at the headland, so the leaf shape comes out
-  of the ploughing logic instead of being added on top.
-- **Works at 16 px.** On the 24-unit grid the bands are 6 units and the furrows 3. At 16 px that
-  is 4/2/4/2/4 px, so every edge falls on a whole pixel (checked by rendering, see section 3).
-- **One colour, reversible, no gradients.** It is a single filled path, so it works in `currentColor`
-  and on either ground.
-- **Distinctive silhouette.** A leaf with two notches on opposite sides. It does not depend on
-  colour, and it is not a letter in a box.
-- **Not borrowed.** It does not use the NASA insignia, the "FarmEsy" reference or any other existing mark.
-  We did no trademark search; please run one before any commercial registration.
+| | Concept | Verdict |
+|---|---|---|
+| **a** | **Orbit furrows.** An orbital arc passes over a field whose three furrow bands run to the horizon. The middle band starts one step lower: that step is the shift. | **Chosen** (reasons below) |
+| b | Three-year ring + seed: a ring cut by three spiralling gaps, with a seed in the negative space | Lost. It reads as a "G" or "6" and looks like an eye at 32 px. The seed is too small to survive at 16 px. |
+| c | Parcel grid ground track: a 3×3 grid of parcels, with three solid cells on the diagonal path | Lost. It is the crispest at 16 px, but it is generic (app-grid, QR, "apps" icon) and does not say rotation. |
+| d | Centre pivot, three sectors: a pivot hub with three sectors of stepping radius | Lost. At small sizes it reads as a pie chart, a fan or a shutter, and it is too close to the three-part Chrome-style round mark. |
+| e | Shifted strip lens: a disc cut into three strips, with the middle one shifted sideways | Lost. Its shape is distinctive, but it reads as a hamburger or "stop" button, and the shifted strip changes the bounding box, so it aligns badly. |
+
+**Why (a), judged against the brief:**
+- **Rotation + land + from above, without a letter.** The arc is the satellite's pass, and the
+  furrowed field is the land. The three bands are the three years. The stepped middle band is the
+  year that shifts. There is no letterform in it.
+- **Distinctive silhouette.** A broken ring over a cut semicircle. It does not look like an "S", a
+  globe or a leaf.
+- **One colour, reversed, 16 px.** It is a single flat path with no gradient. It works in
+  `currentColor`, reverses cleanly, and has its own hinted drawing for 16 px (§2).
+- **Honest weak spots.** At small sizes the silhouette can recall a steering wheel, a parachute or
+  a helmet visor. Over busy imagery it needs the solid plate, which also applies to the wordmark (§4).
+
+Marks I compared it against from memory: Chrome, the Mercedes-Benz star (relevant to d), the Stripe and
+Spotify-style rounded S (the v1 problem), the Ubuntu circle of friends, steering-wheel and road
+icons, the NASA meatball and the NASA worm. I see no close match for (a). **This is not a trademark
+search** (see §11).
 
 ## 2. Construction
 
 ```
-24-unit grid                      R12 = turn corners (top-left, bottom-right)
- y 0 ┌───────────────────────┐    r1.5 = free ends (top-right, bottom-left), optical softening only
-     │ band 1 (year 1)       │    furrow ends: semicircles r1.5
- y 6 │      ╭────────────────     furrow 1: y 6–9, opens right, from x 7.5
- y 9 │ band 2 (year 2)       │    furrow 2: y 15–18, opens left, to x 16.5
- y15 ────────────────╮       │    furrow length 16.5, so at the furrow tip each turn is ~6.6 units
- y18 │ band 3 (year 3)       │    thick (a bit more than the 6-unit band: optical correction so the
- y24 └───────────────────────┘    turns don't look pinched where the R12 curve thins them)
+24-unit grid, circle R12 centred (12,12)
+
+ arc      annulus R12 → R9.6 (2.4 thick), from 198° to 342° (18° above horizontal),
+          radial terminals
+ horizon  field top y = 13 (gap under the arc terminals ≈ 4.7 units)
+ furrows  two slits converge to a vanishing point (12, 0.5): base width 2.4 at y = 24,
+          tapering to ≈ 1.3 at the horizon (perspective). Furrow centre lines at x = 12 ± 5.2 on the base.
+ shift    middle band starts at y = 15.5 (2.5 lower than the side bands = one arc thickness)
+ clip     every band is clipped by the R12 circle, so the outer edge stays one circle
 ```
 
-- **Wordmark:** custom monoline lowercase `agroshift`. Strokes 3.4 on a grid of x-height 14,
-  ascender 12, baseline 34 and descender 41, with 0.3 to 0.4 overshoot on round letters. The `s` is
-  the mark's plough path in small, the `f` and `t` share one crossbar (a furrow line), and the
-  i-dot is square like the mark's free ends. Butt caps throughout, to match the mark's cut ends.
-- **Horizontal lockup:** the mark spans ascender to baseline (22 units), followed by a 7-unit gap and the word.
-- **Stacked lockup:** the mark is 36 units tall, centred, and sits 8 units above the ascender line.
-- **Pixel-hinted 16 px variant** (`MARK_PATH_14` in `src/lib/ui/brand.ts`): a 14-unit grid with
-  bands 4 and furrows 1, drawn on a dark 16 px tile. Used only for the 16 px frame of `favicon.ico`.
-- All geometry lives in `src/lib/ui/brand.ts`. The SVG files and the `Logo` component are built
-  from those same paths.
+Optical corrections:
+- The slits taper because of the perspective. The bottom 2.4 is wider than the arc, so the field
+  does not fill in at 24–32 px.
+- The arc terminals are radial, not horizontal. Horizontal ends made it read as a padlock shackle.
+- The shift (2.5) is equal to the arc thickness, so it reads as a deliberate step rather than an error.
 
-### Clear space and minimum size
-- Clear space on all sides is 1 band (¼ of the mark height). For the horizontal lockup that is
-  ¼ of the lockup height. Keep text, borders and other marks out of it.
-- Minimum size: mark 16 px, horizontal lockup 18 px high, stacked lockup 48 px high. Below 16 px,
-  use the mark alone (the hinted 14-unit path at 14 to 16 px).
+**Pixel-hinted 16 px drawing** (`MARK_PATH_16`). Rendered at 16 px, the master turns the slits into
+grey smears. The hinted drawing is on a 16-unit grid:
+- arc 2 px
+- horizon on y 9, middle band from y 11
+- **vertical 1 px furrows on whole pixels** (x 5–6 and 10–11), so the middle band is exactly 4 px
 
-## 3. What was rendered and fixed
-- Mark sheets at 16, 24, 32, 64 and 256 px on `#0d1310` and `#edf1e9`, in sprout, paper and ink colours.
-  Concepts 6 (plain S) and "S + seed dot" were dropped after looking: the plain S read as a
-  letter, and the dot turned the S into an emoticon.
-- Wordmark: in the first render the bowls went missing (a degenerate full-circle arc), so circles
-  were redrawn as two half arcs. The i-dot rendered as a ring and became a square dot. The weight
-  went from 3.2 to 3.4 to sit next to the heavy mark. The i-ft spacing was opened, because the f
-  crossbar nearly touched the i.
-- Favicon: a full-bleed olive 16 px frame was dull on dark tab strips. It was replaced by the
-  hinted mark on a dark tile, then checked on white, `#dee1e6`, `#35363a` and `#202124` tab colours.
-- OG image: the headline was rebroken into two even lines, the sub-copy widow was fixed, the
-  credit line was kept to one line, and the file went from 994 KB to 309 KB (palette PNG).
-- Crops: wheat ears read as smooth "cattails", so the kernels became two-tone chevrons with gaps.
-  Bean pods and the maize cob were enlarged, and lentil pods were enlarged. Fallow went from a
-  brown box to a ridged field. The leaf green moved from `#5aa844` (2.6:1 on the light ground) to
-  `#4a963a` (3.2:1 light, 5.1:1 dark). Barley straw was deepened so it holds on the light ground.
+It gives up the convergence for clarity. `Logo variant="mark"` switches to it below 19 px. A
+14-unit version (`MARK_PATH_14`) sits inside the 16 px favicon tile with a 1 px inset. Zoomed
+checks were done on white, `#dee1e6`, `#35363a` and `#202124` tab colours.
 
-## 4. Colour and type tokens (as used; source: `src/app/globals.css`)
+### Wordmark
+- Sentence case **"AgroShift"**, drawn to sit next to the board's display face **Archivo**
+  (Google Fonts, `wdth` ~85, `wght` 600). It is not traced from the font. It is a condensed
+  grotesque skeleton built on cap height 24, x-height 17.5 and baseline 30, with:
+  - stadium bowls (straight-sided `o`, `g`)
+  - a flat-apex `A`
+  - a single-storey `g`
+  - a square i-dot
+  - a joined f–t crossbar
+  - 0.4 overshoot on rounds
+- **"Shift" is set in the heavier weight** (stroke 4.4 against 3.6 for "Agro"), as the board asked.
+  This keeps the emphasis in a single colour, so no second hue is needed.
+- **Outlined paths, not live text.** The same geometry renders identically in the React component,
+  the static SVGs, the favicon pipeline and the `sharp`-rendered OG image. No font file or
+  `next/font` call is needed at runtime, and nothing shifts while a font loads. Live Archivo would
+  need `next/font` in `layout.tsx` (outside the brand scope) and still could not be used by the
+  raster pipeline. In running text, the product name is set in the UI font as "AgroShift".
 
-| Role | Dark | Light | Contrast notes |
+### Lockups
+- **Horizontal** (`LOCKUP_H`, viewBox `0 3.5 150.2 36.1`):
+  - mark 29 units, centred on the cap band (2.5 above the cap line, 2.5 below the baseline)
+  - 7-unit gap, then the word
+- **Stacked** (`LOCKUP_S`, viewBox `0 -49 114.2 88.6`): mark 46 units, centred, 9 units above the cap line.
+- **Clear space:** ¼ of the mark height on every side (`BRAND_CLEAR_SPACE`).
+- **Minimum sizes:**
+
+  | Form | Minimum | Note |
+  |---|---|---|
+  | Mark | 16 px | hinted path at 16–18 px |
+  | Horizontal lockup | 20 px high | cap ≈ 13 px |
+  | Stacked lockup | 64 px high | |
+
+  Below these, use the mark alone.
+
+## 3. Colour roles for the mark
+
+| Use | Mark | Word | Notes |
 |---|---|---|---|
-| ground `--paper` | `#0d1310` | `#edf1e9` | |
-| text `--ink` | `#e6ede4` | `#142019` | 15.7:1 / 14.7:1 on paper |
-| secondary `--ink-2` | `#a3b2a7` | `#4a5a50` | 8.5:1 / 6.4:1 |
-| mark colour `--accent-ink` | `#c8f25a` sprout | `#456100` deep | 14.6:1 / 6.2:1. Sprout on the light ground is 1.1:1: **never** put the sprout mark on a light ground |
-| on accent | `#0f1707` on `#c8f25a` | same | 14.2:1 |
-| water `--sky` | `#7cc0ea` | `#1f5f8b` | 9.5:1 / 6.0:1 |
-| soil `--loam` | `#e2ae73` | `#7a4a21` | 9.4:1 / 6.5:1 |
+| Dark ground (`#0b0e0c`), default | signal `#d4ff3a` | ink-1 `#eef2ec` | 16.8:1 / 17.1:1 |
+| Light ground (`#f4f5f0`) | deep signal `#3d5a00` | ink `#101612` | 7.2:1 / 16.7:1. **Never put the lime mark on a light ground.** |
+| Over imagery | signal on the solid plate `rgba(11,14,12,.78)` | ink-1 | Without a plate, use it only at ≥ 56 px high (white over the bright Harran fields fails below that) |
+| One colour / print | `currentColor` | `currentColor` | `tone="mono"` |
 
-- Type: **Bricolage Grotesque** (display: titles and the verdict), **Hanken Grotesk** (UI, body and
-  every number, with tabular figures). The logo uses its own lettering, so it needs no font.
-- The OG image's product line is set in Segoe UI. Hanken is only available to the app through
-  `next/font` as subsetted woff2, which the raster pipeline cannot read. Swap it if a Hanken TTF is
-  added to the repo.
-- Spacing: a 4 px base (Tailwind scale). Radius: cards 12 to 16 px, controls 8 to 10 px,
-  pills only for small controls, icon tiles 3.5 px at 16 px and 7 px at 32 px.
+The signal colour in the mark is identity, not an "action" accent. The board's one-accent rule
+still applies to UI content: do not repeat the lime on other decoration next to the logo.
 
-## 5. Illustration style rules
-- **Crops:** `viewBox 0 0 64 64`. Every crop stands on the same soil strip
-  (`x 8–56, y 55–59, r 2`, `#9a6337`). The only exception is sugar beet, which uses a soil
-  cut-away so the root is visible.
-- **Spots:** `viewBox 0 0 240 160`, all built on one isometric parcel grid (u = (30,12),
-  v = (−30,12), parcels inset to 84 %), with a soft ground shadow.
-- **Flat fills only:** no gradients, no outlines except a `#cdbfa5` 0.8 edge on cream/white parts
-  (cotton lint, beet root, beans, envelope) so they hold on the light ground.
-- **Shared tones:** stem `#3e7b34`, leaf `#4a963a`, light leaf `#86c25a`, soil `#9a6337` / `#6f4524`,
-  cream `#f3eee3`. Each crop adds one hue of its own: wheat gold `#e2ae48`/`#c48e2c`, barley straw
-  `#cfb460`, chickpea pod `#c9c27a`, lentil seed `#d75f3b`, maize `#f0bf2e`, sunflower `#f4c430` with
-  a `#6b3f1d` disc, bean pod `#cfa96a`, alfalfa `#8b6cc9`, vetch `#a66bc0`, cotton bract `#7a5233`.
-- **Line hierarchy:** main stems 2 (maize 2.4, sunflower 2.6), side stems 1.6, leaf rachis 1.2,
-  tendrils 1, awns 0.8. Round caps and joins.
-- **Botanical cues, so a farmer can tell them apart:** wheat has upright, broad, two-tone kernel
-  ears with only tip awns. Barley has slim, nodding ears with long awns. Chickpea has round pinnate
-  leaflets, puffy inflated beaked pods and beaked seeds. Lentil has narrow leaflets with tendril
-  tips, small flat pods and red split seeds. Sugar beet has a white conical root with growth rings
-  under a rosette. Maize has a tassel, strap leaves, and a husked cob with kernels and silk.
-  Sunflower has a ray-petal head and heart leaves. Dry bean has pointed trifoliate leaves, tan dry
-  pods and white kidney beans. Alfalfa has small trifoliates and dense purple racemes. Hungarian
-  vetch has twining stems, curling tendrils and pea-shaped violet flowers. Cotton has a woody stem,
-  open white bolls on brown bracts and a palmate leaf. Fallow is a bare ridged field with no plant.
-- **Legibility:** checked at 28, 40, 64, 96, 128 and 150 px on both grounds. The legumes
-  (chickpea, lentil, bean) are the closest trio at 28 px, so always show the crop name next to the art.
-- **Honesty:** these are illustrations. They identify a crop, but they never stand in for a photo,
-  a satellite image or a data value.
+## 4. Usage rules
+- Use `<Logo tone="auto">` in the app, `tone="light"` on imagery plates, `tone="dark"` on light
+  print, and `tone="mono"` where the colour comes from the context.
+- Keep the mark one flat colour. Do not recolour the bands separately, add gradients, outlines,
+  shadows or glow, rotate, mirror or stretch it, or remove the shift.
+- Do not set "AgroShift" in another font as the logo. Do not rebuild the lockup spacing by hand.
+- Do not place the mark next to the NASA insignia or imply endorsement.
 
-## 6. Do / don't
-- Do use `<Logo tone="auto">` in the app, `tone="light"` over the Landsat panel and `tone="dark"` on paper prints.
-- Do keep the mark in one flat colour. Do keep the clear space.
-- Don't put the sprout `#c8f25a` mark on a light ground. Use `#456100` there.
-- Don't recolour the three bands separately, add gradients, shadows or outlines, rotate or
-  mirror the mark (mirroring turns the S into a Z), or stretch it.
-- Don't set "agroshift" in another font as the logo. Use the drawn wordmark. In running text, the
-  product name stays "AgroShift".
-- Don't place the mark next to the NASA insignia or imply endorsement.
+## 5. Crop glyphs (replace clip-art in the data UI)
 
-## 7. Asset inventory
+`<CropGlyph crop size title? className? strokeWidth? />`: inline SVG, `currentColor`.
 
-| File | Size | Made |
+**Grid rules:**
+- 24-unit grid, live area 2..22
+- one stroke weight 1.75 units (1.17 px at 16, 1.75 px at 24), round caps and joins
+- no fills except tiny round-cap dots
+- one identifying feature per crop
+
+| Crop | Feature kept |
+|---|---|
+| wheat | plump awnless ear with two kernel chevrons, blade leaf |
+| barley | slim ear with three long fanning awns |
+| chickpea | one inflated oval pod with a hooked beak, and a pinnate frond on the stalk |
+| lentil | two flat lens pods on a forked stalk |
+| dry bean | one long diagonal pod with three seed bulges and a hooked tip |
+| vetch | twining stem, curling tendril, pea flower |
+| sugar beet | conical root under a crown of three stalks |
+| maize | cob with a row line, held by two husk leaves |
+| sunflower | seed disc inside a 9-point ring of ray florets |
+| cotton | three lint locks sitting in a bract cup, on a stalk |
+| alfalfa | trifoliate leaf, and a raceme of three florets |
+| fallow | bare furrows running to a horizon (it echoes the mark) |
+
+**Legibility test.** All 12 glyphs were rendered at 16, 20, 24 and 48 px, on dark and white, in
+pure monochrome, plus a ×5 nearest-neighbour zoom of the 16 px row. Sheet:
+`public/brand/exploration/crop-glyphs-legibility.png`.
+
+Fixes made after reading the sheets:
+
+| Glyph | First draft read as | Fix |
 |---|---|---|
-| `public/brand/mark.svg` (sprout), `mark-deep.svg` (`#456100`), `mark-mono.svg` (`currentColor`) | ~0.3 KB each | hand-constructed |
-| `public/brand/wordmark.svg` (`currentColor`) | 0.7 KB | hand-constructed lettering |
-| `public/brand/lockup-horizontal.svg` / `-on-dark.svg` / `-on-light.svg` | ~1 KB | generated from the same paths |
-| `public/brand/lockup-stacked.svg` / `-on-dark.svg` / `-on-light.svg` | ~1 KB | as above |
-| `src/app/icon.svg` | 0.3 KB | mark, `#456100` by default, sprout under `prefers-color-scheme: dark` |
-| `src/app/favicon.ico` (16 hinted tile, 32 tile, 48 tile) | 1.8 KB | rasterised with sharp, PNG-in-ICO written by script |
-| `src/app/apple-icon.png` 180×180 | 2.4 KB | sprout mark on `#0d1310`, 30 px inset |
-| `src/app/opengraph-image.png` 1200×630 + `.alt.txt` | 309 KB | sharp composite: lockup, product line, Harran Landsat 7 scene (public domain, USDA FAS / NASA Earth Observatory, see `public/images/CREDITS.md`), visible credit |
-| `public/illustrations/crops/<cropId>.svg` × 12 | 0.3–3.9 KB (≤ 4 KB) | hand-authored |
-| `public/illustrations/spots/{no-field,loading-data,no-alerts,email-sent}.svg` | 0.9–1.5 KB | hand-authored |
-| `src/lib/ui/brand.ts` | | paths, viewBoxes, lockup geometry, colours, minimum sizes |
-| `src/components/brand/Logo.tsx`, `CropArt.tsx`, `SpotArt.tsx` | | components |
+| chickpea | the ♂ / Taurus sign (circle plus diagonal stalk) | pod became a tilted oval with a curled beak; the frond moved to a vertical stalk |
+| dry bean | a crescent moon (it also collided with the UI `moon` icon) | became a straight bulging pod |
+| cotton | a hail cloud, then a crosshair | became locks in a bract cup |
+| maize | a microphone (capsule on a U stand) | husk became two leaves hugging the cob |
 
-## 8. How each asset was made
-- Every SVG was written by hand as code, using small Node generators (the geometry is in
-  `brand.ts`, and the illustration helpers place kernels, leaflets and petals). Every file was
-  rasterised with `sharp` and reviewed visually before it was kept.
-- No generative tool produced any final or intermediate asset. Figma was planned for the UI kit
-  and as a source of generated candidates, but the Figma connector returned server errors
-  for the whole session, so nothing came from it. Canva image generation was not used.
-- Stock sources: Pinterest pins are not licensed for reuse (inspiration only, nothing taken).
-  Freepik needs an account and attribution and blocks scripts, so nothing was taken from it.
-- The only third-party pixels are in the OG image: the Harran Plain Landsat 7 scene, a public-domain
-  US government work, credited on the image itself.
+The legume trio is now separated by silhouette: one round pod, two small lenses, one long pod.
 
-## 9. Licence
-The logo, wordmark, lettering and illustrations are original work made for AgroShift (NASA Space
-Apps Challenge 2026, "Field Shift"), owned by the AgroShift team. Using NASA data and imagery does
-not imply NASA endorsement.
+**Hardest pairs still standing:**
+- **wheat vs maize** at 16 px: both are a vertical ear on a stem. The difference is one leaf against two husk leaves.
+- **cotton** at 16 px reduces to a round outline on a stalk. It is still unique in the set, but it is the least self-explanatory.
+- **alfalfa** at 16 px reads as "small plant + dotted stick".
+
+**Rule:** below 20 px, always show the crop name next to the glyph.
+
+`CropArt` (same props as v1) now draws the glyph, so existing screens pick up the new language
+without changes. The v1 illustrations are retired. `public/illustrations/crops/<id>.svg` now holds
+the monoline glyphs (`currentColor`) for docs and print.
+
+## 6. Crop-family textures (timeline bands, map fills)
+
+One pattern per family. Tiles are in CSS px (`patternUnits="userSpaceOnUse"`), so the density is
+the same in an 8 px band and on a map polygon.
+
+**How the marks are drawn on the base colour:**
+- **Dark theme:** marks in ground `#0b0e0c` at 45 % on the family colour.
+- **Light theme:** marks in white at 55 % on the family colour.
+- **Fallow:** a faint base (16 % / 12 %) with a hatch in the neutral colour, so it reads as bare.
+
+Colours are from `docs/board/map-and-dataviz.md` §5.1.
+
+| Family | Crops | Pattern | Tile | Dark | Light |
+|---|---|---|---|---|---|
+| cereal | wheat, barley, maize | fine `/` diagonal | 4×4 | `#D9B44A` | `#8F6B00` |
+| legume | chickpea, lentil, dry bean | staggered dots | 5×5 | `#CC79A7` | `#9E3F78` |
+| root | sugar beet | horizontal lines | 4×4 | `#9D8DF1` | `#5645C4` |
+| oilseed | sunflower | diagonal crosshatch | 5×5 | `#A8C93A` | `#5A7A00` |
+| fibre | cotton | vertical lines | 3×3 | `#8BB1C6` | `#3B6A85` |
+| forage | alfalfa, vetch | zigzag | 6×5 | `#8FC79A` | `#2F6E3E` |
+| fallow | fallow | wide `\` hatch, bare base | 6×6 | `#8A9690` | `#6B756F` |
+
+**Deviations from the board, flagged:**
+- The board has no **forage** colour. The sage pair above is a brand addition. It sits near the
+  `crop` and "good" greens, so run the colour-vision validator before merge. The texture is the
+  real safety net.
+- **Vetch** moved from legume to forage because its role in the product is "yem/örtü" (feed/cover).
+
+**Checked:** 8 px and 16 px bands and a map polygon, on dark and light, and the same sheet in
+greyscale (`public/brand/exploration/crop-textures*.png`). In greyscale every family is distinct by
+pattern. At 8 px the hardest group is legume / oilseed / forage, which all become fine "noise",
+so the crop name or glyph must ride with the band.
+
+**API:** `cropTexture.ts` exports:
+- `TEXTURE_FAMILIES`, `TEXTURE_FAMILY_ORDER`, `CROP_TEXTURE_FAMILY`, `cropFamily()`
+- `texturePatternId()`, `textureFill()`, `cropTextureFill()` (SVG, needs `<CropPatternDefs />` once per page)
+- `textureTileSvg()`, `textureDataUri()`, `textureStyle()`, `cropTextureStyle()` (HTML/CSS backgrounds)
+- `textureEdge()`
+
+Static tiles are in `public/illustrations/textures/<family>-<theme>.svg`.
+
+## 7. Spot illustrations
+
+All spots are 240×160, monoline 2 units in `currentColor`, with secondary lines at 40 % opacity.
+They are drawn top-down in the same parcel language as the mark. `<SpotArt name width title?
+className />` renders them inline, so they take the text colour (e.g. `text-ink-2`).
+
+| Spot | What it shows |
+|---|---|
+| `no-field` (restyled) | dashed empty parcel and pin |
+| `loading-data` (restyled) | satellite on a dashed orbit, scanning a field |
+| `no-alerts` (restyled) | furrowed parcel and a check |
+| `email-sent` (restyled) | envelope and a dashed path |
+| `draw-field` (new) | polygon with vertex handles, one vertex being moved (ghost edges dashed), no hand |
+| `data-cells` (new) | field inside nested satellite pixels: coarse cell, medium grid, fine grid |
+| `offline` (new) | signal arcs, outer two dashed, and a cross |
+| `print-share` (new) | A4 sheet with a numeral block and a textured ribbon, plus a share graph |
+
+Sheet: `public/brand/exploration/spots.png`. Static copies with a fixed ink `#7d897f` are in
+`public/illustrations/spots/`.
+
+## 8. App icons and Open Graph
+- `src/app/icon.svg`: the master mark, `#3d5a00` by default and `#d4ff3a` under `prefers-color-scheme: dark`.
+- `src/app/favicon.ico` has three frames:
+  - 16: the hinted 14-grid mark on a `#0b0e0c` tile with r3
+  - 32 and 48: the master mark on the tile
+- `src/app/apple-icon.png`: 180×180, signal mark on `#0b0e0c`, 32 px inset.
+- `src/app/opengraph-image.png`: 1200×630.
+  - The Harran Landsat 7 scene is the full canvas. The left 600 px carry the solid ground plate
+    (86 %) with the lockup and the product line "Üç yıllık ekim nöbetini su, toprak ve riskle
+    tart.", plus one supporting line.
+  - The right side shows the scene with Ortho Console corner ticks and a mono sensor caption.
+  - The credit is visible in two lines.
+  - The OG text is set in Segoe UI / Consolas, because the raster pipeline cannot read the app's
+    `next/font` subsets. Swap in Instrument Sans / Geist Mono TTFs if they are added to the repo.
+
+## 9. Inventory
+
+| File | Size | Notes |
+|---|---|---|
+| `public/brand/mark.svg`, `mark-on-dark.svg` | 0.4 KB | signal `#d4ff3a` |
+| `public/brand/mark-on-light.svg`, `mark-deep.svg` | 0.4 KB | `#3d5a00` (`mark-deep` kept for v1 links) |
+| `public/brand/mark-mono.svg` | 0.4 KB | `currentColor` |
+| `public/brand/mark-16.svg` | 0.3 KB | hinted 16-grid, `currentColor` |
+| `public/brand/wordmark.svg` | 1.1 KB | `currentColor` |
+| `public/brand/lockup-horizontal{,-on-dark,-on-light}.svg` | 1.4 KB each | |
+| `public/brand/lockup-stacked{,-on-dark,-on-light}.svg` | 1.4 KB each | |
+| `public/brand/exploration/*.png` | 15–304 KB | logo candidates, glyph legibility, textures (colour + greyscale), spots |
+| `public/illustrations/crops/<id>.svg` × 12 | 0.25–0.55 KB | monoline glyphs |
+| `public/illustrations/spots/*.svg` × 8 | 0.4–0.9 KB | |
+| `public/illustrations/textures/<family>-<theme>.svg` × 14 | ~0.25 KB | pattern tiles |
+| `src/app/icon.svg` | 0.4 KB | |
+| `src/app/favicon.ico` | 2.6 KB | |
+| `src/app/apple-icon.png` | 4.0 KB | |
+| `src/app/opengraph-image.png` (+ `.alt.txt`) | 511 KB | palette PNG |
+| `src/lib/ui/brand.ts` | | mark, hinted marks, wordmark paths, lockups, colours, minimum sizes, clear space |
+| `src/components/brand/Logo.tsx` | | `Logo` |
+| `src/components/brand/CropGlyph.tsx`, `cropGlyphs.ts` | | `CropGlyph`, `CROP_GLYPHS` |
+| `src/components/brand/CropArt.tsx` | | `CropArt`, kept for compatibility |
+| `src/components/brand/cropTexture.ts`, `CropPatternDefs.tsx` | | textures |
+| `src/components/brand/SpotArt.tsx`, `spots.ts` | | `SpotArt`, `SPOT_MARKUP`, `SPOT_TITLES` |
+
+## 10. Provenance
+- **Hand-authored geometry.** Every mark, letter, glyph, texture and spot is geometry written by
+  hand as code. Small Node scripts were used for the construction:
+  - circle–polygon clipping with exact arcs for the mark
+  - centreline lettering for the word
+  - lens and lobe helpers for the glyphs
+
+  They were scratch tooling and are not part of the repo. The resulting values live in
+  `brand.ts`, `cropGlyphs.ts`, `cropTexture.ts` and `spots.ts`, and in §2.
+- **No generated or stock imagery.** No image generator, stock source, icon library or font
+  outline was used for any final or intermediate asset.
+- **The only third-party pixels.** These are in the OG image: the Harran Plain Landsat 7 scene
+  (24 Aug 2002, USDA FAS / NASA Earth Observatory, public domain; see `public/images/CREDITS.md`).
+  It is credited on the image.
+
+## 11. Not checked
+- **No trademark clearance.** No clearance search was done in any register (TÜRKPATENT, EUIPO,
+  USPTO, WIPO). The "compared against" list in §1 is from memory only. Run a proper search before
+  any commercial use or registration.
+- **Colour-vision simulation.** No colour-vision simulation was run on the texture palette
+  (same caveat as the board's §5.1).
+- **Real devices.** The wordmark was not tested on real devices below 20 px.
+
+## 12. Licence
+The logo, wordmark, glyphs, textures and spot illustrations are original work made for AgroShift
+(NASA Space Apps Challenge 2026, "Field Shift") and are owned by the AgroShift team. Using NASA data
+and imagery does not imply NASA endorsement.

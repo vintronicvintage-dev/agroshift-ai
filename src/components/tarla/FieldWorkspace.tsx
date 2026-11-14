@@ -54,6 +54,7 @@ import {
 } from "./DashboardCharts";
 import { EvidenceFoundations } from "./EvidenceFoundations";
 import { CropRequirementsMatrix } from "./CropRequirementsMatrix";
+import { FieldShiftComparison } from "./FieldShiftComparison";
 import { TermTooltip } from "@/components/ui/TermTooltip";
 import type { ParcelBiophysicalInput } from "@/lib/crops/cropRequirements";
 
@@ -82,7 +83,6 @@ export function FieldWorkspace() {
   const [layersOpen, setLayersOpen] = useState(false);
   const [nasaPanelOpen, setNasaPanelOpen] = useState(true);
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [heroCollapsed, setHeroCollapsed] = useState(false);
   const [selectedAltIdx, setSelectedAltIdx] = useState<0 | 1 | 2>(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tileErr, setTileErr] = useState<string | null>(null);
@@ -453,30 +453,30 @@ export function FieldWorkspace() {
       rows: [
         {
           id: "dry",
-          labelTr: "Kuraklık (-%20 yağış / P10)",
-          labelEn: "Drought (-20% rain / P10)",
+          labelTr: "Kuraklık Senaryosu (günlük yağış ×0,75 / −%25)",
+          labelEn: "Drought Scenario (daily rain ×0.75 / −25%)",
           icon: "sun" as IconName,
           tone: "text-[#d97706]",
           yieldDeltaPct: dryYieldPct,
           marginDeltaPct: dryMarginPct,
           total3YrTL: total3Yr(dryMarginPerDa),
-          apply: () => setStore({ scenario: { preset: "dry", rainMultiplier: 0.8, tempDeltaC: 0, priceMultiplier: 1 } }),
+          apply: () => setStore({ scenario: { preset: "dry", rainMultiplier: 0.75, tempDeltaC: 0, priceMultiplier: 1 } }),
         },
         {
           id: "hot_dry",
-          labelTr: "Sıcaklık Artışı (+2 °C & Kurak)",
-          labelEn: "Warming (+2 °C & Dry)",
+          labelTr: "Sıcak ve Kurak (+2 °C & günlük yağış ×0,75)",
+          labelEn: "Hot & Dry (+2 °C & daily rain ×0.75)",
           icon: "thermo" as IconName,
           tone: "text-bad",
           yieldDeltaPct: hotYieldPct,
           marginDeltaPct: hotMarginPct,
           total3YrTL: total3Yr(hotDryMarginPerDa),
-          apply: () => setStore({ scenario: { preset: "hot_dry", rainMultiplier: 0.85, tempDeltaC: 2, priceMultiplier: 1 } }),
+          apply: () => setStore({ scenario: { preset: "hot_dry", rainMultiplier: 0.75, tempDeltaC: 2, priceMultiplier: 1 } }),
         },
         {
           id: "wet",
-          labelTr: "Elverişli Yağışlı Yıllar (P90)",
-          labelEn: "Favorable Wet Years (P90)",
+          labelTr: "Elverişli Yağışlı Yıllar (P90 senaryo çıktısı)",
+          labelEn: "Favorable Wet Years (P90 scenario output)",
           icon: "rain" as IconName,
           tone: "text-water",
           yieldDeltaPct: wetYieldPct,
@@ -486,8 +486,8 @@ export function FieldWorkspace() {
         },
         {
           id: "price",
-          labelTr: "Piyasa Fiyatı Düşüşü (-%20)",
-          labelEn: "Market Price Drop (-20%)",
+          labelTr: "Piyasa Fiyatı Düşüşü (−%20 senaryo çıktısı)",
+          labelEn: "Market Price Drop (−20% scenario output)",
           icon: "chart" as IconName,
           tone: "text-ink-2",
           yieldDeltaPct: 0,
@@ -539,17 +539,6 @@ export function FieldWorkspace() {
   // Ground resolution at current map zoom
   const currentZoom = view?.zoom ?? 15;
   const currentMpp = metersPerPixel(view?.center.lat ?? centroid?.lat ?? 38.5, currentZoom);
-
-  // Trend KPI calculation from real NASA POWER 24-year series
-  const precipTrend = climateSum?.trends.find((tr) => tr.variable === "precip") ?? null;
-  const currentYaYmPct = useMemo(() => {
-    if (!currentPlan) return null;
-    const yrs = currentPlan.years.filter((y) => y.cropId !== "fallow" && y.yieldRatio);
-    if (!yrs.length) return null;
-    return Math.round((yrs.reduce((a, y) => a + (y.yieldRatio?.p50 ?? 0), 0) / yrs.length) * 100);
-  }, [currentPlan]);
-
-  const currentCrop1 = store.inputs.rotation[0];
 
   const masterProvince = useMemo(
     () => matchMasterProvince(centroid?.lat ?? 37.5677, centroid?.lon ?? 32.7804),
@@ -623,442 +612,30 @@ export function FieldWorkspace() {
 
   return (
     <div id="kontrol-paneli" className="mx-auto max-w-[1640px] space-y-5 px-3 py-4 sm:px-6 sm:py-5">
-      {/* ── Collapsible Hero Banner matching top-left of reference mockup ── */}
-      {!heroCollapsed ? (
-        <section
-          aria-label={lang === "tr" ? "Platform Tanıtımı" : "Platform Overview"}
-          className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#12351b] text-white shadow-xl"
-        >
-          <Image
-            src={IMAGES.harranPlain.src}
-            alt={L(IMAGES.harranPlain.alt)}
-            fill
-            sizes="100vw"
-            placeholder="blur"
-            blurDataURL={IMAGES.harranPlain.blurDataURL}
-            className="object-cover object-[50%_55%] opacity-40"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(105deg, rgba(14, 43, 22, 0.95) 0%, rgba(20, 58, 30, 0.84) 55%, rgba(16, 45, 24, 0.72) 100%)",
-            }}
-          />
-
-          <div className="relative z-10 flex flex-col justify-between gap-6 p-5 sm:p-7 lg:flex-row lg:items-center">
-            <div className="max-w-2xl space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[12px] font-medium text-[#bbf7d0] backdrop-blur-sm">
-                <Icon name="satellite" size={15} />
-                <span>NASA POWER · MODIS 250m · SMAP L4 · SoilGrids · FAO-56</span>
-              </div>
-              <h2 className="display text-[26px] text-white sm:text-[34px] lg:text-[38px]">
-                {lang === "tr"
-                  ? "Tarıma Bilimsel Modeller ve Uydu Verileriyle Yön Verin"
-                  : "Guide Your Farm with NASA Satellite Data & Scientific Models"}
-              </h2>
-              <p className="text-[14.5px] leading-relaxed text-[#d5e8d8] sm:text-[15.5px]">
-                {lang === "tr"
-                  ? "NASA uydu gözlemleri, 24 yıllık iklim serileri ve FAO-56 günlük su dengesi modeli ile arazinize özel 3 yıllık ürün rotasyonu, verim, kârlılık ve iklim riski stratejileri oluşturun."
-                  : "Build parcel-specific 3-year crop rotations, yield, profitability, and climate risk strategies powered by 24-year NASA satellite records and FAO-56 daily water balance."}
-              </p>
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <a
-                  href="#harita-bolumu"
-                  onClick={() => setMode("polygon")}
-                  className="btn bg-[#2e7d32] border-[#4ade80]/40 text-white hover:bg-[#256628] px-5"
-                >
-                  <span>{lang === "tr" ? "Hemen Başla (Tarla Çiz)" : "Start Now (Draw Parcel)"}</span>
-                  <Icon name="arrow" size={17} />
-                </a>
-                <Link
-                  href="/yontem"
-                  className="btn border-white/30 bg-white/15 text-white hover:bg-white/25 backdrop-blur-sm"
-                >
-                  <Icon name="methods" size={17} />
-                  <span>{lang === "tr" ? "Nasıl Çalışır?" : "How It Works"}</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setHeroCollapsed(true)}
-                  className="btn btn-quiet text-white/80 hover:bg-white/10 hover:text-white text-[13px]"
-                >
-                  {lang === "tr" ? "Tanıtımı Gizle" : "Hide Banner"}
-                </button>
-              </div>
-            </div>
-
-            {/* NASA Telemetry Emblem Card */}
-            <div className="hidden shrink-0 flex-col items-center justify-center rounded-2xl border border-white/20 bg-[#0d2614]/80 p-5 text-center backdrop-blur-md lg:flex lg:w-[230px]">
-              <div className="flex size-16 items-center justify-center rounded-full border-2 border-[#60a5fa]/60 bg-[#1e3a8a]/50 text-[#93c5fd] shadow-inner">
-                <Icon name="satellite" size={32} />
-              </div>
-              <p className="mt-3 font-display text-[17px] font-semibold text-white">NASA & Copernicus</p>
-              <p className="mt-0.5 text-[12px] text-[#86efac]">
-                {lang === "tr" ? "Canlı Uydu ve Toprak Verisi" : "Live Satellite & Soil Telemetry"}
-              </p>
-              <p className="mt-2 font-mono text-[11px] text-[#b8d4be]">
-                {lang === "tr" ? "81 İl · Maks. Zoom z20 (~0,3m)" : "81 Provinces · Max Zoom z20 (~0.3m)"}
-              </p>
-            </div>
-          </div>
-
-          {/* 5 Capability Pillars Strip matching bottom of hero mockup */}
-          <div className="relative z-10 grid grid-cols-2 gap-2 border-t border-white/15 bg-[#0b2111]/85 px-4 py-3 sm:grid-cols-5 sm:px-7">
-            {[
-              { icon: "satellite" as IconName, tr: "NASA Uydu Verileri", en: "NASA Satellite Data", sub: "POWER · SMAP · MODIS" },
-              { icon: "sprout" as IconName, tr: "Akıllı Ürün Önerileri", en: "Smart Crop Ranking", sub: "18 Mahsul · FAO-56" },
-              { icon: "plan" as IconName, tr: "3 Yıllık Rotasyon", en: "3-Year Rotation", sub: "TOPSIS Optimizasyon" },
-              { icon: "chart" as IconName, tr: "Verim & Kârlılık Analizi", en: "Yield & Margin Analysis", sub: "P10 · P50 · P90" },
-              { icon: "shield" as IconName, tr: "Risk Simülasyonları", en: "Risk Simulations", sub: "Kuraklık & Sıcaklık" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-2.5 rounded-xl px-2 py-1">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#2e7d32]/50 text-[#86efac]">
-                  <Icon name={item.icon} size={17} />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[12.5px] font-semibold text-white">{lang === "tr" ? item.tr : item.en}</p>
-                  <p className="truncate font-mono text-[10.5px] text-[#a7c7ad]">{item.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2 text-[13px] text-ink-2">
-          <span className="flex items-center gap-2">
-            <Icon name="satellite" size={16} className="text-accent-ink" />
-            <span>
-              {lang === "tr"
-                ? "NASA Uydu Verileri, FAO-56 Su Dengesi ve TOPSIS Karar Motoru aktif."
-                : "NASA Satellite Telemetry, FAO-56 Water Balance & TOPSIS Decision Engine active."}
-            </span>
-          </span>
-          <button type="button" className="font-semibold text-accent-ink hover:underline" onClick={() => setHeroCollapsed(false)}>
-            {lang === "tr" ? "Tanıtımı Göster" : "Show Overview"}
-          </button>
-        </div>
-      )}
-
-      {/* ── 3-STEP GUIDED WORKFLOW STRIP (Kullanımı Basitleştir + NASA Visuals) ── */}
-      <section
-        aria-label={lang === "tr" ? "3 Adımda Hızlı Kullanım Rehberi" : "3-Step Quick Start Workflow"}
-        className="grid grid-cols-1 gap-3.5 md:grid-cols-3"
-      >
-        {/* Step 1 */}
-        <div className="bento-card flex items-center gap-3.5 p-3.5">
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
-            <Image
-              src={IMAGES.gsField.src}
-              alt={L(IMAGES.gsField.alt)}
-              fill
-              sizes="56px"
-              placeholder="blur"
-              blurDataURL={IMAGES.gsField.blurDataURL}
-              className="object-cover"
-            />
-            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#1e6b34] text-[11px] text-white shadow">
-              1
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-[14.5px] font-semibold text-ink">
-              {lang === "tr" ? "1. Arazini Seç veya Çiz" : "1. Select or Draw Your Parcel"}
-            </p>
-            <p className="mt-0.5 text-[11.5px] text-ink-2">
-              {lang === "tr"
-                ? "81 ilde köy/ova arayın, örnek havza seçin veya haritada sınır çizin."
-                : "Search across 81 provinces, pick a pilot basin, or draw your boundary."}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <a
-                href="#harita-bolumu"
-                onClick={() => setMode("polygon")}
-                className="rounded-md bg-[#e6f4ea] px-2 py-0.5 text-[11px] font-semibold text-[#1e6b34] hover:bg-[#bbf7d0]"
-              >
-                {lang === "tr" ? "Poligon Çiz" : "Draw Polygon"}
-              </a>
-              <button
-                type="button"
-                onClick={() => setCoordOpen(true)}
-                className="rounded-md border border-line bg-bg px-2 py-0.5 text-[11px] font-medium text-ink-2 hover:text-ink"
-              >
-                {lang === "tr" ? "Koordinat Gir" : "Enter Coords"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 2 */}
-        <div className="bento-card flex items-center gap-3.5 p-3.5">
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
-            <Image
-              src={IMAGES.gsWater.src}
-              alt={L(IMAGES.gsWater.alt)}
-              fill
-              sizes="56px"
-              placeholder="blur"
-              blurDataURL={IMAGES.gsWater.blurDataURL}
-              className="object-cover"
-            />
-            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#0277bd] text-[11px] text-white shadow">
-              2
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-[14.5px] font-semibold text-ink">
-              {lang === "tr" ? "2. Su ve Mevcut Ürününü Belirle" : "2. Set Water & Current Crop"}
-            </p>
-            <p className="mt-0.5 text-[11.5px] text-ink-2">
-              {lang === "tr"
-                ? "Aşağıdaki kartlardan mevcut ürününüzü ve sulama bütçenizi (mm) seçin."
-                : "Choose your current crop and irrigation budget (mm) in the cards below."}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setInputs({ rainfed: true })}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                  store.inputs.rainfed ? "bg-[#fef3c7] text-[#b45309]" : "border border-line bg-bg text-ink-2"
-                }`}
-              >
-                {lang === "tr" ? "Kuru Tarım (0 mm)" : "Rainfed (0 mm)"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputs({ rainfed: false, budget: 250, method: "sprinkler" })}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                  !store.inputs.rainfed && store.inputs.budget === 250 ? "bg-[#e0f2fe] text-[#0277bd]" : "border border-line bg-bg text-ink-2"
-                }`}
-              >
-                {lang === "tr" ? "Kısıtlı Su (250 mm)" : "Limited (250 mm)"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputs({ rainfed: false, budget: 450, method: "drip" })}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                  !store.inputs.rainfed && store.inputs.budget === 450 ? "bg-[#e0f2fe] text-[#0277bd]" : "border border-line bg-bg text-ink-2"
-                }`}
-              >
-                {lang === "tr" ? "Tam Sulama (450 mm)" : "Full Drip (450 mm)"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 3 */}
-        <div className="bento-card flex items-center gap-3.5 p-3.5">
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-line">
-            <Image
-              src={IMAGES.gsCompare.src}
-              alt={L(IMAGES.gsCompare.alt)}
-              fill
-              sizes="56px"
-              placeholder="blur"
-              blurDataURL={IMAGES.gsCompare.blurDataURL}
-              className="object-cover"
-            />
-            <span className="numeral absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#d97706] text-[11px] text-white shadow">
-              3
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-[14.5px] font-semibold text-ink">
-              {lang === "tr" ? "3. Kârı, Grafikleri ve Kanıtları İncele" : "3. Review Profit, Charts & Evidence"}
-            </p>
-            <p className="mt-0.5 text-[11.5px] text-ink-2">
-              {lang === "tr"
-                ? "3 yıllık rotasyonu, gelir-maliyet tablosunu ve bilimsel formülleri inceleyin."
-                : "Inspect the 3-year rotation, revenue-cost table, and scientific equations."}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <a
-                href="#analiz-grafikler"
-                className="rounded-md bg-[#fef3c7] px-2 py-0.5 text-[11px] font-semibold text-[#b45309] hover:bg-[#fde68a]"
-              >
-                {lang === "tr" ? "Verim & Kâr Tablosu" : "Yield & Profit"}
-              </a>
-              <button
-                type="button"
-                onClick={scrollToEvidence}
-                className="rounded-md bg-[#e6f4ea] px-2 py-0.5 text-[11px] font-semibold text-[#1e6b34] hover:bg-[#bbf7d0]"
-              >
-                {lang === "tr" ? "Hesaplama Kanıtları →" : "Formulas & Evidence →"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── ROW 1: 5 KPI Summary Cards matching top row of Kontrol Paneli ── */}
-      <section aria-label={lang === "tr" ? "Temel Arazi Göstergeleri" : "Key Parcel Indicators"} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
-        {/* KPI 1: Arazi Alanı */}
-        <div className="bento-card flex items-center gap-3.5 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#e6f4ea] text-[#1e6b34]">
-            <Icon name="field" size={24} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-medium text-ink-2">{lang === "tr" ? "Arazi Alanı" : "Parcel Area"}</p>
-            <p className="numeral mt-0.5 truncate text-[22px] text-ink">
-              {n(effectiveAreaDa, effectiveAreaDa < 100 ? 1 : 0)}{" "}
-              <span className="text-[15px] font-semibold">{lang === "tr" ? "dönüm (da)" : "da"}</span>
-            </p>
-            <p className="readout mt-0.5 truncate text-[11.5px]">
-              {n(effectiveAreaDa / 10, 2)} ha · {geo ? `${n(geo.perimeterM, 0)} m çevre` : "Konya"}
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 2: Mevcut Ürün (Interactive selector) */}
-        <div className="bento-card flex items-center gap-3.5 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#e6f4ea] text-[#1e6b34]">
-            <CropArt crop={currentCrop1} size={26} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <label htmlFor="kpi-current-crop" className="block text-[12.5px] font-medium text-ink-2">
-              {lang === "tr" ? "Mevcut Ürün (1. Yıl)" : "Current Crop (Year 1)"}
-            </label>
-            <select
-              id="kpi-current-crop"
-              className="mt-0.5 w-full truncate bg-transparent font-display text-[19px] font-semibold text-ink outline-none cursor-pointer"
-              value={currentCrop1}
-              onChange={(e) => {
-                const nextCrop = e.target.value as CropId;
-                setInputs({ rotation: [nextCrop, store.inputs.rotation[1], store.inputs.rotation[2]] });
-              }}
-            >
-              {Object.values(CROPS).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {L(c.name)}
-                </option>
-              ))}
-            </select>
-            <p className="readout mt-0.5 truncate text-[11.5px]">
-              {store.inputs.rotation.map((cid) => L(CROPS[cid].name)).join(" → ")}
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 3: Su Kaynağı ve Bütçesi (with inline budget slider & method selector) */}
-        <div className="bento-card flex items-center gap-3.5 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[#0277bd]">
-            <Icon name="drop" size={24} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-1">
-              <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-                <span>{lang === "tr" ? "Su Kaynağı" : "Water Supply"}</span>
-                <TermTooltip termId="irrigation_efficiency" />
-              </p>
-              <button
-                type="button"
-                className="text-[11px] font-semibold text-accent-ink hover:underline"
-                onClick={() => setInputs({ rainfed: !store.inputs.rainfed })}
-              >
-                {store.inputs.rainfed
-                  ? lang === "tr" ? "Sulamalıya Geç" : "Switch to Irrigated"
-                  : lang === "tr" ? "Kuru Tarıma Geç" : "Switch to Rainfed"}
-              </button>
-            </div>
-            <p className="mt-0.5 truncate font-display text-[17.5px] font-semibold text-ink">
-              {store.inputs.rainfed ? (
-                <span className="text-[#b76e00]">{lang === "tr" ? "Kuru Tarım (0 mm)" : "Rainfed (0 mm)"}</span>
-              ) : (
-                <span className="text-[#0277bd]">
-                  {n(store.inputs.budget, 0)} mm{" "}
-                  <span className="font-sans text-[12.5px] font-medium text-ink-2">
-                    (%{Math.round(METHOD_EFF[store.inputs.method] * 100)} verim)
-                  </span>
-                </span>
-              )}
-            </p>
-            {!store.inputs.rainfed ? (
-              <div className="mt-1 flex items-center gap-1.5">
-                <input
-                  type="range"
-                  min={50}
-                  max={600}
-                  step={25}
-                  aria-label={lang === "tr" ? "Yıllık sulama suyu bütçesi (mm)" : "Annual irrigation budget (mm)"}
-                  value={store.inputs.budget}
-                  onChange={(e) => setInputs({ budget: Number(e.target.value) })}
-                  className="h-1.5 w-full cursor-pointer accent-[#0284c7]"
-                />
-                <select
-                  aria-label={lang === "tr" ? "Sulama yöntemi" : "Irrigation method"}
-                  value={store.inputs.method}
-                  onChange={(e) => setInputs({ method: e.target.value as typeof store.inputs.method })}
-                  className="rounded border border-line bg-bg px-1 py-0.5 text-[10.5px] font-medium text-ink"
-                >
-                  <option value="drip">{lang === "tr" ? "Damla" : "Drip"}</option>
-                  <option value="sprinkler">{lang === "tr" ? "Yağmurlama" : "Sprinkler"}</option>
-                  <option value="furrow">{lang === "tr" ? "Karık" : "Furrow"}</option>
-                </select>
-              </div>
-            ) : (
-              <p className="readout mt-0.5 truncate text-[11.5px]">
-                {lang === "tr" ? "Sadece doğal yağış (0 m³/da)" : "Rain-only (0 m³/da)"}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* KPI 4: Toprak Tipi */}
-        <div className="bento-card flex items-center gap-3.5 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#fef3c7] text-[#8a521b]">
-            <Icon name="layers" size={24} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-              <span>{lang === "tr" ? "Toprak Tipi (USDA)" : "Soil Texture (USDA)"}</span>
-              <TermTooltip termId="soil_texture" />
-            </p>
-            <p className="mt-0.5 truncate font-display text-[19px] font-semibold capitalize text-ink">
-              {data.soil ? texName(data.soil.textureClass, t) : lang === "tr" ? "Yükleniyor…" : "Loading…"}
-            </p>
-            <p className="readout mt-0.5 truncate text-[11.5px]">
-              {data.soil
-                ? `%${n(data.soil.clay, 0)} kil · %${n(data.soil.sand, 0)} kum${data.soil.ph ? ` · pH ${n(data.soil.ph, 1)}` : ""}`
-                : "ISRIC SoilGrids 250m"}
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 5: Genel Verim & İklim Trendi */}
-        <div className="bento-card flex items-center gap-3.5 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#fee2e2] text-[#c0392b]">
-            <Icon name="evidence" size={24} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-              <span>{lang === "tr" ? "Mevcut Verim & İklim Trendi" : "Yield & Climate Trend"}</span>
-              <TermTooltip termId="et0" />
-            </p>
-            <p className="numeral mt-0.5 truncate text-[20px] text-[#c0392b]">
-              {currentYaYmPct !== null ? (
-                <>
-                  %{currentYaYmPct - 100}{" "}
-                  <span className="font-sans text-[13px] font-medium text-ink-2">
-                    ({lang === "tr" ? `Ya/Ym %${currentYaYmPct}` : `Ya/Ym ${currentYaYmPct}%`})
-                  </span>
-                </>
-              ) : precipTrend ? (
-                <>
-                  {precipTrend.senSlope >= 0 ? "+" : ""}
-                  {n(precipTrend.senSlope * 10, 1)} mm/10yıl
-                </>
-              ) : (
-                "—"
-              )}
-            </p>
-            <p className="readout mt-0.5 truncate text-[11.5px]">
-              {climateSum?.meanAnnualPrecipMm
-                ? `${lang === "tr" ? "Ort. yağış" : "Mean rain"}: ${n(climateSum.meanAnnualPrecipMm, 0)} mm · ET₀: ${n(climateSum.meanAnnualEt0Mm ?? 0, 0)} mm`
-                : "NASA POWER 2001–2024"}
-            </p>
-          </div>
-        </div>
-      </section>
+      {/* ── ROW 1: NASA Space Apps Field Shift — 3-Step Flow (Tarla Seç → Su Koşullarını Belirle → Planları Karşılaştır) ── */}
+      <FieldShiftComparison
+        result={res}
+        running={data.analysis.running}
+        effectiveAreaDa={effectiveAreaDa}
+        soilTextureLabel={
+          data.soil
+            ? texName(data.soil.textureClass, t)
+            : masterProvince.province.toprak_profili_0_30cm_soilgrids.toprak_dokusu_sinifi
+        }
+        provinceName={`${masterProvince.province.kimlik_ve_cografya.il_adi} (${masterProvince.province.kimlik_ve_cografya.tagem_iklim_kodu})`}
+        onDrawPolygon={() => {
+          setMode("polygon");
+          document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onOpenCoords={() => setCoordOpen(true)}
+        onJumpToMap={() => {
+          document.getElementById("harita-bolumu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onJumpToProfitability={() => {
+          document.getElementById("analiz-grafikler")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onJumpToFormulas={scrollToEvidence}
+      />
 
       {/* ── ROW 2: Asymmetric Map (Left ~63%) + Mevcut Durum Özeti (Right ~37%) ── */}
       <section
@@ -1230,7 +807,7 @@ export function FieldWorkspace() {
                           checked={layerState.overlays.includes("smap")}
                           onChange={() => toggleOverlay("smap")}
                         />
-                        <span>{lang === "tr" ? "Toprak Nemi (SMAP)" : "Soil Moisture (SMAP)"}</span>
+                        <span>{lang === "tr" ? "Bölgesel Nem Katmanı (SMAP ~9km)" : "Regional Moisture Layer (SMAP ~9km)"}</span>
                       </span>
                       <TermTooltip termId="smap" variant="dark" />
                     </label>
@@ -1468,7 +1045,7 @@ export function FieldWorkspace() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]">
               {/* 5 Real Telemetry Status Rows */}
               <div className="space-y-2.5">
-                {/* 1. Toprak Sağlığı */}
+                {/* 1. Toprak Sağlığı (Model Göstergesi) */}
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg/70 px-3.5 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#e6f4ea] text-[#1e6b34]">
@@ -1476,15 +1053,15 @@ export function FieldWorkspace() {
                     </span>
                     <div>
                       <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
-                        <span>{lang === "tr" ? "Toprak Sağlığı" : "Soil Health"}</span>
+                        <span>{lang === "tr" ? "Toprak Sağlığı (Model Göstergesi)" : "Soil Health (Model Indicator)"}</span>
                         <TermTooltip termId="soil_health" />
                       </p>
                       <p className="text-[11.5px] text-ink-2">
                         {currentPlan
                           ? currentPlan.soilHealth.score >= 70
-                            ? lang === "tr" ? "İyi - Dengeli" : "Good - Balanced"
-                            : lang === "tr" ? "Orta - İyileştirilebilir" : "Moderate - Improvable"
-                          : "FAO/RUSLE"}
+                            ? lang === "tr" ? "Model göstergesi (0–100): İyi" : "Model indicator (0–100): Good"
+                            : lang === "tr" ? "Model göstergesi (0–100): Orta" : "Model indicator (0–100): Moderate"
+                          : lang === "tr" ? "Model göstergesi (0–100)" : "Model indicator (0–100)"}
                       </p>
                     </div>
                   </div>
@@ -1495,7 +1072,7 @@ export function FieldWorkspace() {
                   </div>
                 </div>
 
-                {/* 2. Toprak Nemi */}
+                {/* 2. Kök Bölgesi Nemi (POWER / MERRA-2 GWETROOT — NOT direct SMAP sensor) */}
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg/70 px-3.5 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#e0f2fe] text-[#0277bd]">
@@ -1503,17 +1080,13 @@ export function FieldWorkspace() {
                     </span>
                     <div>
                       <p className="text-[13px] font-semibold text-ink flex items-center gap-1">
-                        <span>{lang === "tr" ? "Toprak Nemi" : "Root Moisture"}</span>
-                        <TermTooltip termId="smap" />
+                        <span>{lang === "tr" ? "Kök Nemi (POWER / MERRA-2)" : "Root Wetness (POWER / MERRA-2)"}</span>
+                        <TermTooltip termId="nasa_power" />
                       </p>
-                      <p className="text-[11.5px] text-ink-2">
-                        {moist
-                          ? moist.percentile < 0.35
-                            ? lang === "tr" ? "Düşük (Kök bölgesi)" : "Low (Root zone)"
-                            : moist.percentile > 0.7
-                              ? lang === "tr" ? "Yüksek" : "High"
-                              : lang === "tr" ? "Normal seviyede" : "Normal range"
-                          : "MERRA-2 / SMAP"}
+                      <p className="text-[11px] text-ink-2">
+                        {lang === "tr"
+                          ? "GWETROOT yeniden analiz (doğrudan SMAP ölçümü değildir)"
+                          : "GWETROOT reanalysis (not a direct SMAP measurement)"}
                       </p>
                     </div>
                   </div>
@@ -1644,7 +1217,9 @@ export function FieldWorkspace() {
                     {lang === "tr" ? "Veri Kaynakları" : "Active Data Sources"}
                   </p>
                   <p className="mt-1 text-[11.5px] leading-relaxed text-ink-2">
-                    POWER ({lang === "tr" ? "İklim" : "Climate"}), SMAP ({lang === "tr" ? "Toprak Nemi" : "Soil Moisture"}), IMERG ({lang === "tr" ? "Yağış" : "Precipitation"}), MODIS ({lang === "tr" ? "Bitki Örtüsü" : "NDVI"}), SoilGrids 250m
+                    {lang === "tr"
+                      ? "POWER/MERRA-2 (İklim & GWETROOT Kök Nemi), SMAP L4 (~9 km Bölgesel Harita Katmanı), IMERG (Yağış), MODIS (NDVI), SoilGrids 250m"
+                      : "POWER/MERRA-2 (Climate & GWETROOT Root Wetness), SMAP L4 (~9 km Regional Map Layer), IMERG (Precip), MODIS (NDVI), SoilGrids 250m"}
                   </p>
                   <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-[11px]">
                     <span className="font-mono text-ink-2">
@@ -2198,7 +1773,7 @@ export function FieldWorkspace() {
           )}
         </article>
 
-        {/* RIGHT: Açıklanabilir Karar Dayanağı (XAI) */}
+        {/* RIGHT: Bu Plan Neden Öne Çıktı? (1. Sonuç Cümlesi -> 2. Veri Kaynağı -> 3. Varsayım) */}
         <article className="bento-card flex flex-col justify-between p-5">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -2208,11 +1783,13 @@ export function FieldWorkspace() {
                 </span>
                 <div>
                   <h2 className="font-display text-[18px] font-semibold text-ink flex items-center gap-1.5">
-                    <span>{lang === "tr" ? "Açıklanabilir Karar Dayanağı" : "Explainable Decision Rationale"}</span>
+                    <span>{lang === "tr" ? "Bu plan neden öne çıktı?" : "Why did this plan stand out?"}</span>
                     <TermTooltip termId="confidence_grade" />
                   </h2>
                   <p className="text-[12.5px] text-ink-2">
-                    {lang === "tr" ? "Neden bu rotasyon planını öneriyoruz?" : "Why do we recommend this rotation plan?"}
+                    {lang === "tr"
+                      ? "1. Sonuç özeti · 2. Veri kaynağı · 3. Varsayım ve model yöntemi"
+                      : "1. Outcome summary · 2. Data source · 3. Assumption & model method"}
                   </p>
                 </div>
               </div>
@@ -2222,28 +1799,45 @@ export function FieldWorkspace() {
             </div>
 
             {best ? (
-              <ul className="mt-4 space-y-2.5">
-                {[...best.explanation.why, ...best.explanation.benefits, ...best.explanation.evidence]
-                  .slice(0, 4)
-                  .map((item, idx) => (
-                    <li
-                      key={`${item.key}-${idx}`}
-                      className="flex items-start gap-2.5 rounded-xl border border-line bg-bg/70 px-3.5 py-2.5 text-[13px] leading-snug text-ink"
-                    >
-                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white">
-                        <Icon name="check" size={13} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p>{L(item.text)}</p>
-                        {item.sources && item.sources.length > 0 && (
-                          <p className="mt-1 font-mono text-[10.5px] text-ink-2">
-                            {lang === "tr" ? "Dayanak:" : "Source:"} {item.sources.join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-              </ul>
+              <div className="mt-4 space-y-3">
+                {/* 1. Single Sentence Explaining the Outcome First */}
+                <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-3.5 text-[13px] leading-relaxed text-[#14532d]">
+                  <p className="font-mono text-[11px] font-bold uppercase text-[#166534]">
+                    {lang === "tr" ? "1. Sonuç Özeti (Tek Cümle)" : "1. Outcome Summary (Single Sentence)"}
+                  </p>
+                  <p className="mt-1 font-medium">
+                    {best.narrative
+                      ? L(best.narrative.verdict)
+                      : lang === "tr"
+                        ? `Önerilen plan (${best.crops.map((c) => L(CROPS[c].name)).join(" → ")}), seçili su bütçesi altında dekar başına yılda medyan ${n(best.economics.grossMarginTLPerDaPerYr?.p50 ?? 0, 0)} ₺ senaryo çıktısı ve ${n(best.soilHealth.score, 0)}/100 toprak sağlığı model göstergesi üretir.`
+                        : `The recommended plan (${best.crops.map((c) => L(CROPS[c].name)).join(" → ")}) delivers a median scenario output of ${n(best.economics.grossMarginTLPerDaPerYr?.p50 ?? 0, 0)} TL/da/yr and a ${n(best.soilHealth.score, 0)}/100 soil health model indicator under your selected water budget.`}
+                  </p>
+                </div>
+
+                {/* 2. Data Source */}
+                <div className="rounded-xl border border-line bg-bg/70 p-3 text-[12.5px] leading-relaxed text-ink">
+                  <p className="font-mono text-[11px] font-bold uppercase text-[#0277bd]">
+                    {lang === "tr" ? "2. Veri Kaynağı" : "2. Data Source"}
+                  </p>
+                  <p className="mt-1 text-ink-2">
+                    {lang === "tr"
+                      ? "NASA POWER / MERRA-2 günlük meteoroloji serisi (2001–2024: sıcaklık, yağış, radyasyon, rüzgâr ve GWETROOT kök bölgesi nem tahmini — doğrudan SMAP parsel ölçümü değildir), ISRIC SoilGrids 250m (0–200 cm 6 derinlik profili), NASA SRTM 30m DEM, FAO-56 / TAGEM ürün katsayıları (Kc, Ky) ve 2025/2026 TMO–TÜİK referans fiyatları."
+                      : "NASA POWER / MERRA-2 daily meteorology (2001–2024: temperature, rainfall, radiation, wind, and GWETROOT root-zone wetness estimate — not a direct SMAP parcel sensor measurement), ISRIC SoilGrids 250m (0–200 cm 6-depth profile), NASA SRTM 30m DEM, FAO-56 / TAGEM crop coefficients (Kc, Ky), and 2025/2026 TMO–TÜİK reference prices."}
+                  </p>
+                </div>
+
+                {/* 3. Assumption */}
+                <div className="rounded-xl border border-line bg-bg/70 p-3 text-[12.5px] leading-relaxed text-ink">
+                  <p className="font-mono text-[11px] font-bold uppercase text-[#b45309]">
+                    {lang === "tr" ? "3. Varsayım ve Yöntem" : "3. Assumption & Method"}
+                  </p>
+                  <p className="mt-1 text-ink-2">
+                    {lang === "tr"
+                      ? "1,5 m kök kolonunda FAO-56 Penman–Monteith günlük su dengesi ve Saxton–Rawls (2006) pedotransfer denklemleri uygulanır. Kurak senaryoda (prepareClimate) 24 yıllık günlük yağış serisi 0,75 ile çarpılır (−%25 yağış); sıcak-kurak senaryoda buna ek olarak günlük Tmin/Tmax +2 °C artırılıp sabit bağıl nemde ET₀ yeniden hesaplanır. Ekonomik P10–P90 aralıkları 22 dönemin senaryo çıktısıdır; toprak sağlığı puanı (0–100) ise bir model göstergesidir."
+                      : "FAO-56 Penman–Monteith daily water balance and Saxton–Rawls (2006) pedotransfer equations in a 1.5 m root column. Under the drought scenario (prepareClimate), every daily precipitation value is multiplied by 0.75 (−25% rain); under hot-dry, +2 °C is also added to daily Tmin/Tmax and ET₀ is recomputed at constant relative humidity. Economic P10–P90 ranges are scenario outputs across 22 windows; the soil health score (0–100) is a model indicator."}
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="skel mt-4 h-44" />
             )}

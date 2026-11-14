@@ -214,12 +214,14 @@ export function YieldProfitabilityPanel({
             </span>
             <div>
               <h2 className="font-display text-[18px] font-semibold text-ink">
-                {lang === "tr" ? "Verim ve Kârlılık Analizi" : "Yield & Profitability Analysis"}
+                {lang === "tr"
+                  ? "Verim ve Kârlılık Analizi (Senaryo Çıktısı)"
+                  : "Yield & Profitability Analysis (Scenario Output)"}
               </h2>
               <p className="text-[11.5px] text-ink-2">
                 {lang === "tr"
-                  ? `${res.windows.count} yıllık gerçek iklim penceresi (P10–P50–P90) ve 2025/26 TMO/Borsa verileri`
-                  : `${res.windows.count}-window climate replay (P10–P50–P90) & 2025/26 reference prices`}
+                  ? `Ekonomik aralıklar ${res.windows.count} tarihsel dönemin senaryo çıktısıdır (P10–P50–P90) · 2025/26 TMO/Borsa`
+                  : `Economic ranges are scenario outputs across ${res.windows.count} historical windows (P10–P50–P90) · 2025/26 prices`}
               </p>
             </div>
           </div>

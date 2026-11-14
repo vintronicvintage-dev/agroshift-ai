@@ -20,13 +20,13 @@ import { CropArt } from "@/components/brand/CropArt";
 import { SourceVisualCardsGrid, SCIENTIFIC_SOURCE_CARDS } from "@/components/brand/SourceVisualCards";
 import { SpotArt } from "@/components/brand/SpotArt";
 import { Icon } from "@/components/ui/Icons";
-import { TermTooltip } from "@/components/ui/TermTooltip";
+import { FieldShiftComparison, evaluateYearBudgetStatus } from "@/components/tarla/FieldShiftComparison";
 import { Verdict } from "./Verdict";
 import { Timeline, bareLines } from "./Timeline";
 import { Compare, MarkerIcon, WindowStrip } from "./Compare";
 import { Builder } from "./Builder";
 import { Pareto } from "./Pareto";
-import { Conditions, ScenarioControl } from "./Conditions";
+import { Conditions } from "./Conditions";
 import { ShareBar, PrintReport } from "./Share";
 import { allPlans, cropFull, GradeBadge, planLabel, planTitle, Sequence, useL } from "./planKit";
 import { irrigations, outOf } from "./units";
@@ -126,42 +126,18 @@ export function PlanPage() {
   return (
     <div className="mx-auto max-w-[1480px] space-y-5 px-4 py-5 sm:px-6">
       <div className="no-print space-y-5">
-        {/* ── TOP HEADER BANNER: Field Identity, Province Badge & Scenario Control ── */}
-        <header className="bento-card flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[#1e6b34] px-3 py-0.5 font-mono text-[11px] font-bold text-white">
-                Plaka {kc.plaka} · {kc.il_adi} ({kc.tagem_iklim_kodu})
-              </span>
-              <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#1e6b34]">
-                {kc.onemli_tarim_ovalari.slice(0, 2).join(" · ")}
-              </span>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1 rounded-full border border-line bg-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-accent-ink hover:border-accent"
-              >
-                <Icon name="pin" size={13} />
-                <span>{t("pl.changeField")}</span>
-              </Link>
-            </div>
-            <h1 className="mt-2 font-display text-[26px] font-semibold text-ink sm:text-[32px]">
-              {lang === "tr" ? "Üç Yıllık Ürün Seçimi ve Münavebe Stüdyosu" : "3-Year Crop Selection & Rotation Studio"}
-            </h1>
-            <p className="mt-0.5 text-[14px] text-ink-2">
-              {s.field.name} ({n(area, area < 100 ? 1 : 0)} dekar) —{" "}
-              {lang === "tr"
-                ? "İlinize özel hazır münavebe paketlerini seçin, yıllık ürünleri değiştirin ve 36 aylık su/kâr dengesini net olarak karşılaştırın."
-                : "Choose province-specific rotation packages, customize annual crops, and compare 36-month water & margin balance clearly."}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start gap-2 lg:items-end">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-2">
-              {t("sc.label")}
-            </span>
-            <ScenarioControl />
-          </div>
-        </header>
+        {/* ── UNIFIED 3-STEP FIELD SHIFT CONTROLS & COMPARISON AT TOP OF /PLAN ── */}
+        <FieldShiftComparison
+          result={r ?? null}
+          running={d.analysis.running}
+          effectiveAreaDa={area}
+          soilTextureLabel={prov.toprak_profili_0_30cm_soilgrids.toprak_dokusu_sinifi}
+          provinceName={`${kc.il_adi} (${kc.tagem_iklim_kodu})`}
+          onJumpToProfitability={() => {
+            setStudioTab("overview");
+            document.getElementById("planlar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
 
         {(d.analysis.running || !r) && <div className="progress-line" aria-hidden="true" />}
 
@@ -169,99 +145,6 @@ export function PlanPage() {
 
         {r && best && (
           <>
-            {/* ── 4 HIGH-CLARITY KPI COMPARISON CARDS ── */}
-            <section
-              aria-label={lang === "tr" ? "Münavebe Performans Özeti" : "Rotation Performance Summary"}
-              className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4"
-            >
-              {/* KPI 1: Water */}
-              <div className="bento-card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-                    <span>{lang === "tr" ? "Yıllık Sulama İhtiyacı (dn)" : "Annual Net Irrigation"}</span>
-                    <TermTooltip termId="dn" />
-                  </span>
-                  <span className="rounded-lg bg-[#e0f2fe] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#0277bd]">
-                    FAO-56 & TAGEM
-                  </span>
-                </div>
-                <p className="numeral mt-1.5 text-[28px] text-[#0277bd]">
-                  {n(best.water.irrigationNetMmPerYr?.p50 ?? 0, 0)}{" "}
-                  <span className="text-[14px] font-normal text-ink-2">ton/da (mm)</span>
-                </p>
-                <p className="mt-1 font-mono text-[11.5px] text-ink-2">
-                  Mevcut sıranız: {n(r.current.water.irrigationNetMmPerYr?.p50 ?? 0, 0)} ton/da · Brüt dt:{" "}
-                  {n(masterEval.totals.avgAnnualDtMm, 0)} m³/da
-                </p>
-              </div>
-
-              {/* KPI 2: Gross Margin */}
-              <div className="bento-card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-                    <span>{lang === "tr" ? "Yıllık Beklenen Brüt Kâr" : "Expected Annual Margin"}</span>
-                    <TermTooltip termId="gross_margin" />
-                  </span>
-                  <span className="rounded-lg bg-[#dcfce7] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#166534]">
-                    TMO / Borsa 2026
-                  </span>
-                </div>
-                <p className="numeral mt-1.5 text-[28px] text-[#1e6b34]">
-                  +{n(best.economics.grossMarginTLPerDaPerYr?.p50 ?? 0, 0)}{" "}
-                  <span className="text-[14px] font-normal text-ink-2">₺/da/yıl</span>
-                </p>
-                <p className="mt-1 font-mono text-[11.5px] text-ink-2">
-                  Mevcut sıranız: {n(r.current.economics.grossMarginTLPerDaPerYr?.p50 ?? 0, 0)} ₺/da · P10–P90:{" "}
-                  {n(best.economics.grossMarginTLPerDaPerYr?.p10 ?? 0, 0)}–
-                  {n(best.economics.grossMarginTLPerDaPerYr?.p90 ?? 0, 0)} ₺
-                </p>
-              </div>
-
-              {/* KPI 3: Soil & Biological Nitrogen */}
-              <div className="bento-card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-                    <span>{lang === "tr" ? "Toprak Sağlığı & 3Y Azot (ΔN)" : "Soil Health & 3Y Nitrogen"}</span>
-                    <TermTooltip termId="soil_health" />
-                  </span>
-                  <span className="rounded-lg bg-[#fef3c7] px-2 py-0.5 font-mono text-[10.5px] font-bold text-[#92400e]">
-                    RUSLE & Baklagil
-                  </span>
-                </div>
-                <p className="numeral mt-1.5 text-[28px] text-[#1e6b34]">
-                  {n(best.soilHealth.score, 0)}
-                  <span className="text-[15px] font-normal text-ink-2">/100</span>{" "}
-                  <span className="font-mono text-[16px] font-bold text-[#0277bd]">
-                    ({masterEval.totals.netNitrogenKgDa3Yr >= 0 ? "+" : ""}
-                    {n(masterEval.totals.netNitrogenKgDa3Yr, 1)} kg N/da)
-                  </span>
-                </p>
-                <p className="mt-1 font-mono text-[11.5px] text-ink-2">
-                  Mevcut toprak puanı: {n(r.current.soilHealth.score, 0)}/100 · Çıplak gün:{" "}
-                  {n(best.soilHealth.bareDaysPerYear, 0)} gün/yıl
-                </p>
-              </div>
-
-              {/* KPI 4: Climate Reliability */}
-              <div className="bento-card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12.5px] font-medium text-ink-2 flex items-center gap-1">
-                    <span>{lang === "tr" ? "Tarihsel Su Güvenilirliği" : "Historical Water Reliability"}</span>
-                    <TermTooltip termId="confidence_grade" />
-                  </span>
-                  {best.confidence && <GradeBadge grade={best.confidence.grade} />}
-                </div>
-                <p className="numeral mt-1.5 text-[28px] text-ink">
-                  {best.trade?.okWindowsPlan ?? r.windows.count}{" "}
-                  <span className="text-[15px] font-normal text-ink-2">/ {r.windows.count} dönem</span>
-                </p>
-                <p className="mt-1 font-mono text-[11.5px] text-ink-2">
-                  2035 CMIP6 Risk: {prov.projeksiyon_2035_cmip6.ssp245["2035_kuraklik_risk_sinifi"]} (+
-                  {n(prov.projeksiyon_2035_cmip6.ssp245.sicaklik_artisi_C, 1)}°C)
-                </p>
-              </div>
-            </section>
-
             {/* ── STUDIO VIEW SWITCHER TABS (Declutters the page into 3 focused modes) ── */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -316,7 +199,9 @@ export function PlanPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
                       <div>
                         <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#1e6b34]">
-                          {kc.il_adi} İli Ekolojik Münavebe Motoru
+                          {lang === "tr"
+                            ? `${kc.il_adi} İli Ekolojik Münavebe Motoru`
+                            : `${kc.il_adi} Ecological Rotation Engine`}
                         </span>
                         <h2 className="mt-1 font-display text-[20px] font-semibold text-ink">
                           {lang === "tr"
@@ -335,7 +220,7 @@ export function PlanPage() {
                               tillageCode === "aniza_dogrudan_ekim" ? "bg-[#1e6b34] text-white" : "text-ink-2"
                             }`}
                           >
-                            🌱 Anıza Ekim (+25mm)
+                            {lang === "tr" ? "Anıza Ekim (+25mm)" : "No-Till (+25mm)"}
                           </button>
                           <button
                             type="button"
@@ -344,18 +229,18 @@ export function PlanPage() {
                               tillageCode === "geleneksel_surum" ? "bg-[#1e6b34] text-white" : "text-ink-2"
                             }`}
                           >
-                            🚜 Pulluklu Sürüm
+                            {lang === "tr" ? "Pulluklu Sürüm" : "Conventional Till"}
                           </button>
                         </div>
 
                         <div className="inline-flex rounded-xl border border-line bg-bg p-1 text-[11.5px] font-semibold">
                           {(
                             [
-                              { code: "damla", label: "Damla" },
-                              { code: "center_pivot", label: "Pivot" },
-                              { code: "yagmurlama", label: "Yağmurlama" },
-                              { code: "salma", label: "Salma" },
-                              { code: "kuru_tarim", label: "Kuru" },
+                              { code: "damla", labelTr: "Damla", labelEn: "Drip" },
+                              { code: "center_pivot", labelTr: "Pivot", labelEn: "Pivot" },
+                              { code: "yagmurlama", labelTr: "Yağmurlama", labelEn: "Sprinkler" },
+                              { code: "salma", labelTr: "Salma", labelEn: "Furrow" },
+                              { code: "kuru_tarim", labelTr: "Kuru", labelEn: "Rainfed" },
                             ] as const
                           ).map((ir) => (
                             <button
@@ -372,7 +257,7 @@ export function PlanPage() {
                                 activeIrr === ir.code ? "bg-[#0277bd] text-white" : "text-ink-2"
                               }`}
                             >
-                              {ir.label}
+                              {lang === "tr" ? ir.labelTr : ir.labelEn}
                             </button>
                           ))}
                         </div>
@@ -419,7 +304,13 @@ export function PlanPage() {
                                   : "bg-[#1e6b34] text-white hover:bg-[#165227]"
                               }`}
                             >
-                              {isCurrent ? "✓ Seçili Rotasyon" : "Paketi Seç ve Uygula"}
+                              {isCurrent
+                                ? lang === "tr"
+                                  ? "✓ Seçili Rotasyon"
+                                  : "✓ Active Rotation"
+                                : lang === "tr"
+                                  ? "Paketi Seç ve Uygula"
+                                  : "Select & Apply Package"}
                             </button>
                           </div>
                         );
@@ -443,7 +334,7 @@ export function PlanPage() {
                             <div>
                               <div className="flex items-center justify-between gap-2">
                                 <span className="rounded-lg bg-[#e6f4ea] px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#1e6b34]">
-                                  {yrIdx + 1}. ÜRETİM YILI
+                                  {yrIdx + 1}. {lang === "tr" ? "ÜRETİM YILI" : "PRODUCTION YEAR"}
                                 </span>
                                 <span
                                   className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${
@@ -454,7 +345,17 @@ export function PlanPage() {
                                         : "bg-[#fee2e2] text-[#991b1b]"
                                   }`}
                                 >
-                                  {suit === "Uygun" ? "Uygun" : suit === "Kisitli_Uygun" ? "Kısıtlı Uygun" : "Don Riskli"}
+                                  {suit === "Uygun"
+                                    ? lang === "tr"
+                                      ? "Uygun"
+                                      : "Suitable"
+                                    : suit === "Kisitli_Uygun"
+                                      ? lang === "tr"
+                                        ? "Kısıtlı Uygun"
+                                        : "Limited"
+                                      : lang === "tr"
+                                        ? "Don Riskli"
+                                        : "Frost Risk"}
                                 </span>
                               </div>
 
@@ -464,7 +365,7 @@ export function PlanPage() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <label className="block text-[11px] font-medium text-ink-2">
-                                    {yrIdx + 1}. Yıl Ürünü Seçin:
+                                    {lang === "tr" ? `${yrIdx + 1}. Yıl Ürünü Seçin:` : `Select Year ${yrIdx + 1} Crop:`}
                                   </label>
                                   <select
                                     value={cid}
@@ -482,25 +383,25 @@ export function PlanPage() {
 
                               <dl className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-bg/80 p-2.5 font-mono text-[11px]">
                                 <div>
-                                  <dt className="text-[10px] text-ink-2">Ekim – Hasat</dt>
+                                  <dt className="text-[10px] text-ink-2">{lang === "tr" ? "Ekim – Hasat" : "Sow – Harvest"}</dt>
                                   <dd className="truncate font-semibold text-ink">
                                     {mEntry.ekim_donemi.split(" (")[0]}
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt className="text-[10px] text-ink-2">Katsayılar (Kc / Ky)</dt>
+                                  <dt className="text-[10px] text-ink-2">{lang === "tr" ? "Katsayılar (Kc / Ky)" : "Coeffs (Kc / Ky)"}</dt>
                                   <dd className="font-semibold text-ink">
                                     Kc={yrEval.kcWeighted} · Ky={yrEval.ky}
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt className="text-[10px] text-ink-2">ETc / Net Su (dn)</dt>
+                                  <dt className="text-[10px] text-ink-2">{lang === "tr" ? "ETc / Net Su (dn)" : "ETc / Net Water (dn)"}</dt>
                                   <dd className="font-semibold text-[#0277bd]">
                                     {n(yrEval.etcMm, 0)} / {n(yrEval.dnNetMm, 0)} mm
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt className="text-[10px] text-ink-2">Verim & Azot (ΔN)</dt>
+                                  <dt className="text-[10px] text-ink-2">{lang === "tr" ? "Verim & Azot (ΔN)" : "Yield & Nitrogen (ΔN)"}</dt>
                                   <dd className="font-semibold text-[#1e6b34]">
                                     {n(yrEval.expectedYieldKgDa, 0)} kg ({yrEval.nitrogenDeltaKgDa >= 0 ? "+" : ""}
                                     {yrEval.nitrogenDeltaKgDa} N)
@@ -522,7 +423,9 @@ export function PlanPage() {
                         <p className="text-[13px] text-ink-2">{t("pl.timelineLead")}</p>
                       </div>
                       <span className="rounded-full bg-[#e0f2fe] px-3 py-1 font-mono text-[11px] font-semibold text-[#0277bd]">
-                        36 Ay (Ekim Başlangıçlı Tarım Yılı)
+                        {lang === "tr"
+                          ? "36 Ay (Ekim Başlangıçlı Tarım Yılı)"
+                          : "36 Months (October-Start Agricultural Year)"}
                       </span>
                     </div>
                     <Timeline
@@ -790,9 +693,9 @@ function PlanRow({
             </div>
           )}
 
-          {/* Clean Styled Year-by-Year Table */}
+          {/* Clean Styled Year-by-Year Table with Explicit Budget Status Column */}
           <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[36rem] text-[13px] tabular-nums">
+            <table className="w-full min-w-[40rem] text-[13px] tabular-nums">
               <caption className="sr-only">{t("pl.yearTable")}</caption>
               <thead className="border-b border-line bg-bg/90 text-left text-[11.5px] font-semibold text-ink-2">
                 <tr>
@@ -801,6 +704,9 @@ function PlanRow({
                   <th className="px-3 py-2 text-right">{t("pl.col.yield")}</th>
                   <th className="px-3 py-2 text-right">{t("pl.col.bad")}</th>
                   <th className="px-3 py-2 text-right">{t("pl.col.irr")}</th>
+                  <th className="px-3 py-2 text-left">
+                    {lang === "tr" ? "Su Bütçesi Durumu" : "Budget Status"}
+                  </th>
                   <th className="px-3 py-2 text-right">{t("pl.col.money")}</th>
                   <th className="px-3 py-2 text-left">{t("pl.col.dates")}</th>
                 </tr>
@@ -810,9 +716,10 @@ function PlanRow({
                   const cal = p.calendar.find((c) => c.year === y.year);
                   const big = y.cropId === "sugar_beet" || y.cropId === "alfalfa";
                   const fmtY = (tHa: number) => (big ? `${n(tHa / 10, 2)} ton/da` : `${n(tHa * 100)} kg/da`);
+                  const yrDiag = evaluateYearBudgetStatus(y, r.scenario.budgetNetMm, r.windows.count, lang);
                   return (
                     <tr key={y.year} className="hover:bg-bg/50">
-                      <td className="px-3 py-2 font-mono font-semibold">{y.year}. Yıl</td>
+                      <td className="px-3 py-2 font-mono font-semibold">{y.year}. {lang === "tr" ? "Yıl" : "Yr"}</td>
                       <td className="px-3 py-2 font-medium text-ink">
                         <span className="inline-flex items-center gap-2">
                           <CropArt crop={y.cropId} size={22} />
@@ -827,6 +734,17 @@ function PlanRow({
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-[#0277bd]">
                         {y.irrigationNetMm ? `${n(y.irrigationNetMm.p50)} ${t("u.tonDa")}` : "–"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-block rounded-md px-2 py-0.5 font-mono text-[10.5px] font-bold ${
+                            yrDiag.exceeded
+                              ? "bg-[#dc2626] text-white"
+                              : "bg-[#dcfce7] text-[#166534]"
+                          }`}
+                        >
+                          {yrDiag.statusBadge}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-right font-mono font-semibold text-[#1e6b34]">
                         {y.grossMarginTLPerDa ? `${n(y.grossMarginTLPerDa.p50)} TL/da` : "–"}
@@ -849,7 +767,7 @@ function PlanRow({
             <div className="rounded-xl border border-line bg-bg/60 p-3">
               <h4 className="font-mono text-[11px] font-bold uppercase text-ink-2">{t("pl.bare")}</h4>
               <p className="mt-1 font-mono text-[15px] font-bold text-ink">
-                {n(p.soilHealth.bareDaysPerYear)} gün/yıl açıkta
+                {n(p.soilHealth.bareDaysPerYear)} {lang === "tr" ? "gün/yıl açıkta" : "bare days/yr"}
               </p>
               <ul className="mt-1.5 space-y-0.5 text-[12px] text-ink-2">
                 {bareLines(p.calendar, lang).map((b) => (
@@ -858,11 +776,11 @@ function PlanRow({
               </ul>
             </div>
 
-            {/* Card B: Soil Health & Nitrogen */}
+            {/* Card B: Soil Health (Model Indicator) & Nitrogen */}
             <div className="rounded-xl border border-line bg-bg/60 p-3">
               <h4 className="font-mono text-[11px] font-bold uppercase text-ink-2">{t("pl.soilN")}</h4>
               <p className="mt-1 font-mono text-[15px] font-bold text-[#1e6b34]">
-                Toprak Puanı: {n(p.soilHealth.score)} / 100
+                {lang === "tr" ? "Model göstergesi:" : "Model indicator:"} {n(p.soilHealth.score)} / 100
               </p>
               <div className="mt-1.5 space-y-0.5 text-[12px] text-ink-2">
                 {p.nitrogen && (
@@ -884,14 +802,14 @@ function PlanRow({
               </div>
             </div>
 
-            {/* Card C: Pre-Crop & Total Parcel Income */}
+            {/* Card C: Pre-Crop & Scenario Economic Output */}
             <div className="rounded-xl border border-line bg-bg/60 p-3">
               <h4 className="font-mono text-[11px] font-bold uppercase text-ink-2">
-                {lang === "tr" ? "Ön Bitki & Toplam Kazanç" : "Pre-Crop & Parcel Total"}
+                {lang === "tr" ? "Senaryo Ekonomik Çıktısı & Ön Bitki" : "Scenario Economic Output & Pre-Crop"}
               </h4>
               {mar && p.economics.fieldTotal3yrTL && (
                 <p className="mt-1 font-mono text-[15px] font-bold text-[#1e6b34]">
-                  {n(p.economics.fieldTotal3yrTL.p50 / 3, 0)} ₺/yıl ({n(area)} da)
+                  {n(p.economics.fieldTotal3yrTL.p50 / 3, 0)} ₺/{lang === "tr" ? "yıl" : "yr"} ({n(area)} da)
                 </p>
               )}
               {p.preCrop && p.preCrop.some((x) => x.yieldFactor !== 1 || x.nCostSavingTLPerDa > 0) ? (

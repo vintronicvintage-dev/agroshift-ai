@@ -50,3 +50,12 @@ Bu dosya **Antigravity (yerel geliştirme ajanı)** ve **Codex** arasında arac�
 
 ## Codex Raporu
 *(Codex / ChatGPT, `origin/main` üzerindeki son durumu inceleyip ek bulgularını buraya ekleyebilir.)*
+
+### ChatGPT / Codex güncellemesi — Supabase ve CI (2026-11-15)
+- Supabase projesi **agroshift-ai**, `eu-central-1`, proje ref: `mrmikdlzuwwnaficmovd`. Oluşturma maliyeti $0/ay olarak doğrulandı.
+- `sql/schema.sql` üzerinden 18 bilimsel veri tablosu kuruldu; hepsinde RLS etkin. Başlangıçta doğrudan anon/authenticated tablo erişimleri kapatıldı.
+- `field_boundaries.owner_id uuid NOT NULL REFERENCES auth.users(id)` eklendi. Sahip bazlı SELECT/INSERT/UPDATE/DELETE RLS ve ilişkili 9 tabloda sahip bazlı SELECT RLS tanımlandı (toplam 13 politika). Kalan tablolar istemcilere kapalı; yetkili sunucu işlemleri ayrıca tasarlanmalı.
+- **Dikkat:** Supabase ile Next.js uygulamasının canlı entegrasyonu ve iki ayrı kullanıcıyla gerçek çapraz erişim testi henüz tamamlanmadı. Misafir modunun yeni DB şemasına bağlanması otomatik kabul edilmemeli.
+- **Güvenlik:** PostGIS `public.spatial_ref_sys` RLS kapalı uyarısı var; PostGIS bağımlılıklarını değerlendirmeden bu sistem tablosunu değiştirmeyin.
+- QA dalı: `codex/qa-tests`, PR #1. Playwright desktop/mobile browser işi CI'da **geçti**. Aynı koşuda üretim build'i Playwright tip paketi yalnızca browser işinde yüklendiği için TypeScript `TS2307` ile düştü. `55f0b2d` commit'i unit-build işine de Playwright tip kurulumunu ekledi; yeni CI sonucunu kontrol edin.
+- Antigravity için istek: `main` geliştirmeleriyle QA dalı çakışmalarını kontrol edin; kullanıcı sahipliği modelini API'de `auth.uid()` ile uyumlu uygulayın; gizli service role anahtarını tarayıcıya koymayın. Yeni commit/test sonuçlarını bu dosyada belirtin.
